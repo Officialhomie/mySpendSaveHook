@@ -30,7 +30,23 @@ contract DCA is IDCAModule, ReentrancyGuard {
     uint24 private constant DEFAULT_FEE_TIER = 3000; // 0.3%
     int24 private constant DEFAULT_TICK_SPACING = 60;
     uint256 private constant MAX_MULTIPLIER = 100; // Maximum 2x multiplier (100%)
+
+    struct SwapExecutionParams {
+        uint256 amount;
+        uint256 minAmountOut;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    struct SwapExecutionResult {
+        uint256 receivedAmount;
+        bool success;
+    }
     
+    struct TickMovement {
+        int24 delta;
+        bool isPositive;
+    }
+
     // Storage reference
     SpendSaveStorage public storage_;
     
@@ -581,22 +597,78 @@ contract DCA is IDCAModule, ReentrancyGuard {
 
         // Validate balance
         _validateBalance(user, fromToken, amount);
-        
-        // Prepare and execute swap
-        uint256 receivedAmount = _executeSwap(
-            user, 
-            fromToken, 
-            toToken, 
-            amount, 
-            poolKey, 
-            zeroForOne, 
-            customSlippageTolerance
+
+        // Prepare swap with slippage protection
+        SwapExecutionParams memory params = _prepareSwapExecution(
+            user, fromToken, toToken, amount, customSlippageTolerance
+        );
+
+        // Execute the swap
+        SwapExecutionResult memory result = _executePoolSwap(
+            poolKey, params, zeroForOne, amount
         );
         
-        // Process swap results
-        _processSwapResults(user, fromToken, toToken, amount, receivedAmount);
+        // Process the results
+        _processSwapResults(user, fromToken, toToken, amount, result.receivedAmount);
         
-        emit DCAExecuted(user, fromToken, toToken, amount, receivedAmount);
+        emit DCAExecuted(user, fromToken, toToken, amount, result.receivedAmount);
+    }
+
+    function _prepareSwapExecution(
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 amount,
+        uint256 customSlippageTolerance
+    ) internal returns (SwapExecutionParams memory) {
+        // Approve the pool manager to spend tokens
+        IERC20(fromToken).approve(address(storage_.poolManager()), amount);
+        
+        // Get minimum amount out with slippage protection
+        uint256 minAmountOut = slippageModule.getMinimumAmountOut(
+            user, fromToken, toToken, amount, customSlippageTolerance
+        );
+        
+        return SwapExecutionParams({
+            amount: amount,
+            minAmountOut: minAmountOut,
+            sqrtPriceLimitX96: 0 // Will be set in the executing function
+        });
+    }
+
+    function _executePoolSwap(
+        PoolKey memory poolKey,
+        SwapExecutionParams memory params,
+        bool zeroForOne,
+        uint256 amount
+    ) internal returns (SwapExecutionResult memory) {
+        // Set price limit to ensure reasonable execution
+        params.sqrtPriceLimitX96 = zeroForOne ? 
+            TickMath.MIN_SQRT_PRICE + 1 : 
+            TickMath.MAX_SQRT_PRICE - 1;
+        
+        // Prepare swap parameters
+        IPoolManager.SwapParams memory swapParams = IPoolManager.SwapParams({
+            zeroForOne: zeroForOne,
+            amountSpecified: int256(amount),
+            sqrtPriceLimitX96: params.sqrtPriceLimitX96
+        });
+        
+        // Execute the swap
+        BalanceDelta delta;
+        try storage_.poolManager().swap(poolKey, swapParams, "") returns (BalanceDelta _delta) {
+            delta = _delta;
+        } catch {
+            revert SwapExecutionFailed();
+        }
+        
+        // Calculate the amount received
+        uint256 receivedAmount = _calculateReceivedAmount(delta, zeroForOne);
+        
+        return SwapExecutionResult({
+            receivedAmount: receivedAmount,
+            success: true
+        });
     }
     
     // Helper to validate balance
@@ -849,32 +921,57 @@ contract DCA is IDCAModule, ReentrancyGuard {
         int24 currentTick,
         bool zeroForOne
     ) internal pure returns (uint256) {
-        // If no tick movement, use base amount
+        // Calculate tick movement and determine multiplier
+        TickMovement memory movement = _calculateTickMovement(
+            entryTick, currentTick, zeroForOne
+        );
+        
+        if (!movement.isPositive) return baseAmount;
+        
+        // Apply multiplier with capping
+        return _applyMultiplier(baseAmount, movement.delta);
+    }
+
+    function _calculateTickMovement(
+        int24 entryTick,
+        int24 currentTick,
+        bool zeroForOne
+    ) internal pure returns (TickMovement memory) {
+        // If no tick movement, return zero delta
         if (entryTick == currentTick) {
-            return baseAmount;
+            return TickMovement({
+                delta: 0,
+                isPositive: false
+            });
         }
         
-        // Calculate tick delta (absolute value)
-        int24 tickDelta = zeroForOne ? 
+        // Calculate tick delta based on swap direction
+        int24 delta = zeroForOne ? 
             (entryTick - currentTick) : 
             (currentTick - entryTick);
         
-        // Ensure we have positive delta
-        if (tickDelta <= 0) {
-            return baseAmount;
-        }
-        
-        // Scale up amount based on favorable tick movement
-        // Each tick represents ~0.01% price change
+        return TickMovement({
+            delta: delta,
+            isPositive: delta > 0
+        });
+    }
+    
+    function _applyMultiplier(
+        uint256 baseAmount, 
+        int24 tickDelta
+    ) internal pure returns (uint256) {
+        // Convert to uint safely
         uint256 multiplier = uint24(tickDelta);
         
-        // Cap multiplier at 200% (100 ticks ≈ 1%)
+        // Cap multiplier at MAX_MULTIPLIER (100)
         if (multiplier > MAX_MULTIPLIER) {
             multiplier = MAX_MULTIPLIER;
         }
         
+        // Apply multiplier to base amount
         return baseAmount + (baseAmount * multiplier) / 100;
     }
+    
     
     // Helper function to create a pool key
     function createPoolKey(address tokenA, address tokenB) internal view returns (PoolKey memory) {
