@@ -14,6 +14,22 @@ import "./IYieldModule.sol";
  */
 contract DailySavings is IDailySavingsModule {
     using SafeERC20 for IERC20;
+
+    // Helper struct to avoid stack too deep
+    struct DailySavingsStatus {
+        bool enabled;
+        bool shouldProcess;
+        uint256 lastExecutionTime;
+        uint256 daysPassed;
+        uint256 dailyAmount;
+        uint256 goalAmount;
+        uint256 currentAmount;
+    }
+
+    struct ExecutionContext {
+        bool shouldProcess;
+        uint256 amountToSave;
+    }
     
     // Constants
     uint256 private constant MAX_PENALTY_BPS = 3000; // 30%
@@ -190,33 +206,111 @@ contract DailySavings is IDailySavingsModule {
     }
     
     // Execute daily savings for a specific token
-    function executeDailySavingsForToken(address user, address token) public override nonReentrant returns (uint256) {
-        DailySavingsStatus memory status = _getDailySavingsStatus(user, token);
+    function executeDailySavingsForToken(
+        address user, 
+        address token
+    ) public override nonReentrant returns (uint256) {
+        // Get savings status in a cleaner way
+        ExecutionContext memory context = _prepareExecutionContext(user, token);
         
-        // Skip if not enabled or goal reached or no days passed
-        if (!status.shouldProcess) return 0;
-        
-        // Calculate amount to save, considering the goal limit if applicable
-        uint256 amountToSave = _calculateSavingsAmount(status);
-        if (amountToSave == 0) return 0;
-        
-        // Check allowance and balance
-        _validateAllowanceAndBalance(user, token, amountToSave);
+        // Skip early if conditions aren't met
+        if (!context.shouldProcess) return 0;
         
         // Process the savings
-        return _processDailySavings(user, token, amountToSave);
+        return _executeTokenSavings(user, token, context.amountToSave);
     }
-    
-    // Helper struct to avoid stack too deep
-    struct DailySavingsStatus {
-        bool enabled;
-        bool shouldProcess;
-        uint256 lastExecutionTime;
-        uint256 daysPassed;
-        uint256 dailyAmount;
-        uint256 goalAmount;
-        uint256 currentAmount;
+
+    function _prepareExecutionContext(
+        address user, 
+        address token
+    ) internal view returns (ExecutionContext memory) {
+        // Get savings status
+        DailySavingsStatus memory status = _getDailySavingsStatus(user, token);
+        
+        if (!status.shouldProcess) {
+            return ExecutionContext({
+                shouldProcess: false,
+                amountToSave: 0
+            });
+        }
+        
+        // Calculate amount to save
+        uint256 amountToSave = _calculateSavingsAmount(status);
+        if (amountToSave == 0) {
+            return ExecutionContext({
+                shouldProcess: false,
+                amountToSave: 0
+            });
+        }
+        
+        // Check if user has sufficient allowance and balance
+        (bool sufficientFunds, ) = _checkAllowanceAndBalance(user, token, amountToSave);
+        if (sufficientFunds) {
+            return ExecutionContext({
+                shouldProcess: true,
+                amountToSave: amountToSave
+            });
+        } else {
+            return ExecutionContext({
+                shouldProcess: false,
+                amountToSave: 0
+            });
+        }
     }
+
+    function _executeTokenSavings(
+        address user, 
+        address token, 
+        uint256 amount
+    ) internal returns (uint256) {
+        // Transfer tokens from user to this contract
+        IERC20(token).safeTransferFrom(user, address(this), amount);
+        
+        // Update storage and process tokens
+        _updateSavingsState(user, token, amount);
+        
+        emit DailySavingsExecuted(user, token, amount);
+        return amount;
+    }
+
+    function _updateSavingsState(
+        address user, 
+        address token, 
+        uint256 amount
+    ) internal {
+        // Update execution time and amount
+        storage_.updateDailySavingsExecution(user, token, amount);
+        
+        // Mint ERC6909 savings tokens
+        tokenModule.mintSavingsToken(user, token, amount);
+        
+        // Check if goal has been reached and emit event if needed
+        _checkAndHandleGoalReached(user, token);
+        
+        // Apply yield strategy if configured
+        _applyYieldStrategyIfNeeded(user, token);
+    }
+
+    function _checkAndHandleGoalReached(address user, address token) internal {
+        (,,, uint256 goalAmount, uint256 currentAmount,,) = 
+            storage_.getDailySavingsConfig(user, token);
+            
+        bool goalReached = goalAmount > 0 && currentAmount >= goalAmount;
+        
+        if (goalReached) {
+            emit DailySavingsGoalReached(user, token, currentAmount);
+        }
+    }  
+
+    function _applyYieldStrategyIfNeeded(address user, address token) internal {
+        SpendSaveStorage.YieldStrategy strategy = storage_.getDailySavingsYieldStrategy(user, token);
+        bool shouldApplyYield = strategy != SpendSaveStorage.YieldStrategy.NONE;
+        
+        if (shouldApplyYield) {
+            yieldModule.applyYieldStrategy(user, token);
+        }
+    }
+
     
     // Helper to get daily savings status
     function _getDailySavingsStatus(address user, address token) internal view returns (DailySavingsStatus memory status) {
@@ -389,10 +483,9 @@ contract DailySavings is IDailySavingsModule {
         (bool enabled, uint256 lastExecutionTime, uint256 startTime, uint256 goalAmount, , uint256 penaltyBps, uint256 endTime) = 
             storage_.getDailySavingsConfig(user, token);
 
-
+        // Calculate new amount after withdrawal
         uint256 newAmount = currentAmount >= amount ? currentAmount - amount : 0;
-
-
+        
         // Create parameter struct
         SpendSaveStorage.DailySavingsConfigParams memory params = SpendSaveStorage.DailySavingsConfigParams({
             enabled: enabled,
