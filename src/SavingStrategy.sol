@@ -31,6 +31,16 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         address specificSavingsToken;
     }
 
+    struct SwapContextBuilder {
+        SpendSaveStorage.SwapContext context;
+        SpendSaveStorage.SavingStrategy strategy;
+    }
+
+    struct SavingsCalculation {
+        uint256 saveAmount;
+        uint256 reducedSwapAmount;
+    }
+
     // Storage reference
     SpendSaveStorage public storage_;
     
@@ -87,39 +97,6 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     }
     
     // Public function to set a user's saving strategy
-    // function setSavingStrategy(
-    //     address user,
-    //     SavingStrategyParams calldata params
-    // ) external onlyAuthorized(user) nonReentrant {
-    //     // Validation
-    //     if (params.percentage > 10000) revert PercentageTooHigh({provided: params.percentage, max: 10000});
-    //     if (params.maxPercentage > 10000) revert PercentageTooHigh({provided: params.maxPercentage, max: 10000});
-    //     if (params.maxPercentage < params.percentage) revert MaxPercentageTooLow({maxPercentage: params.maxPercentage, percentage: params.percentage});
-        
-    //     if (params.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
-    //         if (params.specificSavingsToken == address(0)) revert InvalidSpecificToken();
-    //     }
-        
-    //     // Get current strategy
-    //     SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(user);
-        
-    //     // Update strategy values
-    //     strategy.percentage = params.percentage;
-    //     strategy.autoIncrement = params.autoIncrement;
-    //     strategy.maxPercentage = params.maxPercentage;
-    //     strategy.roundUpSavings = params.roundUpSavings;
-    //     strategy.savingsTokenType = params.savingsTokenType;
-    //     strategy.specificSavingsToken = params.specificSavingsToken;
-        
-    //     // Update the strategy in storage
-    //     _saveUserStrategy(user, strategy);
-        
-    //     if (params.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
-    //         emit SpecificSavingsTokenSet(user, params.specificSavingsToken);
-    //     }
-        
-    //     emit SavingStrategySet(user, params.percentage, params.autoIncrement, params.maxPercentage, params.savingsTokenType);
-    // }
 
     function setSavingStrategy(
         address user, 
@@ -221,27 +198,40 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     ) external override nonReentrant {
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
         
-        // Get user's saving strategy
-        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(sender);
+        // Initialize context and exit early if no strategy
+        SwapContextBuilder memory builder = _initializeContextBuilder(sender);
         
-        // Create and store context for use in afterSwap
-        SpendSaveStorage.SwapContext memory context;
-        context.hasStrategy = strategy.percentage > 0;
+        if (!builder.context.hasStrategy) {
+            storage_.setSwapContext(sender, builder.context);
+            return;
+        }
         
-        if (!context.hasStrategy) return;
-        
-        // Prepare the swap context
-        _prepareSwapContext(sender, key, params, strategy, context);
+        // Complete the context preparation
+        _prepareSwapContext(builder, key, params);
         
         // Process input token savings if applicable
-        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            _processInputTokenSavings(sender, context);
+        if (builder.context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
+            _processInputTokenSavings(sender, builder.context);
         }
         
         // Store the context in storage for use in afterSwap
-        storage_.setSwapContext(sender, context);
+        storage_.setSwapContext(sender, builder.context);
         
-        emit SwapPrepared(sender, context.currentPercentage, strategy.savingsTokenType);
+        emit SwapPrepared(sender, builder.context.currentPercentage, builder.strategy.savingsTokenType);
+    }
+
+    function _initializeContextBuilder(
+        address user
+    ) internal view returns (SwapContextBuilder memory) {
+        SwapContextBuilder memory builder;
+        
+        // Get user's saving strategy
+        builder.strategy = _getUserSavingStrategy(user);
+        
+        // Initialize context with strategy flag
+        builder.context.hasStrategy = builder.strategy.percentage > 0;
+        
+        return builder;
     }
 
     // Helper function to get user saving strategy
@@ -262,33 +252,37 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
 
     // Helper function to prepare swap context
     function _prepareSwapContext(
-        address sender,
+        SwapContextBuilder memory builder,
         PoolKey calldata key,
-        IPoolManager.SwapParams calldata params,
-        SpendSaveStorage.SavingStrategy memory strategy,
-        SpendSaveStorage.SwapContext memory context
-    ) internal {
+        IPoolManager.SwapParams calldata params
+    ) internal view {
         // Get current tick from pool
-        context.currentTick = getCurrentTick(key);
+        builder.context.currentTick = getCurrentTick(key);
         
         // Calculate current percentage with auto-increment if applicable
-        context.currentPercentage = _calculateCurrentPercentage(
-            strategy.percentage,
-            strategy.autoIncrement,
-            strategy.maxPercentage
+        builder.context.currentPercentage = _calculateCurrentPercentage(
+            builder.strategy.percentage,
+            builder.strategy.autoIncrement,
+            builder.strategy.maxPercentage
         );
         
-        // Set basic context properties
-        context.roundUpSavings = strategy.roundUpSavings;
-        context.enableDCA = strategy.enableDCA;
-        context.dcaTargetToken = storage_.dcaTargetToken(sender);
-        context.savingsTokenType = strategy.savingsTokenType;
-        context.specificSavingsToken = strategy.specificSavingsToken;
+        // Copy basic properties from strategy to context
+        _copyStrategyToContext(builder);
         
         // For INPUT token savings type, extract input token and amount
-        if (strategy.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            (context.inputToken, context.inputAmount) = _extractInputTokenAndAmount(key, params);
+        if (builder.strategy.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
+            (builder.context.inputToken, builder.context.inputAmount) = 
+                _extractInputTokenAndAmount(key, params);
         }
+    }
+
+
+    function _copyStrategyToContext(SwapContextBuilder memory builder) internal view {
+        builder.context.roundUpSavings = builder.strategy.roundUpSavings;
+        builder.context.enableDCA = builder.strategy.enableDCA;
+        builder.context.dcaTargetToken = storage_.dcaTargetToken(msg.sender);
+        builder.context.savingsTokenType = builder.strategy.savingsTokenType;
+        builder.context.specificSavingsToken = builder.strategy.specificSavingsToken;
     }
 
     // Helper to calculate the current saving percentage with auto-increment
@@ -325,9 +319,23 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         address sender,
         SpendSaveStorage.SwapContext memory context
     ) internal {
-        uint256 inputAmount = context.inputAmount;
+        // Skip if no input amount
+        if (context.inputAmount == 0) return;
         
-        if (inputAmount == 0) return;
+        // Calculate savings amount
+        SavingsCalculation memory calc = _calculateInputSavings(context);
+        
+        // Skip if nothing to save
+        if (calc.saveAmount == 0) return;
+        
+        // Execute the savings transfer and processing
+        _executeSavingsTransfer(sender, context.inputToken, calc.saveAmount);
+    }
+
+    function _calculateInputSavings(
+        SpendSaveStorage.SwapContext memory context
+    ) internal view returns (SavingsCalculation memory) {
+        uint256 inputAmount = context.inputAmount;
         
         uint256 saveAmount = calculateSavingsAmount(
             inputAmount,
@@ -335,7 +343,12 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
             context.roundUpSavings
         );
         
-        if (saveAmount == 0) return;
+        if (saveAmount == 0) {
+            return SavingsCalculation({
+                saveAmount: 0,
+                reducedSwapAmount: inputAmount
+            });
+        }
         
         // Apply safety check for saving amount
         saveAmount = _applySavingLimits(saveAmount, inputAmount);
@@ -343,14 +356,29 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         // Calculate the remaining amount after savings
         uint256 reducedSwapAmount = inputAmount - saveAmount;
         
+        return SavingsCalculation({
+            saveAmount: saveAmount,
+            reducedSwapAmount: reducedSwapAmount
+        });
+    }
+
+    function _executeSavingsTransfer(
+        address sender,
+        address token,
+        uint256 amount
+    ) internal returns (bool) {
         // Try to transfer tokens for savings
-        if (_transferTokensForSavings(sender, context.inputToken, saveAmount)) {
+        bool success = _transferTokensForSavings(sender, token, amount);
+        
+        if (success) {
             // Apply fee and process savings
-            uint256 netAmount = _applyFeeAndProcessSavings(sender, context.inputToken, saveAmount);
+            uint256 netAmount = _applyFeeAndProcessSavings(sender, token, amount);
             
             // Emit event for tracking
-            emit InputTokenSaved(sender, context.inputToken, netAmount, reducedSwapAmount);
+            emit InputTokenSaved(sender, token, netAmount, amount - netAmount);
         }
+        
+        return success;
     }
 
     // Helper to apply saving limits
