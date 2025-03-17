@@ -49,6 +49,13 @@ contract SpendSaveHook is BaseHook {
     uint256 private constant GAS_THRESHOLD = 500000;
     uint256 private constant INITIAL_GAS_PER_TOKEN = 150000;
     uint256 private constant MIN_GAS_TO_KEEP = 100000;
+
+    struct DailySavingsProcessor {
+        address[] tokens;
+        uint256 gasLimit;
+        uint256 totalSaved;
+        uint256 minGasReserve;
+    }
     
     constructor(
         IPoolManager _poolManager,
@@ -172,15 +179,38 @@ contract SpendSaveHook is BaseHook {
     function _processSavingsBasedOnType(
         address sender,
         SpendSaveStorage.SwapContext memory context,
-        address outputToken,
-        uint256 outputAmount
+        PoolKey calldata key,
+        BalanceDelta delta
     ) internal {
+        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
+            // For INPUT token type, savings were already processed in beforeSwap
+            savingStrategyModule.updateSavingStrategy(sender, context);
+        } else {
+            _processNonInputSavings(sender, context, key, delta);
+        }
+    }
+
+    function _processNonInputSavings(
+        address sender,
+        SpendSaveStorage.SwapContext memory context,
+        PoolKey calldata key,
+        BalanceDelta delta
+    ) internal {
+        // Get output token and amount
+        (address outputToken, uint256 outputAmount) = _getOutputTokenAndAmount(key, delta);
+        
+        // Skip if no positive output
+        if (outputAmount == 0) return;
+        
+        // Handle different savings token types
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT) {
             _processOutputTokenSavings(sender, context, outputToken, outputAmount);
-        } 
-        else if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
+        } else if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
             _processSpecificTokenSavings(sender, context, outputToken, outputAmount);
         }
+        
+        // Update saving strategy if using auto-increment
+        savingStrategyModule.updateSavingStrategy(sender, context);
     }
 
     // Helper for output token savings
@@ -237,26 +267,93 @@ contract SpendSaveHook is BaseHook {
         SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(sender);
         
         // Only proceed if user has a saving strategy
-        if (!context.hasStrategy) {
-            _checkAndProcessDailySavings(sender);
-            return (IHooks.afterSwap.selector, 0);
+        if (context.hasStrategy) {
+            _processSavingsBasedOnType(sender, context, key, delta);
+            storage_.deleteSwapContext(sender);
         }
-        
-        // Handle different savings token types
-        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            _handleInputTokenSavings(sender, context);
-        } else {
-            _handleNonInputTokenSavings(sender, context, key, delta);
-        }
-        
-        // Clear the swap context
-        storage_.deleteSwapContext(sender);
         
         // Check for daily savings after processing swap-based savings
-        _checkAndProcessDailySavings(sender);
+        _tryProcessDailySavings(sender);
         
         return (IHooks.afterSwap.selector, 0);
     }
+
+    function _tryProcessDailySavings(address user) internal {
+        // Exit early if conditions aren't met
+        if (!_shouldProcessDailySavings(user)) return;
+        
+        // Process each token with a gas-efficient approach
+        DailySavingsProcessor memory processor = _initDailySavingsProcessor(user);
+        _processDailySavingsForAllTokens(user, processor);
+    }
+
+    function _shouldProcessDailySavings(address user) internal view returns (bool) {
+        // Only proceed if there are pending daily savings and we have enough gas
+        return _hasPendingDailySavings(user) && gasleft() > GAS_THRESHOLD;
+    }
+
+    function _processDailySavingsForAllTokens(
+        address user, 
+        DailySavingsProcessor memory processor
+    ) internal {
+        uint256 tokenCount = processor.tokens.length;
+        
+        for (uint256 i = 0; i < tokenCount; i++) {
+            // Stop if we're running low on gas
+            if (gasleft() < processor.gasLimit + processor.minGasReserve) break;
+            
+            address token = processor.tokens[i];
+            uint256 gasStart = gasleft();
+            
+            (uint256 savedAmount, bool success) = _processSingleToken(user, token);
+            processor.totalSaved += savedAmount;
+            
+            // Adjust gas estimate based on actual usage
+            uint256 gasUsed = gasStart - gasleft();
+            processor.gasLimit = _adjustGasLimit(processor.gasLimit, gasUsed);
+        }
+        
+        if (processor.totalSaved > 0) {
+            emit DailySavingsExecuted(user, processor.totalSaved);
+        }
+    }
+
+    function _adjustGasLimit(
+        uint256 currentLimit, 
+        uint256 actualUsage
+    ) internal pure returns (uint256) {
+        // If actual usage was higher, adjust upward (with dampening)
+        if (actualUsage > currentLimit) {
+            return (currentLimit + actualUsage) / 2;
+        }
+        return currentLimit;
+    }
+
+    function _processSingleToken(address user, address token) internal returns (uint256 savedAmount, bool success) {
+        try dailySavingsModule.executeDailySavingsForToken(user, token) returns (uint256 amount) {
+            if (amount > 0) {
+                emit SingleTokenSavingsExecuted(user, token, amount);
+                return (amount, true);
+            }
+        } catch Error(string memory reason) {
+            emit DailySavingsExecutionFailed(user, token, reason);
+        } catch {
+            emit DailySavingsExecutionFailed(user, token, "Unknown error");
+        }
+        return (0, false);
+    }
+
+    function _initDailySavingsProcessor(
+        address user
+    ) internal view returns (DailySavingsProcessor memory) {
+        return DailySavingsProcessor({
+            tokens: storage_.getUserSavingsTokens(user),
+            gasLimit: INITIAL_GAS_PER_TOKEN,
+            totalSaved: 0,
+            minGasReserve: MIN_GAS_TO_KEEP
+        });
+    }
+
     
     // Helper for input token savings
     function _handleInputTokenSavings(
@@ -283,7 +380,7 @@ contract SpendSaveHook is BaseHook {
         if (outputAmount == 0) return;
         
         // Process savings based on token type
-        _processSavingsBasedOnType(sender, context, outputToken, outputAmount);
+        _processSavingsBasedOnType(sender, context, key, delta);
         
         // Update saving strategy if using auto-increment
         savingStrategyModule.updateSavingStrategy(sender, context);
