@@ -22,4 +22,4 @@ verbosity = 3
 via_ir = true
 
 [profile.dev]
-via_ir = false
+via_ir = true

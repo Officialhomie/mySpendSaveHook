@@ -64,7 +64,7 @@ contract SpendSaveHook is BaseHook {
         storage_ = _storage;
         
         // Register this contract with storage
-        _storage.setSpendSaveHook(address(this));
+        // _storage.setSpendSaveHook(address(this));
     }
     
     // Initialize modules - this should be called after all modules are deployed
@@ -75,7 +75,7 @@ contract SpendSaveHook is BaseHook {
         address _slippageModule,
         address _tokenModule,
         address _dailySavingsModule
-    ) external {
+    ) external virtual {
         require(msg.sender == storage_.owner(), "Only owner can initialize modules");
         _storeModuleReferences(
             _strategyModule, 
