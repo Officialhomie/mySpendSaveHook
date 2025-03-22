@@ -16,6 +16,9 @@ contract Token is ITokenModule, ReentrancyGuard {
     // ERC6909 interface constants
     bytes4 constant private _ERC6909_RECEIVED = 0x05e3242b; // bytes4(keccak256("onERC6909Received(address,address,uint256,uint256,bytes)"))
     
+    address public savingsModule;
+
+
     // Events (same as in ERC6909)
     event Transfer(address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 indexed id, uint256 amount);
@@ -44,7 +47,8 @@ contract Token is ITokenModule, ReentrancyGuard {
     modifier onlyAuthorized(address user) {
         if (msg.sender != user && 
             msg.sender != address(storage_) && 
-            msg.sender != storage_.spendSaveHook()) {
+            msg.sender != storage_.spendSaveHook() &&
+            msg.sender != savingsModule) {  // Add this line
             revert UnauthorizedCaller();
         }
         _;
@@ -55,6 +59,11 @@ contract Token is ITokenModule, ReentrancyGuard {
         if(address(storage_) != address(0)) revert AlreadyInitialized();
         storage_ = _storage;
         emit ModuleInitialized(address(_storage));
+    }
+
+    function setModuleReferences(address _savingsModule) external {
+        if (msg.sender != storage_.owner()) revert UnauthorizedCaller();
+        savingsModule = _savingsModule;
     }
     
     // Register a new token and assign it an ID for ERC-6909
@@ -79,7 +88,7 @@ contract Token is ITokenModule, ReentrancyGuard {
     }
     
     // Mint ERC-6909 tokens to represent savings
-    function mintSavingsToken(address user, address token, uint256 amount) external override onlyAuthorized(user) nonReentrant {
+    function mintSavingsToken(address user, address token, uint256 amount) external override onlyAuthorized(user) {
         uint256 tokenId = _getOrRegisterTokenId(token);
         
         // Process fee and update balances

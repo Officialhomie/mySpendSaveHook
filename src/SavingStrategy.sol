@@ -66,25 +66,25 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     event FailedToApplySavings(address user, string reason);
 
     // Define event declarations
-    event ProcessingInputTokenSavings(address indexed sender, address indexed token, uint256 amount);
-    event InputTokenSavingsSkipped(address indexed sender, string reason);
-    event SavingsCalculated(address indexed sender, uint256 saveAmount, uint256 reducedSwapAmount);
-    event UserBalanceChecked(address indexed sender, address indexed token, uint256 balance);
-    event InsufficientBalance(address indexed sender, address indexed token, uint256 required, uint256 available);
-    event AllowanceChecked(address indexed sender, address indexed token, uint256 allowance);
-    event InsufficientAllowance(address indexed sender, address indexed token, uint256 required, uint256 available);
-    event SavingsTransferStatus(address indexed sender, address indexed token, bool success);
+    event ProcessingInputTokenSavings(address indexed actualUser, address indexed token, uint256 amount);
+    event InputTokenSavingsSkipped(address indexed actualUser, string reason);
+    event SavingsCalculated(address indexed actualUser, uint256 saveAmount, uint256 reducedSwapAmount);
+    event UserBalanceChecked(address indexed actualUser, address indexed token, uint256 balance);
+    event InsufficientBalance(address indexed actualUser, address indexed token, uint256 required, uint256 available);
+    event AllowanceChecked(address indexed actualUser, address indexed token, uint256 allowance);
+    event InsufficientAllowance(address indexed actualUser, address indexed token, uint256 required, uint256 available);
+    event SavingsTransferStatus(address indexed actualUser, address indexed token, bool success);
 
-    event SavingsTransferInitiated(address indexed sender, address indexed token, uint256 amount);
-    event SavingsTransferSuccess(address indexed sender, address indexed token, uint256 amount, uint256 contractBalance);
-    event SavingsTransferFailure(address indexed sender, address indexed token, uint256 amount, bytes reason);
-    event NetAmountAfterFee(address indexed sender, address indexed token, uint256 netAmount);
-    event UserSavingsUpdated(address indexed sender, address indexed token, uint256 newSavings);
+    event SavingsTransferInitiated(address indexed actualUser, address indexed token, uint256 amount);
+    event SavingsTransferSuccess(address indexed actualUser, address indexed token, uint256 amount, uint256 contractBalance);
+    event SavingsTransferFailure(address indexed actualUser, address indexed token, uint256 amount, bytes reason);
+    event NetAmountAfterFee(address indexed actualUser, address indexed token, uint256 netAmount);
+    event UserSavingsUpdated(address indexed actualUser, address indexed token, uint256 newSavings);
 
     // Define event declarations
-    event FeeApplied(address indexed sender, address indexed token, uint256 feeAmount);
-    event SavingsProcessingFailed(address indexed sender, address indexed token, bytes reason);
-    event SavingsProcessedSuccessfully(address indexed sender, address indexed token, uint256 amount);
+    event FeeApplied(address indexed actualUser, address indexed token, uint256 feeAmount);
+    event SavingsProcessingFailed(address indexed actualUser, address indexed token, bytes reason);
+    event SavingsProcessedSuccessfully(address indexed actualUser, address indexed token, uint256 amount);
 
 
     
@@ -198,39 +198,39 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     
     // Prepare for savings before swap - optimized for gas usage
     function beforeSwap(
-        address sender,
+        address actualUser, 
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params
     ) external override nonReentrant {
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
         
         // Initialize context and exit early if no strategy
-        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(sender);
+        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(actualUser);
         
         // Fast path - no strategy
         if (strategy.percentage == 0) {
             SpendSaveStorage.SwapContext memory emptyContext;
             emptyContext.hasStrategy = false;
-            storage_.setSwapContext(sender, emptyContext);
+            storage_.setSwapContext(actualUser, emptyContext);
             return;
         }
         
         // Build context for swap with strategy
-        SpendSaveStorage.SwapContext memory context = _buildSwapContext(sender, strategy, key, params);
+        SpendSaveStorage.SwapContext memory context = _buildSwapContext(actualUser, strategy, key, params);
         
         // Process input token savings if applicable
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
             // Use proper error handling without try/catch
-            bool success = _processInputTokenSavings(sender, context);
+            bool success = _processInputTokenSavings(actualUser, context);
             if (!success) {
-                emit FailedToApplySavings(sender, "Failed to process input token savings");
+                emit FailedToApplySavings(actualUser, "Failed to process input token savings");
             }
         }
         
         // Store the context in storage for use in afterSwap
-        storage_.setSwapContext(sender, context);
+        storage_.setSwapContext(actualUser, context);
         
-        emit SwapPrepared(sender, context.currentPercentage, strategy.savingsTokenType);
+        emit SwapPrepared(actualUser, context.currentPercentage, strategy.savingsTokenType);
     }
 
     // New helper function to build swap context
@@ -309,54 +309,54 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
 
     // Helper to process input token savings - returns success status instead of using try/catch
     function _processInputTokenSavings(
-        address sender,
+        address actualUser,
         SpendSaveStorage.SwapContext memory context
     ) internal returns (bool) {
-        emit ProcessingInputTokenSavings(sender, context.inputToken, context.inputAmount);
+        emit ProcessingInputTokenSavings(actualUser, context.inputToken, context.inputAmount);
         
         // Skip if no input amount
         if (context.inputAmount == 0) {
-            emit InputTokenSavingsSkipped(sender, "Input amount is 0");
+            emit InputTokenSavingsSkipped(actualUser, "Input amount is 0");
             return true;
         }
         
         // Calculate savings amount
         SavingsCalculation memory calc = _calculateInputSavings(context);
-        emit SavingsCalculated(sender, calc.saveAmount, calc.reducedSwapAmount);
+        emit SavingsCalculated(actualUser, calc.saveAmount, calc.reducedSwapAmount);
         
         // Skip if nothing to save
         if (calc.saveAmount == 0) {
-            emit InputTokenSavingsSkipped(sender, "Save amount is 0");
+            emit InputTokenSavingsSkipped(actualUser, "Save amount is 0");
             return true;
         }
         
         // Check user balance before transfer
-        try IERC20(context.inputToken).balanceOf(sender) returns (uint256 balance) {
-            emit UserBalanceChecked(sender, context.inputToken, balance);
+        try IERC20(context.inputToken).balanceOf(actualUser) returns (uint256 balance) {
+            emit UserBalanceChecked(actualUser, context.inputToken, balance);
             if (balance < calc.saveAmount) {
-                emit InsufficientBalance(sender, context.inputToken, calc.saveAmount, balance);
+                emit InsufficientBalance(actualUser, context.inputToken, calc.saveAmount, balance);
                 return false;
             }
         } catch {
-            emit InputTokenSavingsSkipped(sender, "Failed to check balance");
+            emit InputTokenSavingsSkipped(actualUser, "Failed to check balance");
             return false;
         }
         
         // Check user allowance before transfer
-        try IERC20(context.inputToken).allowance(sender, address(this)) returns (uint256 allowance) {
-            emit AllowanceChecked(sender, context.inputToken, allowance);
+        try IERC20(context.inputToken).allowance(actualUser, address(this)) returns (uint256 allowance) {
+            emit AllowanceChecked(actualUser, context.inputToken, allowance);
             if (allowance < calc.saveAmount) {
-                emit InsufficientAllowance(sender, context.inputToken, calc.saveAmount, allowance);
+                emit InsufficientAllowance(actualUser, context.inputToken, calc.saveAmount, allowance);
                 return false;
             }
         } catch {
-            emit InputTokenSavingsSkipped(sender, "Failed to check allowance");
+            emit InputTokenSavingsSkipped(actualUser, "Failed to check allowance");
             return false;
         }
         
         // Execute the savings transfer and processing
-        bool success = _executeSavingsTransfer(sender, context.inputToken, calc.saveAmount);
-        emit SavingsTransferStatus(sender, context.inputToken, success);
+        bool success = _executeSavingsTransfer(actualUser, context.inputToken, calc.saveAmount);
+        emit SavingsTransferStatus(actualUser, context.inputToken, success);
         
         return success;
     }
@@ -393,57 +393,37 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         });
     }
 
-    // function _executeSavingsTransfer(
-    //     address sender,
-    //     address token,
-    //     uint256 amount
-    // ) internal returns (bool) {
-    //     // Try to transfer tokens for savings using try/catch
-    //     try IERC20(token).transferFrom(sender, address(this), amount) {
-    //         // Apply fee and process savings
-    //         uint256 netAmount = _applyFeeAndProcessSavings(sender, token, amount);
-            
-    //         // Emit event for tracking
-    //         emit InputTokenSaved(sender, token, netAmount, amount - netAmount);
-            
-    //         return true;
-    //     } catch (bytes memory reason) {
-    //         emit TransferFailure(sender, token, amount, reason);
-    //         return false;
-    //     }
-    // }
-
     function _executeSavingsTransfer(
-        address sender,
+        address actualUser,
         address token,
         uint256 amount
     ) internal returns (bool) {
-        emit SavingsTransferInitiated(sender, token, amount);
+        emit SavingsTransferInitiated(actualUser, token, amount);
         
         bool transferSuccess = false;
 
         // Try to transfer tokens for savings using try/catch
-        try IERC20(token).transferFrom(sender, address(this), amount) {
+        try IERC20(token).transferFrom(actualUser, address(this), amount) {
             transferSuccess = true;
             
             // Double-check that we received the tokens
             uint256 contractBalance = IERC20(token).balanceOf(address(this));
-            emit SavingsTransferSuccess(sender, token, amount, contractBalance);
+            emit SavingsTransferSuccess(actualUser, token, amount, contractBalance);
             
             // Apply fee and process savings
-            uint256 netAmount = _applyFeeAndProcessSavings(sender, token, amount);
-            emit NetAmountAfterFee(sender, token, netAmount);
+            uint256 netAmount = _applyFeeAndProcessSavings(actualUser, token, amount);
+            emit NetAmountAfterFee(actualUser, token, netAmount);
             
             // Emit event for tracking user savings update
-            uint256 userSavings = storage_.savings(sender, token);
-            emit UserSavingsUpdated(sender, token, userSavings);
+            uint256 userSavings = storage_.savings(actualUser, token);
+            emit UserSavingsUpdated(actualUser, token, userSavings);
             
             return true;
         } catch Error(string memory reason) {
-            emit SavingsTransferFailure(sender, token, amount, bytes(reason));
+            emit SavingsTransferFailure(actualUser, token, amount, bytes(reason));
             return false;
         } catch (bytes memory reason) {
-            emit SavingsTransferFailure(sender, token, amount, reason);
+            emit SavingsTransferFailure(actualUser, token, amount, reason);
             return false;
         }
     }
@@ -460,33 +440,33 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
 
     // Helper to apply fee and process savings
     function _applyFeeAndProcessSavings(
-        address sender,
+        address actualUser,
         address token,
         uint256 amount
     ) internal returns (uint256) {
         // Apply treasury fee if configured
-        uint256 amountAfterFee = storage_.calculateAndTransferFee(sender, token, amount);
+        uint256 amountAfterFee = storage_.calculateAndTransferFee(actualUser, token, amount);
 
         // Emit event if a fee was taken
         if (amountAfterFee < amount) {
             uint256 fee = amount - amountAfterFee;
-            emit FeeApplied(sender, token, fee);
+            emit FeeApplied(actualUser, token, fee);
         }
 
         // Ensure we have the correct savingsModule reference
         if (address(savingsModule) == address(0)) {
-            emit SavingsProcessingFailed(sender, token, "Savings module reference is null");
+            emit SavingsProcessingFailed(actualUser, token, "Savings module reference is null");
             return 0;
         }
 
         // Process the savings through the savings module
-        try savingsModule.processSavings(sender, token, amountAfterFee) {
-            emit SavingsProcessedSuccessfully(sender, token, amountAfterFee);
+        try savingsModule.processSavings(actualUser, token, amountAfterFee) {
+            emit SavingsProcessedSuccessfully(actualUser, token, amountAfterFee);
         } catch Error(string memory reason) {
-            emit SavingsProcessingFailed(sender, token, bytes(reason));
+            emit SavingsProcessingFailed(actualUser, token, bytes(reason));
             return 0;
         } catch (bytes memory reason) {
-            emit SavingsProcessingFailed(sender, token, reason);
+            emit SavingsProcessingFailed(actualUser, token, reason);
             return 0;
         }
 
@@ -495,22 +475,22 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
 
     
     // Update user's saving strategy after swap - optimized to only update when needed
-    function updateSavingStrategy(address sender, SpendSaveStorage.SwapContext memory context) external override nonReentrant {
+    function updateSavingStrategy(address actualUser, SpendSaveStorage.SwapContext memory context) external override nonReentrant {
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
         
         // Early return if no auto-increment or no percentage change
-        if (!_shouldUpdateStrategy(sender, context.currentPercentage)) return;
+        if (!_shouldUpdateStrategy(actualUser, context.currentPercentage)) return;
         
         // Get current strategy
-        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(sender);
+        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(actualUser);
         
         // Update percentage
         strategy.percentage = context.currentPercentage;
         
         // Update the strategy in storage
-        _saveUserStrategy(sender, strategy);
+        _saveUserStrategy(actualUser, strategy);
 
-        emit SavingStrategyUpdated(sender, strategy.percentage);
+        emit SavingStrategyUpdated(actualUser, strategy.percentage);
     }
     
     // Helper to check if strategy should be updated

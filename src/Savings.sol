@@ -64,7 +64,8 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     function _isAuthorizedCaller(address user) internal view returns (bool) {
         return (msg.sender == user || 
                 msg.sender == address(storage_) || 
-                msg.sender == storage_.spendSaveHook());
+                msg.sender == storage_.spendSaveHook() ||
+                msg.sender == address(strategyModule));
     }
     
     // Initialize module with storage reference

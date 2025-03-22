@@ -177,23 +177,17 @@ contract SpendSaveHookTest is Test, Deployers {
         storage_.setDailySavingsModule(address(dailySavingsModule));
         vm.stopPrank();
         
-        console.log("Deploying hook using HookMiner...");
         // Calculate the hook address with the correct flags
         uint160 flags = uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
-        
-        // Use HookMiner to compute the proper hook address
-        (address hookAddress, bytes32 salt) = HookMiner.find(
-            address(this),
-            flags,
-            type(TestSpendSaveHook).creationCode, // Use our test hook
-            abi.encode(IPoolManager(address(manager)), storage_)
+
+        address hookAddress = address(flags);
+
+        deployCodeTo(
+            "SpendSaveHook.t.sol:TestSpendSaveHook",  // Use the exact path including test file name
+            abi.encode(IPoolManager(address(manager)), storage_),
+            hookAddress
         );
-        
-        console.log("Hook address will be:", hookAddress);
-        console.log("Flags:", uint160(hookAddress) & 0xFF);
-        
-        // Deploy the hook with the proper salt
-        hook = new TestSpendSaveHook{salt: salt}(IPoolManager(address(manager)), storage_);
+        hook = TestSpendSaveHook(hookAddress);
         
         console.log("Hook deployed at:", address(hook));
         console.log("Hook flags:", uint160(address(hook)) & 0xFF);
@@ -217,6 +211,7 @@ contract SpendSaveHookTest is Test, Deployers {
         savingsModule.setModuleReferences(address(tokenModule), address(savingStrategyModule));
         dcaModule.setModuleReferences(address(tokenModule), address(slippageControlModule));
         dailySavingsModule.setModuleReferences(address(tokenModule), address(yieldModule));
+        tokenModule.setModuleReferences(address(savingsModule));
         vm.stopPrank();
         
         // Initialize the hook
@@ -450,12 +445,26 @@ contract SpendSaveHookTest is Test, Deployers {
             settleUsingBurn: false  // Change to false to avoid burn settlement
         });
 
+        // Pass sender identity in hook data
+        bytes memory encodedSender = abi.encode(sender);
+        console.log("  Including sender in hook data");
+
+        bytes memory unlockData = abi.encode(
+            poolKey,
+            params,
+            PoolSwapTest.TestSettings({
+                takeClaims: true,
+                settleUsingBurn: false
+            }),
+            encodedSender
+        );
+
         // Perform the swap
         try swapRouter.swap(
             poolKey, 
             params, 
             testSettings,
-            ""
+            encodedSender
         ) returns (BalanceDelta _delta) {
             delta = _delta;
             console.log("  Swap Successful");
@@ -470,6 +479,8 @@ contract SpendSaveHookTest is Test, Deployers {
             vm.stopPrank();
             return (BalanceDelta.wrap(0), 0, 0);
         }
+
+
 
         // Track post-swap balances
         uint256 balanceInAfter = MockERC20(tokenIn).balanceOf(sender);
