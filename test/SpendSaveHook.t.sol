@@ -113,9 +113,10 @@ contract SpendSaveHookTest is Test, Deployers {
     address user2;
     address treasury;
     
+    uint256 constant MAX_UINT = type(uint256).max;
+
     // PoolKey for our test pool
     PoolKey poolKey;
-
 
     function setUp() public {
         console.log("============ SETUP START ============");
@@ -139,18 +140,18 @@ contract SpendSaveHookTest is Test, Deployers {
         token2 = Currency.wrap(address(mockToken2));
         
         // Mint tokens to test users
-        mockToken0.mint(user1, 100 ether);
-        mockToken1.mint(user1, 100 ether);
-        mockToken2.mint(user1, 100 ether);
+        mockToken0.mint(user1, 10000 ether);
+        mockToken1.mint(user1, 10000 ether);
+        mockToken2.mint(user1, 10000 ether);
         
-        mockToken0.mint(user2, 100 ether);
-        mockToken1.mint(user2, 100 ether);
-        mockToken2.mint(user2, 100 ether);
+        mockToken0.mint(user2, 10000 ether);
+        mockToken1.mint(user2, 10000 ether);
+        mockToken2.mint(user2, 10000 ether);
         
         // Mint tokens to test contract for adding liquidity
-        mockToken0.mint(address(this), 1000 ether);
-        mockToken1.mint(address(this), 1000 ether);
-        mockToken2.mint(address(this), 1000 ether);
+        mockToken0.mint(address(this), 10000 ether);
+        mockToken1.mint(address(this), 10000 ether);
+        mockToken2.mint(address(this), 10000 ether);
         
         console.log("Deploying storage...");
         // Deploy storage contract
@@ -231,36 +232,84 @@ contract SpendSaveHookTest is Test, Deployers {
         vm.stopPrank();
         
         // Approve tokens for router and hook
+        mockToken0.approve(address(manager), type(uint256).max);
+        mockToken1.approve(address(manager), type(uint256).max);
+        mockToken2.approve(address(manager), type(uint256).max);
+        
         mockToken0.approve(address(swapRouter), type(uint256).max);
         mockToken1.approve(address(swapRouter), type(uint256).max);
         mockToken2.approve(address(swapRouter), type(uint256).max);
         
+        mockToken0.approve(address(modifyLiquidityRouter), type(uint256).max);
+        mockToken1.approve(address(modifyLiquidityRouter), type(uint256).max);
+        mockToken2.approve(address(modifyLiquidityRouter), type(uint256).max);
+        
         mockToken0.approve(address(hook), type(uint256).max);
         mockToken1.approve(address(hook), type(uint256).max);
         mockToken2.approve(address(hook), type(uint256).max);
+
+        mockToken0.approve(address(savingStrategyModule), MAX_UINT);
+        mockToken1.approve(address(savingStrategyModule), MAX_UINT);
+        mockToken2.approve(address(savingStrategyModule), MAX_UINT);
         
         // User approvals
         vm.startPrank(user1);
+        mockToken0.approve(address(manager), type(uint256).max);
+        mockToken1.approve(address(manager), type(uint256).max);
+        mockToken2.approve(address(manager), type(uint256).max);
+        
         mockToken0.approve(address(swapRouter), type(uint256).max);
         mockToken1.approve(address(swapRouter), type(uint256).max);
         mockToken2.approve(address(swapRouter), type(uint256).max);
+        
         mockToken0.approve(address(hook), type(uint256).max);
         mockToken1.approve(address(hook), type(uint256).max);
         mockToken2.approve(address(hook), type(uint256).max);
+
+        mockToken0.approve(address(savingStrategyModule), MAX_UINT);
+        mockToken1.approve(address(savingStrategyModule), MAX_UINT);
+        mockToken2.approve(address(savingStrategyModule), MAX_UINT);
         vm.stopPrank();
         
         vm.startPrank(user2);
+        mockToken0.approve(address(manager), type(uint256).max);
+        mockToken1.approve(address(manager), type(uint256).max);
+        mockToken2.approve(address(manager), type(uint256).max);
+        
         mockToken0.approve(address(swapRouter), type(uint256).max);
         mockToken1.approve(address(swapRouter), type(uint256).max);
         mockToken2.approve(address(swapRouter), type(uint256).max);
+        
         mockToken0.approve(address(hook), type(uint256).max);
         mockToken1.approve(address(hook), type(uint256).max);
         mockToken2.approve(address(hook), type(uint256).max);
+
+        mockToken0.approve(address(savingStrategyModule), MAX_UINT);
+        mockToken1.approve(address(savingStrategyModule), MAX_UINT);
+        mockToken2.approve(address(savingStrategyModule), MAX_UINT);
         vm.stopPrank();
         
         console.log("============ SETUP COMPLETE ============");
 
         initializeTestPool();
+        
+        // Setup saving strategy for user1
+        setupSavingStrategies();
+    }
+    
+    function setupSavingStrategies() internal {
+        // Set up saving strategy for user1
+        vm.startPrank(user1);
+        savingStrategyModule.setSavingStrategy(
+            user1,
+            1000, // 10% savings
+            0,    // no auto increment
+            1000, // max percentage
+            false, // no round up
+            SpendSaveStorage.SavingsTokenType.INPUT, // Save from INPUT token
+            address(0) // no specific token
+        );
+        vm.stopPrank();
     }
     
     // Test that setup worked properly
@@ -275,7 +324,6 @@ contract SpendSaveHookTest is Test, Deployers {
         
         console.log("Setup test passed!");
     }
-
 
     function initializeTestPool() internal returns (PoolKey memory, PoolId) {
         console.log("Initializing test pool with hook...");
@@ -297,33 +345,189 @@ contract SpendSaveHookTest is Test, Deployers {
         MockERC20(Currency.unwrap(token1)).approve(address(modifyLiquidityRouter), type(uint256).max);
         
         // Mint additional tokens to ensure we have enough
-        MockERC20(Currency.unwrap(token0)).mint(address(this), 100 ether);
-        MockERC20(Currency.unwrap(token1)).mint(address(this), 100 ether);
+        MockERC20(Currency.unwrap(token0)).mint(address(this), 1000 ether);
+        MockERC20(Currency.unwrap(token1)).mint(address(this), 1000 ether);
         
-        // Use the standard full tick range instead of arbitrary values
-        int24 minUsableTick = TickMath.minUsableTick(60);
-        int24 maxUsableTick = TickMath.maxUsableTick(60);
-        
+        // Add liquidity in the -60 to +60 tick range
         try modifyLiquidityRouter.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
-                tickLower: minUsableTick,
-                tickUpper: maxUsableTick,
-                liquidityDelta: 10, // Very small amount
+                tickLower: -60,
+                tickUpper: 60,
+                liquidityDelta: 10 ether,
                 salt: bytes32(0)
             }),
-            ZERO_BYTES // Using empty bytes for hookData
+            ZERO_BYTES
         ) {
-            console.log("Liquidity added successfully");
+            console.log("Liquidity added in -60 to +60 range");
         } catch Error(string memory reason) {
-            console.log("Failed to add liquidity:", reason);
+            console.log("Failed to add liquidity in -60 to +60 range:", reason);
         } catch {
-            console.log("Failed to add liquidity (unknown error)");
+            console.log("Failed to add liquidity in -60 to +60 range (unknown error)");
+        }
+        
+        // Add liquidity in the -120 to +120 tick range
+        try modifyLiquidityRouter.modifyLiquidity(
+            key,
+            IPoolManager.ModifyLiquidityParams({
+                tickLower: -120,
+                tickUpper: 120,
+                liquidityDelta: 10 ether,
+                salt: bytes32(0)
+            }),
+            ZERO_BYTES
+        ) {
+            console.log("Liquidity added in -120 to +120 range");
+        } catch Error(string memory reason) {
+            console.log("Failed to add liquidity in -120 to +120 range:", reason);
+        } catch {
+            console.log("Failed to add liquidity in -120 to +120 range (unknown error)");
+        }
+        
+        // Add liquidity for full range
+        try modifyLiquidityRouter.modifyLiquidity(
+            key,
+            IPoolManager.ModifyLiquidityParams({
+                tickLower: TickMath.minUsableTick(60),
+                tickUpper: TickMath.maxUsableTick(60),
+                liquidityDelta: 10 ether,
+                salt: bytes32(0)
+            }),
+            ZERO_BYTES
+        ) {
+            console.log("Liquidity added for full range");
+        } catch Error(string memory reason) {
+            console.log("Failed to add liquidity for full range:", reason);
+        } catch {
+            console.log("Failed to add liquidity for full range (unknown error)");
         }
         
         // Store the key for later use
         poolKey = key;
         
         return (key, poolId);
+    }
+
+    function _performSwap(
+        address sender,
+        bool zeroForOne,
+        int256 amountSpecified
+    ) internal returns (BalanceDelta delta, uint256 amountIn, uint256 amountOut) {
+        // Start prank (acting as sender)
+        vm.startPrank(sender);
+
+        // Determine tokens
+        address tokenIn = zeroForOne ? Currency.unwrap(token0) : Currency.unwrap(token1);
+        address tokenOut = zeroForOne ? Currency.unwrap(token1) : Currency.unwrap(token0);
+
+        // Track pre-swap balances
+        uint256 balanceInBefore = MockERC20(tokenIn).balanceOf(sender);
+        uint256 balanceOutBefore = MockERC20(tokenOut).balanceOf(sender);
+
+        console.log("Performing swap:");
+        console.log("  Sender:", sender);
+        console.log("  Zero for One:", zeroForOne);
+        console.log("  Amount Specified:", uint256(amountSpecified > 0 ? amountSpecified : -amountSpecified));
+        console.log("  TokenIn:", tokenIn);
+        console.log("  TokenOut:", tokenOut);
+        console.log("  BalanceInBefore:", balanceInBefore);
+        console.log("  BalanceOutBefore:", balanceOutBefore);
+
+        // Ensure token approval (max allowance to avoid multiple calls)
+        MockERC20(tokenIn).approve(address(swapRouter), type(uint256).max);
+        MockERC20(tokenIn).approve(address(savingStrategyModule), type(uint256).max);
+
+        // Swap parameters
+        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+            zeroForOne: zeroForOne,
+            amountSpecified: amountSpecified,
+            sqrtPriceLimitX96: zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
+        });
+
+        // Perform the swap with modified settlement options
+        PoolSwapTest.TestSettings memory testSettings = PoolSwapTest.TestSettings({
+            takeClaims: true,  // Change to true to let the router handle claims
+            settleUsingBurn: false  // Change to false to avoid burn settlement
+        });
+
+        // Perform the swap
+        try swapRouter.swap(
+            poolKey, 
+            params, 
+            testSettings,
+            ""
+        ) returns (BalanceDelta _delta) {
+            delta = _delta;
+            console.log("  Swap Successful");
+            console.log("  Delta0:", delta.amount0());
+            console.log("  Delta1:", delta.amount1());
+        } catch Error(string memory reason) {
+            console.log("  Swap failed with reason:", reason);
+            vm.stopPrank();
+            return (BalanceDelta.wrap(0), 0, 0);
+        } catch {
+            console.log("  Swap failed with unknown error");
+            vm.stopPrank();
+            return (BalanceDelta.wrap(0), 0, 0);
+        }
+
+        // Track post-swap balances
+        uint256 balanceInAfter = MockERC20(tokenIn).balanceOf(sender);
+        uint256 balanceOutAfter = MockERC20(tokenOut).balanceOf(sender);
+
+        console.log("  BalanceInAfter:", balanceInAfter);
+        console.log("  BalanceOutAfter:", balanceOutAfter);
+
+        // Calculate actual swap amounts
+        amountIn = balanceInBefore > balanceInAfter ? balanceInBefore - balanceInAfter : 0;
+        amountOut = balanceOutAfter > balanceOutBefore ? balanceOutAfter - balanceOutBefore : 0;
+
+        console.log("  Amount In:", amountIn);
+        console.log("  Amount Out:", amountOut);
+
+        // End prank
+        vm.stopPrank();
+
+        return (delta, amountIn, amountOut);
+    }
+
+    function testBasicSwap() public {
+        // Check if the saving strategy is set correctly
+        (
+            uint256 percentage,
+            uint256 autoIncrement,
+            uint256 maxPercentage,
+            uint256 goalAmount,
+            bool roundUpSavings,
+            bool enableDCA,
+            SpendSaveStorage.SavingsTokenType savingsTokenType,
+            address specificSavingsToken
+        ) = storage_.getUserSavingStrategy(user1);
+
+        console.log("Savings Strategy Percentage:", percentage);
+        console.log("Savings Type:", uint(savingsTokenType));
+
+        // First make sure user1 has the tokens
+        address tokenAddr = Currency.unwrap(token0);
+        uint256 balanceBefore = MockERC20(tokenAddr).balanceOf(user1);
+        console.log("User1 token0 balance before swap:", balanceBefore);
+
+        // Perform swap with positive amount for exact input
+        (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
+        
+        // Check balances after swap
+        uint256 balanceAfter = MockERC20(tokenAddr).balanceOf(user1);
+        console.log("User1 token0 balance after swap:", balanceAfter);
+        
+        // Check savings balance
+        uint256 savingsBalance = storage_.savings(user1, tokenAddr);
+        console.log("User1 savings balance:", savingsBalance);
+        
+        // Check that the swap was successful
+        assertTrue(delta.amount0() < 0, "User should have spent token0");
+        assertTrue(delta.amount1() > 0, "User should have received token1");
+        
+        // Verify user1 has spent token0
+        assertLt(balanceAfter, balanceBefore, "User should have spent token0");
     }
 }

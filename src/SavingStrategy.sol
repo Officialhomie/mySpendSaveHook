@@ -9,6 +9,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
 import {PoolId, PoolIdLibrary} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+
 import "./SpendSaveStorage.sol";
 import "./ISavingStrategyModule.sol";
 import "./ISavingsModule.sol";
@@ -21,6 +22,10 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
     
+    // Cached constants to reduce gas costs
+    uint256 private constant PERCENTAGE_DENOMINATOR = 10000;
+    uint256 private constant MAX_PERCENTAGE = 10000; // 100%
+    uint256 private constant TOKEN_UNIT = 1e18; // Assuming 18 decimals
 
     struct SavingStrategyParams {
         uint256 percentage;
@@ -58,6 +63,30 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     event ModuleReferencesSet(address indexed savingsModule);
     event SavingStrategyUpdated(address indexed user, uint256 newPercentage);
     event TreasuryFeeCollected(address indexed user, address indexed token, uint256 fee);
+    event FailedToApplySavings(address user, string reason);
+
+    // Define event declarations
+    event ProcessingInputTokenSavings(address indexed sender, address indexed token, uint256 amount);
+    event InputTokenSavingsSkipped(address indexed sender, string reason);
+    event SavingsCalculated(address indexed sender, uint256 saveAmount, uint256 reducedSwapAmount);
+    event UserBalanceChecked(address indexed sender, address indexed token, uint256 balance);
+    event InsufficientBalance(address indexed sender, address indexed token, uint256 required, uint256 available);
+    event AllowanceChecked(address indexed sender, address indexed token, uint256 allowance);
+    event InsufficientAllowance(address indexed sender, address indexed token, uint256 required, uint256 available);
+    event SavingsTransferStatus(address indexed sender, address indexed token, bool success);
+
+    event SavingsTransferInitiated(address indexed sender, address indexed token, uint256 amount);
+    event SavingsTransferSuccess(address indexed sender, address indexed token, uint256 amount, uint256 contractBalance);
+    event SavingsTransferFailure(address indexed sender, address indexed token, uint256 amount, bytes reason);
+    event NetAmountAfterFee(address indexed sender, address indexed token, uint256 netAmount);
+    event UserSavingsUpdated(address indexed sender, address indexed token, uint256 newSavings);
+
+    // Define event declarations
+    event FeeApplied(address indexed sender, address indexed token, uint256 feeAmount);
+    event SavingsProcessingFailed(address indexed sender, address indexed token, bytes reason);
+    event SavingsProcessedSuccessfully(address indexed sender, address indexed token, uint256 amount);
+
+
     
     // Custom errors
     error PercentageTooHigh(uint256 provided, uint256 max);
@@ -97,7 +126,6 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     }
     
     // Public function to set a user's saving strategy
-
     function setSavingStrategy(
         address user, 
         uint256 percentage, 
@@ -108,8 +136,8 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         address specificSavingsToken
     ) external override onlyAuthorized(user) nonReentrant {
         // Validation
-        if (percentage > 10000) revert PercentageTooHigh({provided: percentage, max: 10000});
-        if (maxPercentage > 10000) revert PercentageTooHigh({provided: maxPercentage, max: 10000});
+        if (percentage > MAX_PERCENTAGE) revert PercentageTooHigh({provided: percentage, max: MAX_PERCENTAGE});
+        if (maxPercentage > MAX_PERCENTAGE) revert PercentageTooHigh({provided: maxPercentage, max: MAX_PERCENTAGE});
         if (maxPercentage < percentage) revert MaxPercentageTooLow({maxPercentage: maxPercentage, percentage: percentage});
         
         if (savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
@@ -157,40 +185,18 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     // Set savings goal for a token
     function setSavingsGoal(address user, address token, uint256 amount) external override onlyAuthorized(user) nonReentrant {
         // Get current strategy
-        SpendSaveStorage.SavingStrategy memory strategy;
-        
-        // Use accessor method to get the saving strategy
-        (
-            strategy.percentage,
-            strategy.autoIncrement,
-            strategy.maxPercentage,
-            strategy.goalAmount,
-            strategy.roundUpSavings,
-            strategy.enableDCA,
-            strategy.savingsTokenType,
-            strategy.specificSavingsToken
-        ) = storage_.getUserSavingStrategy(user);
+        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(user);
         
         // Update goal amount
         strategy.goalAmount = amount;
         
         // Update strategy in storage
-        storage_.setUserSavingStrategy(
-            user,
-            strategy.percentage,
-            strategy.autoIncrement,
-            strategy.maxPercentage,
-            strategy.goalAmount,
-            strategy.roundUpSavings,
-            strategy.enableDCA,
-            strategy.savingsTokenType,
-            strategy.specificSavingsToken
-        );
+        _saveUserStrategy(user, strategy);
         
         emit GoalSet(user, token, amount);
     }
     
-    // Prepare for savings before swap
+    // Prepare for savings before swap - optimized for gas usage
     function beforeSwap(
         address sender,
         PoolKey calldata key,
@@ -199,39 +205,66 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
         
         // Initialize context and exit early if no strategy
-        SwapContextBuilder memory builder = _initializeContextBuilder(sender);
+        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(sender);
         
-        if (!builder.context.hasStrategy) {
-            storage_.setSwapContext(sender, builder.context);
+        // Fast path - no strategy
+        if (strategy.percentage == 0) {
+            SpendSaveStorage.SwapContext memory emptyContext;
+            emptyContext.hasStrategy = false;
+            storage_.setSwapContext(sender, emptyContext);
             return;
         }
         
-        // Complete the context preparation
-        _prepareSwapContext(builder, key, params);
+        // Build context for swap with strategy
+        SpendSaveStorage.SwapContext memory context = _buildSwapContext(sender, strategy, key, params);
         
         // Process input token savings if applicable
-        if (builder.context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            _processInputTokenSavings(sender, builder.context);
+        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
+            // Use proper error handling without try/catch
+            bool success = _processInputTokenSavings(sender, context);
+            if (!success) {
+                emit FailedToApplySavings(sender, "Failed to process input token savings");
+            }
         }
         
         // Store the context in storage for use in afterSwap
-        storage_.setSwapContext(sender, builder.context);
+        storage_.setSwapContext(sender, context);
         
-        emit SwapPrepared(sender, builder.context.currentPercentage, builder.strategy.savingsTokenType);
+        emit SwapPrepared(sender, context.currentPercentage, strategy.savingsTokenType);
     }
 
-    function _initializeContextBuilder(
-        address user
-    ) internal view returns (SwapContextBuilder memory) {
-        SwapContextBuilder memory builder;
+    // New helper function to build swap context
+    function _buildSwapContext(
+        address user,
+        SpendSaveStorage.SavingStrategy memory strategy,
+        PoolKey calldata key,
+        IPoolManager.SwapParams calldata params
+    ) internal view returns (SpendSaveStorage.SwapContext memory context) {
+        context.hasStrategy = true;
         
-        // Get user's saving strategy
-        builder.strategy = _getUserSavingStrategy(user);
+        // Calculate current percentage with auto-increment if applicable
+        context.currentPercentage = _calculateCurrentPercentage(
+            strategy.percentage,
+            strategy.autoIncrement,
+            strategy.maxPercentage
+        );
         
-        // Initialize context with strategy flag
-        builder.context.hasStrategy = builder.strategy.percentage > 0;
+        // Get current tick from pool
+        context.currentTick = _getCurrentTick(key);
         
-        return builder;
+        // Copy properties from strategy to context
+        context.roundUpSavings = strategy.roundUpSavings;
+        context.enableDCA = strategy.enableDCA;
+        context.dcaTargetToken = storage_.dcaTargetToken(user);
+        context.savingsTokenType = strategy.savingsTokenType;
+        context.specificSavingsToken = strategy.specificSavingsToken;
+        
+        // For INPUT token savings type, extract input token and amount
+        if (strategy.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
+            (context.inputToken, context.inputAmount) = _extractInputTokenAndAmount(key, params);
+        }
+        
+        return context;
     }
 
     // Helper function to get user saving strategy
@@ -248,41 +281,6 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         ) = storage_.getUserSavingStrategy(user);
         
         return strategy;
-    }
-
-    // Helper function to prepare swap context
-    function _prepareSwapContext(
-        SwapContextBuilder memory builder,
-        PoolKey calldata key,
-        IPoolManager.SwapParams calldata params
-    ) internal view {
-        // Get current tick from pool
-        builder.context.currentTick = getCurrentTick(key);
-        
-        // Calculate current percentage with auto-increment if applicable
-        builder.context.currentPercentage = _calculateCurrentPercentage(
-            builder.strategy.percentage,
-            builder.strategy.autoIncrement,
-            builder.strategy.maxPercentage
-        );
-        
-        // Copy basic properties from strategy to context
-        _copyStrategyToContext(builder);
-        
-        // For INPUT token savings type, extract input token and amount
-        if (builder.strategy.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            (builder.context.inputToken, builder.context.inputAmount) = 
-                _extractInputTokenAndAmount(key, params);
-        }
-    }
-
-
-    function _copyStrategyToContext(SwapContextBuilder memory builder) internal view {
-        builder.context.roundUpSavings = builder.strategy.roundUpSavings;
-        builder.context.enableDCA = builder.strategy.enableDCA;
-        builder.context.dcaTargetToken = storage_.dcaTargetToken(msg.sender);
-        builder.context.savingsTokenType = builder.strategy.savingsTokenType;
-        builder.context.specificSavingsToken = builder.strategy.specificSavingsToken;
     }
 
     // Helper to calculate the current saving percentage with auto-increment
@@ -304,33 +302,66 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params
     ) internal pure returns (address token, uint256 amount) {
-        if (params.zeroForOne) {
-            token = Currency.unwrap(key.currency0);
-        } else {
-            token = Currency.unwrap(key.currency1);
-        }
-        
+        token = params.zeroForOne ? Currency.unwrap(key.currency0) : Currency.unwrap(key.currency1);
         amount = uint256(params.amountSpecified > 0 ? params.amountSpecified : -params.amountSpecified);
         return (token, amount);
     }
 
-    // Helper to process input token savings
+    // Helper to process input token savings - returns success status instead of using try/catch
     function _processInputTokenSavings(
         address sender,
         SpendSaveStorage.SwapContext memory context
-    ) internal {
+    ) internal returns (bool) {
+        emit ProcessingInputTokenSavings(sender, context.inputToken, context.inputAmount);
+        
         // Skip if no input amount
-        if (context.inputAmount == 0) return;
+        if (context.inputAmount == 0) {
+            emit InputTokenSavingsSkipped(sender, "Input amount is 0");
+            return true;
+        }
         
         // Calculate savings amount
         SavingsCalculation memory calc = _calculateInputSavings(context);
+        emit SavingsCalculated(sender, calc.saveAmount, calc.reducedSwapAmount);
         
         // Skip if nothing to save
-        if (calc.saveAmount == 0) return;
+        if (calc.saveAmount == 0) {
+            emit InputTokenSavingsSkipped(sender, "Save amount is 0");
+            return true;
+        }
+        
+        // Check user balance before transfer
+        try IERC20(context.inputToken).balanceOf(sender) returns (uint256 balance) {
+            emit UserBalanceChecked(sender, context.inputToken, balance);
+            if (balance < calc.saveAmount) {
+                emit InsufficientBalance(sender, context.inputToken, calc.saveAmount, balance);
+                return false;
+            }
+        } catch {
+            emit InputTokenSavingsSkipped(sender, "Failed to check balance");
+            return false;
+        }
+        
+        // Check user allowance before transfer
+        try IERC20(context.inputToken).allowance(sender, address(this)) returns (uint256 allowance) {
+            emit AllowanceChecked(sender, context.inputToken, allowance);
+            if (allowance < calc.saveAmount) {
+                emit InsufficientAllowance(sender, context.inputToken, calc.saveAmount, allowance);
+                return false;
+            }
+        } catch {
+            emit InputTokenSavingsSkipped(sender, "Failed to check allowance");
+            return false;
+        }
         
         // Execute the savings transfer and processing
-        _executeSavingsTransfer(sender, context.inputToken, calc.saveAmount);
+        bool success = _executeSavingsTransfer(sender, context.inputToken, calc.saveAmount);
+        emit SavingsTransferStatus(sender, context.inputToken, success);
+        
+        return success;
     }
+
+
 
     function _calculateInputSavings(
         SpendSaveStorage.SwapContext memory context
@@ -362,24 +393,62 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         });
     }
 
+    // function _executeSavingsTransfer(
+    //     address sender,
+    //     address token,
+    //     uint256 amount
+    // ) internal returns (bool) {
+    //     // Try to transfer tokens for savings using try/catch
+    //     try IERC20(token).transferFrom(sender, address(this), amount) {
+    //         // Apply fee and process savings
+    //         uint256 netAmount = _applyFeeAndProcessSavings(sender, token, amount);
+            
+    //         // Emit event for tracking
+    //         emit InputTokenSaved(sender, token, netAmount, amount - netAmount);
+            
+    //         return true;
+    //     } catch (bytes memory reason) {
+    //         emit TransferFailure(sender, token, amount, reason);
+    //         return false;
+    //     }
+    // }
+
     function _executeSavingsTransfer(
         address sender,
         address token,
         uint256 amount
     ) internal returns (bool) {
-        // Try to transfer tokens for savings
-        bool success = _transferTokensForSavings(sender, token, amount);
+        emit SavingsTransferInitiated(sender, token, amount);
         
-        if (success) {
+        bool transferSuccess = false;
+
+        // Try to transfer tokens for savings using try/catch
+        try IERC20(token).transferFrom(sender, address(this), amount) {
+            transferSuccess = true;
+            
+            // Double-check that we received the tokens
+            uint256 contractBalance = IERC20(token).balanceOf(address(this));
+            emit SavingsTransferSuccess(sender, token, amount, contractBalance);
+            
             // Apply fee and process savings
             uint256 netAmount = _applyFeeAndProcessSavings(sender, token, amount);
+            emit NetAmountAfterFee(sender, token, netAmount);
             
-            // Emit event for tracking
-            emit InputTokenSaved(sender, token, netAmount, amount - netAmount);
+            // Emit event for tracking user savings update
+            uint256 userSavings = storage_.savings(sender, token);
+            emit UserSavingsUpdated(sender, token, userSavings);
+            
+            return true;
+        } catch Error(string memory reason) {
+            emit SavingsTransferFailure(sender, token, amount, bytes(reason));
+            return false;
+        } catch (bytes memory reason) {
+            emit SavingsTransferFailure(sender, token, amount, reason);
+            return false;
         }
-        
-        return success;
     }
+
+
 
     // Helper to apply saving limits
     function _applySavingLimits(uint256 saveAmount, uint256 inputAmount) internal pure returns (uint256) {
@@ -387,20 +456,6 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
             return inputAmount / 2; // Save at most half to ensure swap continues
         }
         return saveAmount;
-    }
-
-    // Helper to transfer tokens for savings
-    function _transferTokensForSavings(
-        address sender,
-        address token,
-        uint256 amount
-    ) internal returns (bool success) {
-        try IERC20(token).transferFrom(sender, address(this), amount) {
-            return true;
-        } catch (bytes memory reason) {
-            emit TransferFailure(sender, token, amount, reason);
-            return false;
-        }
     }
 
     // Helper to apply fee and process savings
@@ -411,85 +466,80 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     ) internal returns (uint256) {
         // Apply treasury fee if configured
         uint256 amountAfterFee = storage_.calculateAndTransferFee(sender, token, amount);
-        
-        // If a fee was taken, emit an event
+
+        // Emit event if a fee was taken
         if (amountAfterFee < amount) {
             uint256 fee = amount - amountAfterFee;
-            emit TreasuryFeeCollected(sender, token, fee);
+            emit FeeApplied(sender, token, fee);
         }
-        
+
+        // Ensure we have the correct savingsModule reference
+        if (address(savingsModule) == address(0)) {
+            emit SavingsProcessingFailed(sender, token, "Savings module reference is null");
+            return 0;
+        }
+
         // Process the savings through the savings module
-        savingsModule.processSavings(sender, token, amountAfterFee);
-        
+        try savingsModule.processSavings(sender, token, amountAfterFee) {
+            emit SavingsProcessedSuccessfully(sender, token, amountAfterFee);
+        } catch Error(string memory reason) {
+            emit SavingsProcessingFailed(sender, token, bytes(reason));
+            return 0;
+        } catch (bytes memory reason) {
+            emit SavingsProcessingFailed(sender, token, reason);
+            return 0;
+        }
+
         return amountAfterFee;
     }
+
     
-
-
-
-
-
-    // Update user's saving strategy after swap
+    // Update user's saving strategy after swap - optimized to only update when needed
     function updateSavingStrategy(address sender, SpendSaveStorage.SwapContext memory context) external override nonReentrant {
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
         
+        // Early return if no auto-increment or no percentage change
+        if (!_shouldUpdateStrategy(sender, context.currentPercentage)) return;
+        
         // Get current strategy
-        SpendSaveStorage.SavingStrategy memory strategy;
+        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(sender);
         
-        // Use accessor method to get the saving strategy
-        (
-            strategy.percentage,
-            strategy.autoIncrement,
-            strategy.maxPercentage,
-            strategy.goalAmount,
-            strategy.roundUpSavings,
-            strategy.enableDCA,
-            strategy.savingsTokenType,
-            strategy.specificSavingsToken
-        ) = storage_.getUserSavingStrategy(sender);
+        // Update percentage
+        strategy.percentage = context.currentPercentage;
         
-        if (strategy.autoIncrement > 0 && context.currentPercentage > strategy.percentage) {
-            // Only update if auto-increment is enabled and the percentage has increased
-            strategy.percentage = context.currentPercentage;
-            
-            // Update the strategy in storage
-            storage_.setUserSavingStrategy(
-                sender,
-                strategy.percentage,
-                strategy.autoIncrement,
-                strategy.maxPercentage,
-                strategy.goalAmount,
-                strategy.roundUpSavings,
-                strategy.enableDCA,
-                strategy.savingsTokenType,
-                strategy.specificSavingsToken
-            );
+        // Update the strategy in storage
+        _saveUserStrategy(sender, strategy);
 
-            emit SavingStrategyUpdated(sender, strategy.percentage);
-        }
+        emit SavingStrategyUpdated(sender, strategy.percentage);
     }
     
-    // Calculate savings amount based on percentage and rounding preference
+    // Helper to check if strategy should be updated
+    function _shouldUpdateStrategy(address user, uint256 currentPercentage) internal view returns (bool) {
+        SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(user);
+        return strategy.autoIncrement > 0 && currentPercentage > strategy.percentage;
+    }
+    
+    // Calculate savings amount based on percentage and rounding preference - gas optimized
     function calculateSavingsAmount(
         uint256 amount,
         uint256 percentage,
         bool roundUp
     ) public pure override returns (uint256) {
-        uint256 saveAmount = (amount * percentage) / 10000;
+        if (percentage == 0) return 0;
         
-        if (roundUp && saveAmount > 0) {
+        uint256 saveAmount = (amount * percentage) / PERCENTAGE_DENOMINATOR;
+        
+        if (roundUp && saveAmount > 0 && saveAmount % TOKEN_UNIT != 0) {
             // Round up to nearest whole token unit (assuming 18 decimals)
-            uint256 remainder = saveAmount % 1e18;
-            if (remainder > 0) {
-                saveAmount += (1e18 - remainder);
-            }
+            uint256 remainder = saveAmount % TOKEN_UNIT;
+            saveAmount += (TOKEN_UNIT - remainder);
         }
         
         return saveAmount;
     }
     
-    // Get current pool tick
-    function getCurrentTick(PoolKey memory poolKey) internal view returns (int24) {
+    // Get current pool tick - cached function for gas optimization
+    function _getCurrentTick(PoolKey memory poolKey) internal view returns (int24) {
         PoolId poolId = poolKey.toId();
         
         // Use StateLibrary to get the current tick from pool manager

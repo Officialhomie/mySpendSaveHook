@@ -9,6 +9,7 @@ import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {BeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
+import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 import "./SpendSaveStorage.sol";
 import "./ISavingStrategyModule.sol";
@@ -22,7 +23,7 @@ import "./IDailySavingsModule.sol";
  * @title SpendSaveHook
  * @dev Main contract that implements Uniswap V4 hooks and coordinates between modules
  */
-contract SpendSaveHook is BaseHook {
+contract SpendSaveHook is BaseHook, ReentrancyGuard {
     // Storage contract reference
     SpendSaveStorage public immutable storage_;
     
@@ -41,14 +42,19 @@ contract SpendSaveHook is BaseHook {
     
     // Events
     event DailySavingsExecuted(address indexed user, uint256 totalAmount);
+    event DailySavingsDetails(address indexed user, address indexed token, uint256 amount);
     event DailySavingsExecutionFailed(address indexed user, address indexed token, string reason);
     event SingleTokenSavingsExecuted(address indexed user, address indexed token, uint256 amount);
     event ModulesInitialized(address strategyModule, address savingsModule, address dcaModule, address slippageModule, address tokenModule, address dailySavingsModule);
+    event BeforeSwapError(address indexed user, string reason);
+    event AfterSwapError(address indexed user, string reason);
     
     // Gas configuration for daily savings
     uint256 private constant GAS_THRESHOLD = 500000;
     uint256 private constant INITIAL_GAS_PER_TOKEN = 150000;
     uint256 private constant MIN_GAS_TO_KEEP = 100000;
+    uint256 private constant DAILY_SAVINGS_THRESHOLD = 600000;
+    uint256 private constant BATCH_SIZE = 5;
 
     struct DailySavingsProcessor {
         address[] tokens;
@@ -56,15 +62,25 @@ contract SpendSaveHook is BaseHook {
         uint256 totalSaved;
         uint256 minGasReserve;
     }
+
+    // Efficient data structure for tracking tokens that need processing
+    struct TokenProcessingQueue {
+        // Mapping from token address to position in the queue (1-based index, 0 means not in queue)
+        mapping(address => uint256) tokenPositions;
+        // Array of tokens in processing queue
+        address[] tokenQueue;
+        // Last processing timestamp for each token
+        mapping(address => uint256) lastProcessed;
+    }
+    
+    // Mapping from user to token processing queue
+    mapping(address => TokenProcessingQueue) private _tokenProcessingQueues;
     
     constructor(
         IPoolManager _poolManager,
         SpendSaveStorage _storage
     ) BaseHook(_poolManager) {
         storage_ = _storage;
-        
-        // Register this contract with storage
-        // _storage.setSpendSaveHook(address(this));
     }
     
     // Initialize modules - this should be called after all modules are deployed
@@ -151,7 +167,7 @@ contract SpendSaveHook is BaseHook {
         });
     }
     
-    // Verify all modules are initialized
+    // Verify modules are initialized - only when needed
     function _checkModulesInitialized() internal view {
         if (address(savingStrategyModule) == address(0)) revert ModuleNotInitialized("SavingStrategy");
         if (address(savingsModule) == address(0)) revert ModuleNotInitialized("Savings");
@@ -166,43 +182,64 @@ contract SpendSaveHook is BaseHook {
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params,
         bytes calldata hookData
-    ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
-        _checkModulesInitialized();
-        
-        // Let strategy module handle beforeSwap logic
-        savingStrategyModule.beforeSwap(sender, key, params);
+    ) internal override nonReentrant returns (bytes4, BeforeSwapDelta, uint24) {
+        // Only check modules if user has a strategy - lazy loading approach
+        if (_hasUserStrategy(sender)) {
+            _checkModulesInitialized();
+            
+            // Use a more Solidity-appropriate error handling approach
+            bool success = _tryBeforeSwap(sender, key, params);
+            // Even if it fails, we continue with the swap
+        }
         
         return (IHooks.beforeSwap.selector, BeforeSwapDelta.wrap(0), 0);
     }
+    
+    // Try to execute beforeSwap with error handling
+    function _tryBeforeSwap(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.SwapParams calldata params
+    ) internal returns (bool) {
+        try savingStrategyModule.beforeSwap(sender, key, params) {
+            return true;
+        } catch Error(string memory reason) {
+            emit BeforeSwapError(sender, reason);
+            return false;
+        } catch {
+            emit BeforeSwapError(sender, "Unknown error in beforeSwap");
+            return false;
+        }
+    }
+    
+    // Check if user has a saving strategy
+    function _hasUserStrategy(address user) internal view returns (bool) {
+        (uint256 percentage,,,,,,, ) = storage_.getUserSavingStrategy(user);
+        return percentage > 0;
+    }
 
-    // Process savings based on token type - split into smaller functions
-    function _processSavingsBasedOnType(
+    // Process savings based on token type - properly organized helper functions
+    function _processSavings(
         address sender,
         SpendSaveStorage.SwapContext memory context,
         PoolKey calldata key,
         BalanceDelta delta
     ) internal {
+        if (!context.hasStrategy) return;
+        
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
             // For INPUT token type, savings were already processed in beforeSwap
             savingStrategyModule.updateSavingStrategy(sender, context);
-        } else {
-            _processNonInputSavings(sender, context, key, delta);
+            return;
         }
-    }
-
-    function _processNonInputSavings(
-        address sender,
-        SpendSaveStorage.SwapContext memory context,
-        PoolKey calldata key,
-        BalanceDelta delta
-    ) internal {
+        
         // Get output token and amount
         (address outputToken, uint256 outputAmount) = _getOutputTokenAndAmount(key, delta);
         
         // Skip if no positive output
         if (outputAmount == 0) return;
         
-        // Handle different savings token types
+        // Process based on token type
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT) {
             _processOutputTokenSavings(sender, context, outputToken, outputAmount);
         } else if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
@@ -225,6 +262,9 @@ contract SpendSaveHook is BaseHook {
         
         // Handle DCA if enabled
         _processDCAIfEnabled(sender, context, outputToken);
+        
+        // Add token to processing queue for future daily savings
+        _addTokenToProcessingQueue(sender, outputToken);
     }
 
     // Helper for specific token savings
@@ -236,6 +276,9 @@ contract SpendSaveHook is BaseHook {
     ) internal {
         // Process savings to specific token
         savingsModule.processSavingsToSpecificToken(sender, outputToken, outputAmount, context);
+        
+        // Add specific token to processing queue
+        _addTokenToProcessingQueue(sender, context.specificSavingsToken);
     }
 
     // Helper function to handle DCA processing
@@ -260,46 +303,207 @@ contract SpendSaveHook is BaseHook {
         IPoolManager.SwapParams calldata params,
         BalanceDelta delta,
         bytes calldata hookData
-    ) internal override returns (bytes4, int128) {
-        _checkModulesInitialized();
+    ) internal override nonReentrant returns (bytes4, int128) {
+        // Handle errors without using try/catch at the top level
+        bool success = _executeAfterSwapLogic(sender, key, params, delta);
         
-        // Get current swap context from storage
-        SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(sender);
-        
-        // Only proceed if user has a saving strategy
-        if (context.hasStrategy) {
-            _processSavingsBasedOnType(sender, context, key, delta);
-            storage_.deleteSwapContext(sender);
+        if (!success) {
+            // We still return the selector to allow the swap to complete
+            emit AfterSwapError(sender, "Error in afterSwap execution");
         }
         
-        // Check for daily savings after processing swap-based savings
-        _tryProcessDailySavings(sender);
-        
         return (IHooks.afterSwap.selector, 0);
+    }
+    
+    // Execute afterSwap logic with proper error handling
+    function _executeAfterSwapLogic(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.SwapParams calldata params,
+        BalanceDelta delta
+    ) internal returns (bool) {
+        // Only perform work if necessary
+        if (!_shouldProcessSwap(sender)) {
+            return true;
+        }
+        
+        // Check modules only if needed
+        try this.checkModulesInitialized() {
+            // Process swap savings
+            SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(sender);
+            
+            bool savingsProcessed = _trySavingsProcessing(sender, context, key, delta);
+            
+            // Clean up context from storage regardless of processing result
+            storage_.deleteSwapContext(sender);
+            
+            // Only process daily savings if conditions are met
+            if (savingsProcessed && _shouldProcessDailySavings(sender)) {
+                _tryProcessDailySavings(sender);
+            }
+            
+            return true;
+        } catch Error(string memory reason) {
+            emit AfterSwapError(sender, reason);
+            return false;
+        } catch {
+            emit AfterSwapError(sender, "Module initialization failed");
+            return false;
+        }
+    }
+    
+    // External function to allow try/catch on module initialization
+    function checkModulesInitialized() external view {
+        _checkModulesInitialized();
+    }
+    
+    // Try to process savings with error handling
+    function _trySavingsProcessing(
+        address sender,
+        SpendSaveStorage.SwapContext memory context,
+        PoolKey calldata key,
+        BalanceDelta delta
+    ) internal returns (bool) {
+        try this.processSavingsExternal(sender, context, key, delta) {
+            return true;
+        } catch Error(string memory reason) {
+            emit AfterSwapError(sender, reason);
+            return false;
+        } catch {
+            emit AfterSwapError(sender, "Unknown error processing savings");
+            return false;
+        }
+    }
+    
+    // External function to allow try/catch on savings processing
+    function processSavingsExternal(
+        address sender,
+        SpendSaveStorage.SwapContext memory context,
+        PoolKey calldata key,
+        BalanceDelta delta
+    ) external {
+        require(msg.sender == address(this), "Only self-call allowed");
+        _processSavings(sender, context, key, delta);
+    }
+    
+    // Check if we should process this swap
+    function _shouldProcessSwap(address sender) internal view returns (bool) {
+        return storage_.getSwapContext(sender).hasStrategy;
+    }
+    
+    // Determine if daily savings should be processed
+    function _shouldProcessDailySavings(address sender) internal view returns (bool) {
+        return _hasPendingDailySavings(sender) && gasleft() > DAILY_SAVINGS_THRESHOLD;
+    }
+
+    // Efficient token processing queue management
+    function _addTokenToProcessingQueue(address user, address token) internal {
+        if (token == address(0)) return;
+        
+        TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
+        
+        // If token is not in queue, add it
+        if (queue.tokenPositions[token] == 0) {
+            queue.tokenQueue.push(token);
+            queue.tokenPositions[token] = queue.tokenQueue.length;
+        }
+    }
+    
+    // Remove token from processing queue
+    function _removeTokenFromProcessingQueue(address user, address token) internal {
+        TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
+        uint256 position = queue.tokenPositions[token];
+        
+        // If token is in queue
+        if (position > 0) {
+            uint256 index = position - 1;
+            uint256 lastIndex = queue.tokenQueue.length - 1;
+            
+            // If not the last element, swap with last element
+            if (index != lastIndex) {
+                address lastToken = queue.tokenQueue[lastIndex];
+                queue.tokenQueue[index] = lastToken;
+                queue.tokenPositions[lastToken] = position;
+            }
+            
+            // Remove last element
+            queue.tokenQueue.pop();
+            queue.tokenPositions[token] = 0;
+        }
+    }
+    
+    // Get tokens due for processing
+    function _getTokensDueForProcessing(address user) internal view returns (address[] memory) {
+        TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
+        address[] memory dueTokens = new address[](queue.tokenQueue.length);
+        uint256 count = 0;
+        
+        for (uint256 i = 0; i < queue.tokenQueue.length; i++) {
+            address token = queue.tokenQueue[i];
+            (bool canExecute, , ) = _getDailyExecutionStatus(user, token);
+            
+            if (canExecute) {
+                dueTokens[count] = token;
+                count++;
+            }
+        }
+        
+        // Resize array to actual number of due tokens
+        assembly {
+            mstore(dueTokens, count)
+        }
+        
+        return dueTokens;
+    }
+
+    // Public function to process daily savings - can be called separately
+    function processDailySavings(address user) external nonReentrant {
+        _checkModulesInitialized();
+        require(_hasPendingDailySavings(user), "No pending savings");
+        
+        // Get eligible tokens and process them
+        address[] memory eligibleTokens = _getTokensDueForProcessing(user);
+        DailySavingsProcessor memory processor = _initDailySavingsProcessor(user, eligibleTokens);
+        _processDailySavingsForTokens(user, processor);
     }
 
     function _tryProcessDailySavings(address user) internal {
         // Exit early if conditions aren't met
-        if (!_shouldProcessDailySavings(user)) return;
+        if (!_hasPendingDailySavings(user) || gasleft() < DAILY_SAVINGS_THRESHOLD) return;
         
-        // Process each token with a gas-efficient approach
-        DailySavingsProcessor memory processor = _initDailySavingsProcessor(user);
-        _processDailySavingsForAllTokens(user, processor);
+        // Get eligible tokens and process them
+        address[] memory eligibleTokens = _getTokensDueForProcessing(user);
+        DailySavingsProcessor memory processor = _initDailySavingsProcessor(user, eligibleTokens);
+        _processDailySavingsForTokens(user, processor);
     }
 
-    function _shouldProcessDailySavings(address user) internal view returns (bool) {
-        // Only proceed if there are pending daily savings and we have enough gas
-        return _hasPendingDailySavings(user) && gasleft() > GAS_THRESHOLD;
-    }
-
-    function _processDailySavingsForAllTokens(
+    function _processDailySavingsForTokens(
         address user, 
         DailySavingsProcessor memory processor
     ) internal {
         uint256 tokenCount = processor.tokens.length;
         
-        for (uint256 i = 0; i < tokenCount; i++) {
+        // Process in batches for gas efficiency
+        for (uint256 i = 0; i < tokenCount; i += BATCH_SIZE) {
             // Stop if we're running low on gas
+            if (gasleft() < processor.gasLimit + processor.minGasReserve) break;
+            
+            uint256 batchEnd = i + BATCH_SIZE > tokenCount ? tokenCount : i + BATCH_SIZE;
+            _processBatch(user, processor, i, batchEnd);
+        }
+        
+        if (processor.totalSaved > 0) {
+            emit DailySavingsExecuted(user, processor.totalSaved);
+        }
+    }
+
+    function _processBatch(
+        address user,
+        DailySavingsProcessor memory processor,
+        uint256 startIdx,
+        uint256 endIdx
+    ) internal {
+        for (uint256 i = startIdx; i < endIdx; i++) {
             if (gasleft() < processor.gasLimit + processor.minGasReserve) break;
             
             address token = processor.tokens[i];
@@ -308,13 +512,27 @@ contract SpendSaveHook is BaseHook {
             (uint256 savedAmount, bool success) = _processSingleToken(user, token);
             processor.totalSaved += savedAmount;
             
+            // If successful, update last processed timestamp and maybe remove from queue
+            if (success) {
+                _updateTokenProcessingStatus(user, token);
+            }
+            
             // Adjust gas estimate based on actual usage
             uint256 gasUsed = gasStart - gasleft();
             processor.gasLimit = _adjustGasLimit(processor.gasLimit, gasUsed);
         }
+    }
+    
+    function _updateTokenProcessingStatus(address user, address token) internal {
+        TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
+        queue.lastProcessed[token] = block.timestamp;
         
-        if (processor.totalSaved > 0) {
-            emit DailySavingsExecuted(user, processor.totalSaved);
+        // Check if this token is done with daily savings
+        (bool canExecuteAgain, , ) = _getDailyExecutionStatus(user, token);
+        
+        // If it can't be executed again (completed or no longer eligible), remove from queue
+        if (!canExecuteAgain) {
+            _removeTokenFromProcessingQueue(user, token);
         }
     }
 
@@ -322,17 +540,21 @@ contract SpendSaveHook is BaseHook {
         uint256 currentLimit, 
         uint256 actualUsage
     ) internal pure returns (uint256) {
-        // If actual usage was higher, adjust upward (with dampening)
+        // More sophisticated algorithm that responds to both increases and decreases
         if (actualUsage > currentLimit) {
+            // Increase gas estimate, but don't overreact
+            return currentLimit + ((actualUsage - currentLimit) / 4);
+        } else if (actualUsage < currentLimit * 8 / 10) {
+            // Decrease gas estimate if we used significantly less (below 80%)
             return (currentLimit + actualUsage) / 2;
         }
-        return currentLimit;
+        return currentLimit; // Keep same limit if usage is close to estimate
     }
 
     function _processSingleToken(address user, address token) internal returns (uint256 savedAmount, bool success) {
         try dailySavingsModule.executeDailySavingsForToken(user, token) returns (uint256 amount) {
             if (amount > 0) {
-                emit SingleTokenSavingsExecuted(user, token, amount);
+                emit DailySavingsDetails(user, token, amount);
                 return (amount, true);
             }
         } catch Error(string memory reason) {
@@ -344,73 +566,15 @@ contract SpendSaveHook is BaseHook {
     }
 
     function _initDailySavingsProcessor(
-        address user
+        address user,
+        address[] memory eligibleTokens
     ) internal view returns (DailySavingsProcessor memory) {
         return DailySavingsProcessor({
-            tokens: storage_.getUserSavingsTokens(user),
+            tokens: eligibleTokens,
             gasLimit: INITIAL_GAS_PER_TOKEN,
             totalSaved: 0,
             minGasReserve: MIN_GAS_TO_KEEP
         });
-    }
-
-    
-    // Helper for input token savings
-    function _handleInputTokenSavings(
-        address sender, 
-        SpendSaveStorage.SwapContext memory context
-    ) internal {
-        // For INPUT token type, savings were already processed in beforeSwap
-        // Just update the saving strategy
-        savingStrategyModule.updateSavingStrategy(sender, context);
-    }
-    
-    // Helper for non-input token savings
-    function _handleNonInputTokenSavings(
-        address sender,
-        SpendSaveStorage.SwapContext memory context,
-        PoolKey calldata key,
-        BalanceDelta delta
-    ) internal {
-        // Process the savings based on swap output
-        // Extract output token and amount from delta
-        (address outputToken, uint256 outputAmount) = _getOutputTokenAndAmount(key, delta);
-        
-        // Skip if no positive output
-        if (outputAmount == 0) return;
-        
-        // Process savings based on token type
-        _processSavingsBasedOnType(sender, context, key, delta);
-        
-        // Update saving strategy if using auto-increment
-        savingStrategyModule.updateSavingStrategy(sender, context);
-    }
-    
-    // Wrapper function to avoid variable stack issues
-    function _checkAndProcessDailySavings(address user) internal {
-        _tryExecuteDailySavings(user);
-    }
-
-    // Helper function to process a single token for daily savings
-    function _processDailySavingForToken(
-        address user,
-        address token
-    ) internal returns (uint256 savedAmount, uint256 gasUsed) {
-        savedAmount = 0;
-        gasUsed = 0;
-        
-        // Check if this token has pending daily savings
-        (bool canExecute, , uint256 amountToSave) = _getDailyExecutionStatus(user, token);
-        
-        if (canExecute && amountToSave > 0) {
-            // Set a gas limit for this specific token execution
-            uint256 tokenGasStart = gasleft();
-            
-            // Try to execute daily savings and handle any errors
-            (savedAmount, gasUsed) = _executeDailySavingsWithErrorHandling(user, token, tokenGasStart);
-        }
-        
-        return (savedAmount, gasUsed);
     }
 
     // Helper to get daily execution status
@@ -421,115 +585,12 @@ contract SpendSaveHook is BaseHook {
         return dailySavingsModule.getDailyExecutionStatus(user, token);
     }
 
-    // Helper to execute daily savings with error handling
-    function _executeDailySavingsWithErrorHandling(
-        address user,
-        address token,
-        uint256 tokenGasStart
-    ) internal returns (uint256 savedAmount, uint256 gasUsed) {
-        savedAmount = 0;
-        
-        try dailySavingsModule.executeDailySavingsForToken(user, token) returns (uint256 _savedAmount) {
-            if (_savedAmount > 0) {
-                savedAmount = _savedAmount;
-                
-                // Emit per-token event if needed
-                emit SingleTokenSavingsExecuted(user, token, _savedAmount);
-            }
-        } catch Error(string memory reason) {
-            // Log the error but continue with other tokens
-            emit DailySavingsExecutionFailed(user, token, reason);
-        } catch {
-            // Handle any other exceptions
-            emit DailySavingsExecutionFailed(user, token, "Unknown error");
-        }
-        
-        // Calculate gas used
-        gasUsed = tokenGasStart - gasleft();
-        
-        return (savedAmount, gasUsed);
-    }
-
     // Check if there are pending daily savings
     function _hasPendingDailySavings(address user) internal view returns (bool) {
         // First, check if the module is initialized
         if (address(dailySavingsModule) == address(0)) return false;
         
         return dailySavingsModule.hasPendingDailySavings(user);
-    }
-
-    // Check if we have enough gas to execute daily savings
-    function _hasEnoughGasForDailySavings() internal view returns (bool) {
-        uint256 gasStart = gasleft();
-        return gasStart > GAS_THRESHOLD;
-    }
-
-    // Get user's savings tokens
-    function _getUserSavingsTokens(address user) internal view returns (address[] memory) {
-        return storage_.getUserSavingsTokens(user);
-    }
-
-    // Helper function to efficiently handle daily savings execution
-    function _tryExecuteDailySavings(address user) internal {
-        // Only proceed if there are pending daily savings and we have enough gas
-        if (!_hasPendingDailySavings(user) || !_hasEnoughGasForDailySavings()) return;
-        
-        // Process daily savings for each token
-        _executeDailySavingsForTokens(user);
-    }
-
-    // Process daily savings for all user tokens
-    function _executeDailySavingsForTokens(address user) internal {
-        // Get user's savings tokens
-        address[] memory tokens = _getUserSavingsTokens(user);
-        
-        // Set initial gas parameters
-        uint256 gasPerTokenLimit = INITIAL_GAS_PER_TOKEN;
-        uint256 totalSaved = 0;
-        
-        // Process each token
-        (totalSaved, ) = _processDailySavingsLoop(user, tokens, gasPerTokenLimit);
-        
-        // Emit event if any savings were executed
-        if (totalSaved > 0) {
-            emit DailySavingsExecuted(user, totalSaved);
-        }
-    }
-
-    // Process daily savings loop for all tokens
-    function _processDailySavingsLoop(
-        address user,
-        address[] memory tokens,
-        uint256 gasPerTokenLimit
-    ) internal returns (uint256 totalSaved, uint256 adjustedGasLimit) {
-        totalSaved = 0;
-        adjustedGasLimit = gasPerTokenLimit;
-        
-        for (uint256 i = 0; i < tokens.length; i++) {
-            // Check if we still have enough gas to process another token
-            if (!_hasEnoughGasForToken(adjustedGasLimit)) break;
-            
-            address token = tokens[i];
-            
-            // Process this token using the helper
-            (uint256 savedAmount, uint256 gasUsed) = _processDailySavingForToken(user, token);
-            
-            totalSaved += savedAmount;
-            
-            // Update our gas estimate if needed
-            if (gasUsed > adjustedGasLimit) {
-                // We might want to adjust our estimate for future calls
-                adjustedGasLimit = (adjustedGasLimit + gasUsed) / 2;
-            }
-        }
-        
-        return (totalSaved, adjustedGasLimit);
-    }
-
-    // Check if we have enough gas for processing another token
-    function _hasEnoughGasForToken(uint256 gasPerTokenLimit) internal view returns (bool) {
-        uint256 currentGas = gasleft();
-        return currentGas >= MIN_GAS_TO_KEEP + gasPerTokenLimit;
     }
 
     // Helper function to get output token and amount from swap delta
@@ -553,6 +614,19 @@ contract SpendSaveHook is BaseHook {
         bytes calldata data
     ) external returns (bytes memory) {
         return abi.encode(poolManager.unlock.selector);
+    }
+    
+    // Public methods to interact with token processing queue
+    function getUserProcessingQueueLength(address user) external view returns (uint256) {
+        return _tokenProcessingQueues[user].tokenQueue.length;
+    }
+    
+    function getUserProcessingQueueTokens(address user) external view returns (address[] memory) {
+        return _tokenProcessingQueues[user].tokenQueue;
+    }
+    
+    function getTokenLastProcessed(address user, address token) external view returns (uint256) {
+        return _tokenProcessingQueues[user].lastProcessed[token];
     }
     
     // Token module proxy functions

@@ -215,6 +215,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         (,,,,,uint256 customSlippageTolerance) = storage_.getDcaTickStrategy(user);
         return customSlippageTolerance;
     }
+ 
     // Set DCA tick strategy
     function setDCATickStrategy(
         address user,
