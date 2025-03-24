@@ -108,7 +108,31 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             context.roundUpSavings
         );
     }
-    
+
+    // Add this to the Savings contract
+    function processInputSavingsAfterSwap(
+        address user,
+        address token,
+        uint256 amount
+    ) external override onlyAuthorized(user) {
+        // This is similar to processSavings but specifically for input tokens
+        // that have been diverted by the hook
+        
+        // Calculate and transfer fee
+        uint256 finalAmount = storage_.calculateAndTransferFee(user, token, amount);
+        
+        // Update savings balance and data
+        _updateSavingsRecords(user, token, finalAmount);
+        
+        // Check for goal achievement
+        _checkSavingsGoal(user, token);
+        
+        // Get current total saved amount for event
+        (uint256 totalSaved, , , ) = storage_.getSavingsData(user, token);
+        
+        emit AmountSaved(user, token, finalAmount, totalSaved);
+    }
+        
     // Process savings to a specific token from output
     function processSavingsToSpecificToken(
         address user,

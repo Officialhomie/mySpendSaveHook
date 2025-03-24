@@ -9,7 +9,12 @@ import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {BeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
+import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    BeforeSwapDelta,
+    toBeforeSwapDelta
+    } from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
 
 import "./SpendSaveStorage.sol";
 import "./ISavingStrategyModule.sol";
@@ -160,7 +165,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             afterSwap: true,  // Enable afterSwap
             beforeDonate: false,
             afterDonate: false,
-            beforeSwapReturnDelta: false,
+            beforeSwapReturnDelta: true, // Enable beforeSwapReturnsDelta
             afterSwapReturnDelta: false,
             afterAddLiquidityReturnDelta: false,
             afterRemoveLiquidityReturnDelta: false
@@ -190,6 +195,37 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     }
         
     // Hook into beforeSwap to capture swap details and prepare for savings
+    // function _beforeSwap(
+    //     address sender,
+    //     PoolKey calldata key,
+    //     IPoolManager.SwapParams calldata params,
+    //     bytes calldata hookData
+    // ) internal override nonReentrant returns (bytes4, BeforeSwapDelta, uint24) {
+    //     // Extract actual user from hookData if available
+    //     address actualUser = _extractUserFromHookData(sender, hookData);
+        
+    //     // Default to no adjustment
+    //     int256 deltaAmount = 0;
+        
+    //     // Only check modules if user has a strategy - lazy loading approach
+    //     if (_hasUserStrategy(actualUser)) {
+    //         _checkModulesInitialized();
+            
+    //         // Try to execute beforeSwap and get the adjustment amount
+    //         try savingStrategyModule.beforeSwap(actualUser, key, params) returns (int256 adjustmentAmount) {
+    //             deltaAmount = adjustmentAmount;
+    //         } catch Error(string memory reason) {
+    //             emit BeforeSwapError(actualUser, reason);
+    //             // Continue with zero adjustment
+    //         } catch {
+    //             emit BeforeSwapError(actualUser, "Unknown error in beforeSwap");
+    //             // Continue with zero adjustment
+    //         }
+    //     }
+        
+    //     return (IHooks.beforeSwap.selector, BeforeSwapDelta.wrap(deltaAmount), 0);
+    // }
+
     function _beforeSwap(
         address sender,
         PoolKey calldata key,
@@ -199,17 +235,29 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         // Extract actual user from hookData if available
         address actualUser = _extractUserFromHookData(sender, hookData);
         
+        // Default to no adjustment (zero delta)
+        BeforeSwapDelta deltaBeforeSwap = BeforeSwapDelta.wrap(0);
+        
         // Only check modules if user has a strategy - lazy loading approach
         if (_hasUserStrategy(actualUser)) {
             _checkModulesInitialized();
             
-            // Use a more Solidity-appropriate error handling approach
-            bool success = _tryBeforeSwap(actualUser, key, params);
-            // Even if it fails, we continue with the swap
+            // Try to execute beforeSwap and get the adjustment delta
+            try savingStrategyModule.beforeSwap(actualUser, key, params) returns (BeforeSwapDelta delta) {
+                deltaBeforeSwap = delta;
+            } catch Error(string memory reason) {
+                emit BeforeSwapError(actualUser, reason);
+                // Continue with zero adjustment
+            } catch {
+                emit BeforeSwapError(actualUser, "Unknown error in beforeSwap");
+                // Continue with zero adjustment
+            }
         }
         
-        return (IHooks.beforeSwap.selector, BeforeSwapDelta.wrap(0), 0);
+        return (IHooks.beforeSwap.selector, deltaBeforeSwap, 0);
     }
+
+    
     
     // Try to execute beforeSwap with error handling
     function _tryBeforeSwap(
@@ -240,11 +288,33 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         SpendSaveStorage.SwapContext memory context,
         PoolKey calldata key,
         BalanceDelta delta
-    ) internal {
+    ) internal virtual {
         if (!context.hasStrategy) return;
         
-        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            // For INPUT token type, savings were already processed in beforeSwap
+        // Modified to handle INPUT token savings correctly
+        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
+            context.pendingSaveAmount > 0) {
+            // IMPORTANT CHANGE: For INPUT token type, tokens are already diverted by Uniswap
+            // The hook now has possession of these tokens
+            
+            address inputToken = context.inputToken;
+            uint256 saveAmount = context.pendingSaveAmount;
+            
+            if (saveAmount > 0) {
+                // Transfer the tokens from hook to saving strategy for processing
+                try IERC20(inputToken).transfer(address(savingStrategyModule), saveAmount) {
+                    // Now process the savings
+                    savingsModule.processInputSavingsAfterSwap(
+                        actualUser,
+                        context.inputToken,
+                        context.pendingSaveAmount
+                    );
+                } catch {
+                    emit AfterSwapError(actualUser, "Failed to transfer tokens to saving strategy");
+                }
+            }
+            
+            // Update saving strategy if using auto-increment
             savingStrategyModule.updateSavingStrategy(actualUser, context);
             return;
         }
@@ -616,7 +686,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     function _getOutputTokenAndAmount(
         PoolKey calldata key, 
         BalanceDelta delta
-    ) private pure returns (address outputToken, uint256 outputAmount) {
+    ) internal virtual pure returns (address outputToken, uint256 outputAmount) {
         int256 amount0 = delta.amount0();
         int256 amount1 = delta.amount1();
         

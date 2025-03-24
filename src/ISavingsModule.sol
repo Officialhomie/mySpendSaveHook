@@ -31,6 +31,12 @@ interface ISavingsModule is ISpendSaveModule {
         address token,
         uint256 amount
     ) external;
+
+    function processInputSavingsAfterSwap(
+        address user,
+        address token,
+        uint256 amount
+    ) external;
     
     function depositSavings(
         address user,

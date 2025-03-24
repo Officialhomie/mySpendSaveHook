@@ -1,10 +1,10 @@
-Compiling 1 files with Solc 0.8.26
-Solc 0.8.26 finished in 78.57s
+Compiling 5 files with Solc 0.8.26
+Solc 0.8.26 finished in 80.00s
 Compiler run successful with warnings:
 Warning (2519): This declaration shadows an existing declaration.
-   --> src/SpendSaveStorage.sol:689:27:
+   --> src/SpendSaveStorage.sol:690:27:
     |
-689 |     function getAllowance(address owner, address spender, uint256 id) external view onlyModule returns (uint256) {
+690 |     function getAllowance(address owner, address spender, uint256 id) external view onlyModule returns (uint256) {
     |                           ^^^^^^^^^^^^^
 Note: The shadowed declaration is here:
   --> src/SpendSaveStorage.sol:32:5:
@@ -13,9 +13,9 @@ Note: The shadowed declaration is here:
    |     ^^^^^^^^^^^^^^^^^^^^
 
 Warning (2519): This declaration shadows an existing declaration.
-   --> src/SpendSaveStorage.sol:693:27:
+   --> src/SpendSaveStorage.sol:694:27:
     |
-693 |     function setAllowance(address owner, address spender, uint256 id, uint256 amount) external onlyModule {
+694 |     function setAllowance(address owner, address spender, uint256 id, uint256 amount) external onlyModule {
     |                           ^^^^^^^^^^^^^
 Note: The shadowed declaration is here:
   --> src/SpendSaveStorage.sol:32:5:
@@ -90,9 +90,9 @@ Note: The shadowed declaration is here:
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Warning (2519): This declaration shadows an existing declaration.
-  --> src/SavingStrategy.sol:73:5:
+  --> src/SavingStrategy.sol:77:5:
    |
-73 |     event InsufficientBalance(address indexed actualUser, address indexed token, uint256 required, uint256 available);
+77 |     event InsufficientBalance(address indexed actualUser, address indexed token, uint256 required, uint256 available);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Note: The shadowed declaration is here:
   --> src/SpendSaveStorage.sol:26:1:
@@ -123,9 +123,9 @@ Note: The shadowed declaration is here:
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
-   --> src/SpendSaveStorage.sol:290:39:
+   --> src/SpendSaveStorage.sol:291:39:
     |
-290 |     function _calculateAndTransferFee(address user, address token, uint256 amount) internal returns (uint256) {
+291 |     function _calculateAndTransferFee(address user, address token, uint256 amount) internal returns (uint256) {
     |                                       ^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
@@ -152,82 +152,100 @@ Warning (5667): Unused function parameter. Remove or comment out the variable na
 105 |         address fromToken,
     |         ^^^^^^^^^^^^^^^^^
 
-Warning (2072): Unused local variable.
-   --> src/SpendSaveHook.sol:207:13:
-    |
-207 |             bool success = _tryBeforeSwap(actualUser, key, params);
-    |             ^^^^^^^^^^^^
-
 Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
-   --> src/SpendSaveHook.sol:341:9:
+   --> src/SpendSaveHook.sol:411:9:
     |
-341 |         IPoolManager.SwapParams calldata params,
+411 |         IPoolManager.SwapParams calldata params,
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
-   --> src/SpendSaveHook.sol:588:9:
+   --> src/SpendSaveHook.sol:658:9:
     |
-588 |         address user,
+658 |         address user,
     |         ^^^^^^^^^^^^
 
 Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
-   --> src/SpendSaveHook.sol:633:9:
+   --> src/SpendSaveHook.sol:703:9:
     |
-633 |         bytes calldata data
+703 |         bytes calldata data
     |         ^^^^^^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:452:9:
+   --> test/SpendSaveHook.t.sol:669:13:
     |
-452 |         bytes memory unlockData = abi.encode(
-    |         ^^^^^^^^^^^^^^^^^^^^^^^
-
-Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:509:13:
-    |
-509 |             uint256 autoIncrement,
+669 |             uint256 autoIncrement,
     |             ^^^^^^^^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:510:13:
+   --> test/SpendSaveHook.t.sol:670:13:
     |
-510 |             uint256 maxPercentage,
+670 |             uint256 maxPercentage,
     |             ^^^^^^^^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:511:13:
+   --> test/SpendSaveHook.t.sol:671:13:
     |
-511 |             uint256 goalAmount,
+671 |             uint256 goalAmount,
     |             ^^^^^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:512:13:
+   --> test/SpendSaveHook.t.sol:672:13:
     |
-512 |             bool roundUpSavings,
+672 |             bool roundUpSavings,
     |             ^^^^^^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:513:13:
+   --> test/SpendSaveHook.t.sol:673:13:
     |
-513 |             bool enableDCA,
+673 |             bool enableDCA,
     |             ^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:515:13:
+   --> test/SpendSaveHook.t.sol:675:13:
     |
-515 |             address specificSavingsToken
+675 |             address specificSavingsToken
     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:527:30:
+   --> test/SpendSaveHook.t.sol:687:30:
     |
-527 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
+687 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
     |                              ^^^^^^^^^^^^^^^^
 
 Warning (2072): Unused local variable.
-   --> test/SpendSaveHook.t.sol:527:48:
+   --> test/SpendSaveHook.t.sol:687:48:
     |
-527 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
+687 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
+    |                                                ^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/SpendSaveHook.t.sol:744:10:
+    |
+744 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
+    |          ^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/SpendSaveHook.t.sol:744:48:
+    |
+744 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
+    |                                                ^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/SpendSaveHook.t.sol:764:9:
+    |
+764 |         uint256 expectedSavingsAfterFee = expectedSaveAmount - treasuryFee;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/SpendSaveHook.t.sol:821:10:
+    |
+821 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
+    |          ^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/SpendSaveHook.t.sol:821:48:
+    |
+821 |         (BalanceDelta delta, uint256 amountIn, uint256 amountOut) = _performSwap(user1, true, 0.5 ether);
     |                                                ^^^^^^^^^^^^^^^^^
 
 Warning (2018): Function state mutability can be restricted to pure
@@ -237,39 +255,39 @@ Warning (2018): Function state mutability can be restricted to pure
     |     ^ (Relevant source part starts here and spans across multiple lines).
 
 Warning (2018): Function state mutability can be restricted to pure
-   --> src/SavingStrategy.sol:366:5:
+   --> src/SavingStrategy.sol:398:5:
     |
-366 |     function _calculateInputSavings(
+398 |     function _calculateInputSavings(
     |     ^ (Relevant source part starts here and spans across multiple lines).
 
 Warning (2018): Function state mutability can be restricted to pure
-   --> src/SpendSaveHook.sol:587:5:
+   --> src/SpendSaveHook.sol:657:5:
     |
-587 |     function _initDailySavingsProcessor(
+657 |     function _initDailySavingsProcessor(
     |     ^ (Relevant source part starts here and spans across multiple lines).
 
 Warning (2018): Function state mutability can be restricted to view
-   --> src/SpendSaveHook.sol:632:5:
+   --> src/SpendSaveHook.sol:702:5:
     |
-632 |     function lockAcquired(
+702 |     function lockAcquired(
     |     ^ (Relevant source part starts here and spans across multiple lines).
 
 Warning (2018): Function state mutability can be restricted to view
-   --> test/SpendSaveHook.t.sol:311:5:
+   --> test/SpendSaveHook.t.sol:408:5:
     |
-311 |     function testSetup() public {
+408 |     function testSetup() public {
     |     ^ (Relevant source part starts here and spans across multiple lines).
 
 
-Ran 1 test for test/SpendSaveHook.t.sol:SpendSaveHookTest
-[PASS] testBasicSwap() (gas: 738198)
+Ran 5 tests for test/SpendSaveHook.t.sol:SpendSaveHookTest
+[FAIL: User should have spent token0] testBasicSwap() (gas: 806673)
 Logs:
   ============ SETUP START ============
   Deploying core contracts...
   Deploying storage...
   Deploying modules...
-  Hook deployed at: 0x00000000000000000000000000000000000000C0
-  Hook flags: 192
+  Hook deployed at: 0x00000000000000000000000000000000000000C8
+  Hook flags: 200
   ============ SETUP COMPLETE ============
   Initializing test pool with hook...
   Pool initialized successfully
@@ -287,19 +305,14 @@ Logs:
     TokenOut: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C
     BalanceInBefore: 10000000000000000000000
     BalanceOutBefore: 10000000000000000000000
+    Expected savings (10%): 50000000000000000
     Including sender in hook data
-    Swap Successful
-    Delta0: -519557315493842838
-    Delta1: 500000000000000000
-    BalanceInAfter: 9999430442684506157162
-    BalanceOutAfter: 10000000000000000000000
-    Amount In: 569557315493842838
-    Amount Out: 0
-  User1 token0 balance after swap: 9999430442684506157162
-  User1 savings balance: 49203200000000000
+    Swap failed with bytes error: Unknown error
+  User1 token0 balance after swap: 10000000000000000000000
+  User1 savings balance: 0
 
 Traces:
-  [851698] SpendSaveHookTest::testBasicSwap()
+  [806673] SpendSaveHookTest::testBasicSwap()
     ├─ [11298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
     ├─ [0] console::log("Savings Strategy Percentage:", 1000) [staticcall]
@@ -335,14 +348,18 @@ Traces:
     ├─ [4405] MockERC20::approve(PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
     │   ├─ emit Approval(owner: ECRecover: [0x0000000000000000000000000000000000000001], spender: PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], amount: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
     │   └─ ← [Return] true
-    ├─ [4405] MockERC20::approve(SavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
-    │   ├─ emit Approval(owner: ECRecover: [0x0000000000000000000000000000000000000001], spender: SavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70], amount: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    ├─ [4405] MockERC20::approve(TestSavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    │   ├─ emit Approval(owner: ECRecover: [0x0000000000000000000000000000000000000001], spender: TestSavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70], amount: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
     │   └─ ← [Return] true
+    ├─ [1298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
+    │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
+    ├─ [0] console::log("  Expected savings (10%):", 50000000000000000 [5e16]) [staticcall]
+    │   └─ ← [Stop] 
     ├─ [0] console::log("  Including sender in hook data") [staticcall]
     │   └─ ← [Stop] 
-    ├─ [763078] PoolSwapTest::swap(PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C0 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), TestSettings({ takeClaims: true, settleUsingBurn: false }), 0x0000000000000000000000000000000000000000000000000000000000000001)
-    │   ├─ [757255] PoolManager::unlock(0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015cf58144ef33af1e14b5208015d11f9143e27b9000000000000000000000000212224d2f2d262cd093ee13240ca4873fccbba3c0000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000006f05b59d3b2000000000000000000000000000000000000000000000000000000000001000276a4000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001)
-    │   │   ├─ [754990] PoolSwapTest::unlockCallback(0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015cf58144ef33af1e14b5208015d11f9143e27b9000000000000000000000000212224d2f2d262cd093ee13240ca4873fccbba3c0000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000006f05b59d3b2000000000000000000000000000000000000000000000000000000000001000276a4000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001)
+    ├─ [721164] PoolSwapTest::swap(PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C8 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), TestSettings({ takeClaims: true, settleUsingBurn: true }), 0x0000000000000000000000000000000000000000000000000000000000000001)
+    │   ├─ [715954] PoolManager::unlock(0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000015cf58144ef33af1e14b5208015d11f9143e27b9000000000000000000000000212224d2f2d262cd093ee13240ca4873fccbba3c0000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000006f05b59d3b2000000000000000000000000000000000000000000000000000000000001000276a4000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001)
+    │   │   ├─ [714632] PoolSwapTest::unlockCallback(0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000015cf58144ef33af1e14b5208015d11f9143e27b9000000000000000000000000212224d2f2d262cd093ee13240ca4873fccbba3c0000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000006f05b59d3b2000000000000000000000000000000000000000000000000000000000001000276a4000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001)
     │   │   │   ├─ [552] MockERC20::balanceOf(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   └─ ← [Return] 10000000000000000000000 [1e22]
     │   │   │   ├─ [2552] MockERC20::balanceOf(PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
@@ -355,185 +372,323 @@ Traces:
     │   │   │   │   └─ ← [Return] 10089770927164204436 [1.008e19]
     │   │   │   ├─ [862] PoolManager::exttload(0xec1690143798fa6d9be0e2ae9987311729015febf65e065811da6492f94dd07b) [staticcall]
     │   │   │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000000000000000000000000000
-    │   │   │   ├─ [694308] PoolManager::swap(PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C0 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), 0x0000000000000000000000000000000000000000000000000000000000000001)
-    │   │   │   │   ├─ [519631] 0x00000000000000000000000000000000000000C0::beforeSwap(PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C0 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), 0x0000000000000000000000000000000000000000000000000000000000000001)
+    │   │   │   ├─ [686166] PoolManager::swap(PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C8 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), 0x0000000000000000000000000000000000000000000000000000000000000001)
+    │   │   │   │   ├─ [193616] 0x00000000000000000000000000000000000000C8::beforeSwap(PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C8 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), 0x0000000000000000000000000000000000000000000000000000000000000001)
     │   │   │   │   │   ├─ [1298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   │   │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
-    │   │   │   │   │   ├─ [496266] SavingStrategy::beforeSwap(ECRecover: [0x0000000000000000000000000000000000000001], PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C0 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }))
-    │   │   │   │   │   │   ├─ [2976] SpendSaveStorage::spendSaveHook() [staticcall]
-    │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C0
+    │   │   │   │   │   ├─ [170320] TestSavingStrategy::beforeSwap(ECRecover: [0x0000000000000000000000000000000000000001], PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C8 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }))
+    │   │   │   │   │   │   ├─ [2998] SpendSaveStorage::spendSaveHook() [staticcall]
+    │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C8
     │   │   │   │   │   │   ├─ [1298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   │   │   │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
     │   │   │   │   │   │   ├─ [3790] SpendSaveStorage::poolManager() [staticcall]
     │   │   │   │   │   │   │   └─ ← [Return] PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]
-    │   │   │   │   │   │   ├─ [378] PoolManager::extsload(0x09e5173a1707d48f56f529279021d4b07f25c3a2b19c26fba74ea60721dc90ff) [staticcall]
+    │   │   │   │   │   │   ├─ [378] PoolManager::extsload(0xe40f8f7fdf6f81bbd33b77edf3edacb87852d03aa32a34e6d511ac122620a2fc) [staticcall]
     │   │   │   │   │   │   │   └─ ← [Return] 0x000000000bb80000000000000000000000000001000000000000000000000000
     │   │   │   │   │   │   ├─ [2614] SpendSaveStorage::dcaTargetToken(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   │   │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000
     │   │   │   │   │   │   ├─ emit ProcessingInputTokenSavings(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 500000000000000000 [5e17])
     │   │   │   │   │   │   ├─ emit SavingsCalculated(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], saveAmount: 50000000000000000 [5e16], reducedSwapAmount: 450000000000000000 [4.5e17])
-    │   │   │   │   │   │   ├─ [552] MockERC20::balanceOf(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   │   │   │   │   │   │   └─ ← [Return] 10000000000000000000000 [1e22]
-    │   │   │   │   │   │   ├─ emit UserBalanceChecked(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], balance: 10000000000000000000000 [1e22])
-    │   │   │   │   │   │   ├─ [848] MockERC20::allowance(ECRecover: [0x0000000000000000000000000000000000000001], SavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70]) [staticcall]
-    │   │   │   │   │   │   │   └─ ← [Return] 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77]
-    │   │   │   │   │   │   ├─ emit AllowanceChecked(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], allowance: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
-    │   │   │   │   │   │   ├─ emit SavingsTransferInitiated(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 50000000000000000 [5e16])
-    │   │   │   │   │   │   ├─ [27807] MockERC20::transferFrom(ECRecover: [0x0000000000000000000000000000000000000001], SavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70], 50000000000000000 [5e16])
-    │   │   │   │   │   │   │   ├─ emit Transfer(from: ECRecover: [0x0000000000000000000000000000000000000001], to: SavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70], amount: 50000000000000000 [5e16])
-    │   │   │   │   │   │   │   └─ ← [Return] true
-    │   │   │   │   │   │   ├─ [552] MockERC20::balanceOf(SavingStrategy: [0xD16d567549A2a2a2005aEACf7fB193851603dd70]) [staticcall]
-    │   │   │   │   │   │   │   └─ ← [Return] 50000000000000000 [5e16]
-    │   │   │   │   │   │   ├─ emit SavingsTransferSuccess(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 50000000000000000 [5e16], contractBalance: 50000000000000000 [5e16])
-    │   │   │   │   │   │   ├─ [29765] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 50000000000000000 [5e16])
-    │   │   │   │   │   │   │   └─ ← [Return] 49600000000000000 [4.96e16]
-    │   │   │   │   │   │   ├─ emit FeeApplied(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], feeAmount: 400000000000000 [4e14])
-    │   │   │   │   │   │   ├─ [263599] Savings::processSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49600000000000000 [4.96e16])
-    │   │   │   │   │   │   │   ├─ [976] SpendSaveStorage::spendSaveHook() [staticcall]
-    │   │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C0
-    │   │   │   │   │   │   │   ├─ [4009] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49600000000000000 [4.96e16])
-    │   │   │   │   │   │   │   │   └─ ← [Return] 49203200000000000 [4.92e16]
-    │   │   │   │   │   │   │   ├─ [23232] SpendSaveStorage::increaseSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
-    │   │   │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   │   │   ├─ [145147] Token::mintSavingsToken(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
-    │   │   │   │   │   │   │   │   ├─ [976] SpendSaveStorage::spendSaveHook() [staticcall]
-    │   │   │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C0
-    │   │   │   │   │   │   │   │   ├─ [3718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   │   │   │   │   │   │   │   └─ ← [Return] 0
-    │   │   │   │   │   │   │   │   ├─ [1718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   │   │   │   │   │   │   │   └─ ← [Return] 0
-    │   │   │   │   │   │   │   │   ├─ [10494] SpendSaveStorage::getNextTokenId() [staticcall]
-    │   │   │   │   │   │   │   │   │   └─ ← [Return] 1
-    │   │   │   │   │   │   │   │   ├─ [5523] SpendSaveStorage::incrementNextTokenId()
-    │   │   │   │   │   │   │   │   │   └─ ← [Return] 1
-    │   │   │   │   │   │   │   │   ├─ [21744] SpendSaveStorage::setTokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 1)
-    │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   │   │   │   ├─ [24348] SpendSaveStorage::setIdToToken(1, MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9])
-    │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   │   │   │   ├─ emit TokenRegistered(token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1)
-    │   │   │   │   │   │   │   │   ├─ [2441] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
-    │   │   │   │   │   │   │   │   │   └─ ← [Return] 48809574400000000 [4.88e16]
-    │   │   │   │   │   │   │   │   ├─ [932] SpendSaveStorage::treasury() [staticcall]
-    │   │   │   │   │   │   │   │   │   └─ ← [Return] RIPEMD-160: [0x0000000000000000000000000000000000000003]
-    │   │   │   │   │   │   │   │   ├─ [23716] SpendSaveStorage::increaseBalance(RIPEMD-160: [0x0000000000000000000000000000000000000003], 1, 393625600000000 [3.936e14])
-    │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   │   │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: RIPEMD-160: [0x0000000000000000000000000000000000000003], id: 1, amount: 393625600000000 [3.936e14])
-    │   │   │   │   │   │   │   │   ├─ emit TreasuryFeeCollected(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 393625600000000 [3.936e14])
-    │   │   │   │   │   │   │   │   ├─ [23716] SpendSaveStorage::increaseBalance(ECRecover: [0x0000000000000000000000000000000000000001], 1, 48809574400000000 [4.88e16])
-    │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   │   │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: ECRecover: [0x0000000000000000000000000000000000000001], id: 1, amount: 48809574400000000 [4.88e16])
-    │   │   │   │   │   │   │   │   ├─ emit SavingsTokenMinted(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1, amount: 48809574400000000 [4.88e16])
-    │   │   │   │   │   │   │   │   └─ ← [Return] 
-    │   │   │   │   │   │   │   ├─ [67955] SpendSaveStorage::updateSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
-    │   │   │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   │   │   ├─ [3201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   │   │   │   │   │   │   └─ ← [Return] 49203200000000000 [4.92e16], 1, 1, 0
-    │   │   │   │   │   │   │   ├─ [1298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   │   │   │   │   │   │   │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
-    │   │   │   │   │   │   │   ├─ [1201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   │   │   │   │   │   │   └─ ← [Return] 49203200000000000 [4.92e16], 1, 1, 0
-    │   │   │   │   │   │   │   ├─ emit AmountSaved(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 49203200000000000 [4.92e16], totalSaved: 49203200000000000 [4.92e16])
-    │   │   │   │   │   │   │   └─ ← [Return] 
-    │   │   │   │   │   │   ├─ emit SavingsProcessedSuccessfully(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 49600000000000000 [4.96e16])
-    │   │   │   │   │   │   ├─ emit NetAmountAfterFee(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], netAmount: 49600000000000000 [4.96e16])
-    │   │   │   │   │   │   ├─ [1467] SpendSaveStorage::savings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   │   │   │   │   │   └─ ← [Return] 49203200000000000 [4.92e16]
-    │   │   │   │   │   │   ├─ emit UserSavingsUpdated(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], newSavings: 49203200000000000 [4.92e16])
-    │   │   │   │   │   │   ├─ emit SavingsTransferStatus(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], success: true)
-    │   │   │   │   │   │   ├─ [116060] SpendSaveStorage::setSwapContext(ECRecover: [0x0000000000000000000000000000000000000001], SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17] }))
+    │   │   │   │   │   │   ├─ [139426] SpendSaveStorage::setSwapContext(ECRecover: [0x0000000000000000000000000000000000000001], SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17], pendingSaveAmount: 50000000000000000 [5e16] }))
     │   │   │   │   │   │   │   └─ ← [Stop] 
     │   │   │   │   │   │   ├─ emit SwapPrepared(user: ECRecover: [0x0000000000000000000000000000000000000001], currentSavePercentage: 1000, tokenType: 1)
+    │   │   │   │   │   │   └─ ← [Return] -17014118346046923173168730371588410572350000000000000000 [-1.701e55]
+    │   │   │   │   │   └─ ← [Return] 0x575e24b4, -17014118346046923173168730371588410572350000000000000000 [-1.701e55], 0
+    │   │   │   │   ├─ emit Swap(id: 0xb237daa34ab67e7d46e9f6300d52188e6f562906e85a484726bd05cb2c36f477, sender: PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], amount0: -465307295939766525 [-4.653e17], amount1: 450000000000000000 [4.5e17], sqrtPriceX96: 76374133761764619998974582507 [7.637e28], liquidity: 10000000000000000000 [1e19], tick: -734, fee: 3000)
+    │   │   │   │   ├─ [367538] 0x00000000000000000000000000000000000000C8::afterSwap(PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C8 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), -158335868007965332775664459703577983138521358205470310400 [-1.583e56], 0x0000000000000000000000000000000000000000000000000000000000000001)
+    │   │   │   │   │   ├─ [16697] SpendSaveStorage::getSwapContext(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
+    │   │   │   │   │   │   └─ ← [Return] SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17], pendingSaveAmount: 50000000000000000 [5e16] })
+    │   │   │   │   │   ├─ [1609] 0x00000000000000000000000000000000000000C8::checkModulesInitialized() [staticcall]
     │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   └─ ← [Return] 0x575e24b4, 0, 0
-    │   │   │   │   ├─ emit Swap(id: 0x8de700c714b88acd7e2cf1144fa781f49d361c074cad45d75d736e7400b0adb4, sender: PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], amount0: -519557315493842838 [-5.195e17], amount1: 500000000000000000 [5e17], sqrtPriceX96: 75977992949193298311006862755 [7.597e28], liquidity: 10000000000000000000 [1e19], tick: -838, fee: 3000)
-    │   │   │   │   ├─ [52015] 0x00000000000000000000000000000000000000C0::afterSwap(PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C0 }), SwapParams({ zeroForOne: true, amountSpecified: 500000000000000000 [5e17], sqrtPriceLimitX96: 4295128740 [4.295e9] }), -176796193067333615158850084296540762837171905543615152128 [-1.767e56], 0x0000000000000000000000000000000000000000000000000000000000000001)
-    │   │   │   │   │   ├─ [8528] SpendSaveStorage::getSwapContext(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   │   │   │   │   │   └─ ← [Return] SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17] })
-    │   │   │   │   │   ├─ [1631] 0x00000000000000000000000000000000000000C0::checkModulesInitialized() [staticcall]
-    │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   ├─ [4528] SpendSaveStorage::getSwapContext(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   │   │   │   │   │   └─ ← [Return] SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17] })
-    │   │   │   │   │   ├─ [11349] 0x00000000000000000000000000000000000000C0::processSavingsExternal(ECRecover: [0x0000000000000000000000000000000000000001], SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17] }), PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C0 }), -176796193067333615158850084296540762837171905543615152128 [-1.767e56])
-    │   │   │   │   │   │   ├─ [8391] SavingStrategy::updateSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001], SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17] }))
-    │   │   │   │   │   │   │   ├─ [976] SpendSaveStorage::spendSaveHook() [staticcall]
-    │   │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C0
+    │   │   │   │   │   ├─ [4697] SpendSaveStorage::getSwapContext(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
+    │   │   │   │   │   │   └─ ← [Return] SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17], pendingSaveAmount: 50000000000000000 [5e16] })
+    │   │   │   │   │   ├─ [318366] 0x00000000000000000000000000000000000000C8::processSavingsExternal(ECRecover: [0x0000000000000000000000000000000000000001], SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17], pendingSaveAmount: 50000000000000000 [5e16] }), PoolKey({ currency0: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, currency1: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C, fee: 3000, tickSpacing: 60, hooks: 0x00000000000000000000000000000000000000C8 }), -158335868007965332775664459703577983138521358205470310400 [-1.583e56])
+    │   │   │   │   │   │   ├─ [2552] MockERC20::balanceOf(0x00000000000000000000000000000000000000C8) [staticcall]
+    │   │   │   │   │   │   │   └─ ← [Return] 0
+    │   │   │   │   │   │   ├─ emit TokenHandlingDetails(token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], savedAmount: 50000000000000000 [5e16], hookBalance: 0)
+    │   │   │   │   │   │   ├─ [300485] TestSavingStrategy::processInputSavingsAfterSwap(ECRecover: [0x0000000000000000000000000000000000000001], SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17], pendingSaveAmount: 50000000000000000 [5e16] }))
+    │   │   │   │   │   │   │   ├─ [998] SpendSaveStorage::spendSaveHook() [staticcall]
+    │   │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C8
+    │   │   │   │   │   │   │   ├─ emit ProcessInputSavingsAfterSwapCalled(user: ECRecover: [0x0000000000000000000000000000000000000001], inputToken: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 50000000000000000 [5e16])
+    │   │   │   │   │   │   │   ├─ [27787] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 50000000000000000 [5e16])
+    │   │   │   │   │   │   │   │   └─ ← [Return] 49600000000000000 [4.96e16]
+    │   │   │   │   │   │   │   ├─ emit FeeApplied(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], feeAmount: 400000000000000 [4e14])
+    │   │   │   │   │   │   │   ├─ [255773] Savings::processSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49600000000000000 [4.96e16])
+    │   │   │   │   │   │   │   │   ├─ [998] SpendSaveStorage::spendSaveHook() [staticcall]
+    │   │   │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C8
+    │   │   │   │   │   │   │   │   ├─ [2031] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49600000000000000 [4.96e16])
+    │   │   │   │   │   │   │   │   │   └─ ← [Return] 49203200000000000 [4.92e16]
+    │   │   │   │   │   │   │   │   ├─ [23232] SpendSaveStorage::increaseSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
+    │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   │   │   │   ├─ [139257] Token::mintSavingsToken(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
+    │   │   │   │   │   │   │   │   │   ├─ [998] SpendSaveStorage::spendSaveHook() [staticcall]
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C8
+    │   │   │   │   │   │   │   │   │   ├─ [3718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Return] 0
+    │   │   │   │   │   │   │   │   │   ├─ [1718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Return] 0
+    │   │   │   │   │   │   │   │   │   ├─ [4494] SpendSaveStorage::getNextTokenId() [staticcall]
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Return] 1
+    │   │   │   │   │   │   │   │   │   ├─ [5523] SpendSaveStorage::incrementNextTokenId()
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Return] 1
+    │   │   │   │   │   │   │   │   │   ├─ [21766] SpendSaveStorage::setTokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 1)
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   │   │   │   │   ├─ [24370] SpendSaveStorage::setIdToToken(1, MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9])
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   │   │   │   │   ├─ emit TokenRegistered(token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1)
+    │   │   │   │   │   │   │   │   │   ├─ [2463] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Return] 48809574400000000 [4.88e16]
+    │   │   │   │   │   │   │   │   │   ├─ [954] SpendSaveStorage::treasury() [staticcall]
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Return] RIPEMD-160: [0x0000000000000000000000000000000000000003]
+    │   │   │   │   │   │   │   │   │   ├─ [23716] SpendSaveStorage::increaseBalance(RIPEMD-160: [0x0000000000000000000000000000000000000003], 1, 393625600000000 [3.936e14])
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   │   │   │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: RIPEMD-160: [0x0000000000000000000000000000000000000003], id: 1, amount: 393625600000000 [3.936e14])
+    │   │   │   │   │   │   │   │   │   ├─ emit TreasuryFeeCollected(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 393625600000000 [3.936e14])
+    │   │   │   │   │   │   │   │   │   ├─ [23716] SpendSaveStorage::increaseBalance(ECRecover: [0x0000000000000000000000000000000000000001], 1, 48809574400000000 [4.88e16])
+    │   │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   │   │   │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: ECRecover: [0x0000000000000000000000000000000000000001], id: 1, amount: 48809574400000000 [4.88e16])
+    │   │   │   │   │   │   │   │   │   ├─ emit SavingsTokenMinted(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1, amount: 48809574400000000 [4.88e16])
+    │   │   │   │   │   │   │   │   │   └─ ← [Return] 
+    │   │   │   │   │   │   │   │   ├─ [67977] SpendSaveStorage::updateSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 49203200000000000 [4.92e16])
+    │   │   │   │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   │   │   │   ├─ [3201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   │   │   │   │   │   │   │   └─ ← [Return] 49203200000000000 [4.92e16], 1, 1, 0
+    │   │   │   │   │   │   │   │   ├─ [1298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
+    │   │   │   │   │   │   │   │   │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
+    │   │   │   │   │   │   │   │   ├─ [1201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   │   │   │   │   │   │   │   └─ ← [Return] 49203200000000000 [4.92e16], 1, 1, 0
+    │   │   │   │   │   │   │   │   ├─ emit AmountSaved(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 49203200000000000 [4.92e16], totalSaved: 49203200000000000 [4.92e16])
+    │   │   │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   │   │   ├─ emit SavingsProcessedSuccessfully(actualUser: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 49600000000000000 [4.96e16])
+    │   │   │   │   │   │   │   └─ ← [Return] true
+    │   │   │   │   │   │   ├─ [8525] TestSavingStrategy::updateSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001], SwapContext({ hasStrategy: true, currentPercentage: 1000, roundUpSavings: false, enableDCA: false, dcaTargetToken: 0x0000000000000000000000000000000000000000, currentTick: 0, savingsTokenType: 1, specificSavingsToken: 0x0000000000000000000000000000000000000000, inputToken: 0x15cF58144EF33af1e14b5208015d11F9143E27b9, inputAmount: 500000000000000000 [5e17], pendingSaveAmount: 50000000000000000 [5e16] }))
+    │   │   │   │   │   │   │   ├─ [998] SpendSaveStorage::spendSaveHook() [staticcall]
+    │   │   │   │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C8
     │   │   │   │   │   │   │   ├─ [1298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   │   │   │   │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
     │   │   │   │   │   │   │   └─ ← [Stop] 
     │   │   │   │   │   │   └─ ← [Stop] 
-    │   │   │   │   │   ├─ [2735] SpendSaveStorage::deleteSwapContext(ECRecover: [0x0000000000000000000000000000000000000001])
-    │   │   │   │   │   │   └─ ← [Stop] 
+    │   │   │   │   │   ├─ [2858] SpendSaveStorage::deleteSwapContext(ECRecover: [0x0000000000000000000000000000000000000001])
+    │   │   │   │   │   │   └─ ← [Return] 
     │   │   │   │   │   ├─ [7684] DailySavings::hasPendingDailySavings(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   │   │   ├─ [4353] SpendSaveStorage::getUserSavingsTokens(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   │   │   │   └─ ← [Return] []
     │   │   │   │   │   │   └─ ← [Return] false
     │   │   │   │   │   └─ ← [Return] 0xb47b2fb1, 0
-    │   │   │   │   └─ ← [Return] -176796193067333615158850084296540762837171905543615152128 [-1.767e56]
+    │   │   │   │   └─ ← [Return] -311462933122387641334183033047873678293671358205470310400 [-3.114e56]
     │   │   │   ├─ [552] MockERC20::balanceOf(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   │   │   │   └─ ← [Return] 9999950000000000000000 [9.999e21]
+    │   │   │   │   └─ ← [Return] 10000000000000000000000 [1e22]
     │   │   │   ├─ [552] MockERC20::balanceOf(PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
     │   │   │   │   └─ ← [Return] 10089770927164204436 [1.008e19]
     │   │   │   ├─ [862] PoolManager::exttload(0x85be7c2bd5cfd9e6e3a30072d5be012f0c0649c579d3433f4d5ee458bdb429be) [staticcall]
-    │   │   │   │   └─ ← [Return] 0xfffffffffffffffffffffffffffffffffffffffffffffffff8ca295fd188b06a
+    │   │   │   │   └─ ← [Return] 0xfffffffffffffffffffffffffffffffffffffffffffffffff34c2cdd252fd703
     │   │   │   ├─ [552] MockERC20::balanceOf(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
     │   │   │   │   └─ ← [Return] 10000000000000000000000 [1e22]
     │   │   │   ├─ [552] MockERC20::balanceOf(PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
     │   │   │   │   └─ ← [Return] 10089770927164204436 [1.008e19]
     │   │   │   ├─ [862] PoolManager::exttload(0xec1690143798fa6d9be0e2ae9987311729015febf65e065811da6492f94dd07b) [staticcall]
     │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000000000000006f05b59d3b20000
-    │   │   │   ├─ [2017] PoolManager::sync(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9])
-    │   │   │   │   ├─ [552] MockERC20::balanceOf(PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
-    │   │   │   │   │   └─ ← [Return] 10089770927164204436 [1.008e19]
-    │   │   │   │   └─ ← [Stop] 
-    │   │   │   ├─ [5907] MockERC20::transferFrom(ECRecover: [0x0000000000000000000000000000000000000001], PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 519557315493842838 [5.195e17])
-    │   │   │   │   ├─ emit Transfer(from: ECRecover: [0x0000000000000000000000000000000000000001], to: PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], amount: 519557315493842838 [5.195e17])
-    │   │   │   │   └─ ← [Return] true
-    │   │   │   ├─ [2743] PoolManager::settle()
-    │   │   │   │   ├─ [552] MockERC20::balanceOf(PoolManager: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
-    │   │   │   │   │   └─ ← [Return] 10609328242658047274 [1.06e19]
-    │   │   │   │   └─ ← [Return] 519557315493842838 [5.195e17]
-    │   │   │   ├─ [26202] PoolManager::mint(ECRecover: [0x0000000000000000000000000000000000000001], 189158128598292903493480378438929206074730592828 [1.891e47], 500000000000000000 [5e17])
-    │   │   │   │   ├─ emit Transfer(caller: PoolSwapTest: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], from: 0x0000000000000000000000000000000000000000, to: ECRecover: [0x0000000000000000000000000000000000000001], id: 189158128598292903493480378438929206074730592828 [1.891e47], amount: 500000000000000000 [5e17])
-    │   │   │   │   └─ ← [Stop] 
-    │   │   │   └─ ← [Return] 0xfffffffffffffffff8ca295fd188b06a000000000000000006f05b59d3b20000
-    │   │   └─ ← [Return] 0xfffffffffffffffff8ca295fd188b06a000000000000000006f05b59d3b20000
-    │   └─ ← [Return] -176796193067333615158850084296540762837171905543615152128 [-1.767e56]
-    ├─ [0] console::log("  Swap Successful") [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [0] console::log("  Delta0:", -519557315493842838 [-5.195e17]) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [0] console::log("  Delta1:", 500000000000000000 [5e17]) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [552] MockERC20::balanceOf(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   └─ ← [Return] 9999430442684506157162 [9.999e21]
-    ├─ [552] MockERC20::balanceOf(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   └─ ← [Return] 10000000000000000000000 [1e22]
-    ├─ [0] console::log("  BalanceInAfter:", 9999430442684506157162 [9.999e21]) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [0] console::log("  BalanceOutAfter:", 10000000000000000000000 [1e22]) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [0] console::log("  Amount In:", 569557315493842838 [5.695e17]) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [0] console::log("  Amount Out:", 0) [staticcall]
+    │   │   │   ├─ [6694] PoolManager::burn(ECRecover: [0x0000000000000000000000000000000000000001], 124512733235148509670984850249661524172173354937 [1.245e47], 915307295939766525 [9.153e17])
+    │   │   │   │   └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+    │   │   │   └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+    │   │   └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+    │   └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+    ├─ [0] console::log("  Swap failed with bytes error:", "Unknown error") [staticcall]
     │   └─ ← [Stop] 
     ├─ [0] VM::stopPrank()
     │   └─ ← [Return] 
     ├─ [552] MockERC20::balanceOf(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   └─ ← [Return] 9999430442684506157162 [9.999e21]
-    ├─ [0] console::log("User1 token0 balance after swap:", 9999430442684506157162 [9.999e21]) [staticcall]
+    │   └─ ← [Return] 10000000000000000000000 [1e22]
+    ├─ [0] console::log("User1 token0 balance after swap:", 10000000000000000000000 [1e22]) [staticcall]
     │   └─ ← [Stop] 
-    ├─ [1467] SpendSaveStorage::savings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   └─ ← [Return] 49203200000000000 [4.92e16]
-    ├─ [0] console::log("User1 savings balance:", 49203200000000000 [4.92e16]) [staticcall]
+    ├─ [3489] SpendSaveStorage::savings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("User1 savings balance:", 0) [staticcall]
     │   └─ ← [Stop] 
-    ├─ [0] VM::assertTrue(true, "User should have spent token0") [staticcall]
-    │   └─ ← [Return] 
-    ├─ [0] VM::assertTrue(true, "User should have received token1") [staticcall]
-    │   └─ ← [Return] 
-    ├─ [0] VM::assertLt(9999430442684506157162 [9.999e21], 10000000000000000000000 [1e22], "User should have spent token0") [staticcall]
-    │   └─ ← [Return] 
-    └─ ← [Return] 
+    ├─ [0] VM::assertTrue(false, "User should have spent token0") [staticcall]
+    │   └─ ← [Revert] User should have spent token0
+    └─ ← [Revert] User should have spent token0
 
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.07ms (845.42µs CPU time)
+[PASS] testSetup() (gas: 12923)
+Logs:
+  ============ SETUP START ============
+  Deploying core contracts...
+  Deploying storage...
+  Deploying modules...
+  Hook deployed at: 0x00000000000000000000000000000000000000C8
+  Hook flags: 200
+  ============ SETUP COMPLETE ============
+  Initializing test pool with hook...
+  Pool initialized successfully
+  Liquidity added in -60 to +60 range
+  Liquidity added in -120 to +120 range
+  Liquidity added for full range
+  Setup test passed!
 
-Ran 1 test suite in 1.26s (6.07ms CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+[PASS] testWithOutputTokenSavings() (gas: 775063)
+Logs:
+  ============ SETUP START ============
+  Deploying core contracts...
+  Deploying storage...
+  Deploying modules...
+  Hook deployed at: 0x00000000000000000000000000000000000000C8
+  Hook flags: 200
+  ============ SETUP COMPLETE ============
+  Initializing test pool with hook...
+  Pool initialized successfully
+  Liquidity added in -60 to +60 range
+  Liquidity added in -120 to +120 range
+  Liquidity added for full range
+  Output Savings Strategy Percentage: 1000
+  Output Savings Type: 0
+  User1 token1 savings before swap: 0
+  Performing swap:
+    Sender: 0x0000000000000000000000000000000000000001
+    Zero for One: true
+    Amount Specified: 500000000000000000
+    TokenIn: 0x15cF58144EF33af1e14b5208015d11F9143E27b9
+    TokenOut: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C
+    BalanceInBefore: 10000000000000000000000
+    BalanceOutBefore: 10000000000000000000000
+    Including sender in hook data
+    Swap failed with bytes error: Unknown error
+  Swap failed, skipping rest of test
+
+[FAIL: Treasury should have received fee: 7968000000000000 != 4000000000000000] test_DirectSavings() (gas: 399109)
+Logs:
+  ============ SETUP START ============
+  Deploying core contracts...
+  Deploying storage...
+  Deploying modules...
+  Hook deployed at: 0x00000000000000000000000000000000000000C8
+  Hook flags: 200
+  ============ SETUP COMPLETE ============
+  Initializing test pool with hook...
+  Pool initialized successfully
+  Liquidity added in -60 to +60 range
+  Liquidity added in -120 to +120 range
+  Liquidity added for full range
+  User1 savings balance before: 0
+  User1 savings balance after: 496000000000000000
+  Treasury savings balance: 7968000000000000
+
+Traces:
+  [399109] SpendSaveHookTest::test_DirectSavings()
+    ├─ [3489] SpendSaveStorage::savings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("User1 savings balance before:", 0) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] VM::startPrank(ECRecover: [0x0000000000000000000000000000000000000001])
+    │   └─ ← [Return] 
+    ├─ [24305] MockERC20::approve(Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], 500000000000000000 [5e17])
+    │   ├─ emit Approval(owner: ECRecover: [0x0000000000000000000000000000000000000001], spender: Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], amount: 500000000000000000 [5e17])
+    │   └─ ← [Return] true
+    ├─ [334384] Savings::depositSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 500000000000000000 [5e17])
+    │   ├─ [30116] MockERC20::transferFrom(ECRecover: [0x0000000000000000000000000000000000000001], Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], 500000000000000000 [5e17])
+    │   │   ├─ emit Transfer(from: ECRecover: [0x0000000000000000000000000000000000000001], to: Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], amount: 500000000000000000 [5e17])
+    │   │   └─ ← [Return] true
+    │   ├─ [31931] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 500000000000000000 [5e17])
+    │   │   └─ ← [Return] 496000000000000000 [4.96e17]
+    │   ├─ [21232] SpendSaveStorage::increaseSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
+    │   │   └─ ← [Stop] 
+    │   ├─ [147257] Token::mintSavingsToken(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
+    │   │   ├─ [2998] SpendSaveStorage::spendSaveHook() [staticcall]
+    │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C8
+    │   │   ├─ [3718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   │   └─ ← [Return] 0
+    │   │   ├─ [1718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   │   └─ ← [Return] 0
+    │   │   ├─ [10494] SpendSaveStorage::getNextTokenId() [staticcall]
+    │   │   │   └─ ← [Return] 1
+    │   │   ├─ [5523] SpendSaveStorage::incrementNextTokenId()
+    │   │   │   └─ ← [Return] 1
+    │   │   ├─ [21766] SpendSaveStorage::setTokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 1)
+    │   │   │   └─ ← [Stop] 
+    │   │   ├─ [24370] SpendSaveStorage::setIdToToken(1, MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9])
+    │   │   │   └─ ← [Stop] 
+    │   │   ├─ emit TokenRegistered(token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1)
+    │   │   ├─ [2463] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
+    │   │   │   └─ ← [Return] 492032000000000000 [4.92e17]
+    │   │   ├─ [954] SpendSaveStorage::treasury() [staticcall]
+    │   │   │   └─ ← [Return] RIPEMD-160: [0x0000000000000000000000000000000000000003]
+    │   │   ├─ [23716] SpendSaveStorage::increaseBalance(RIPEMD-160: [0x0000000000000000000000000000000000000003], 1, 3968000000000000 [3.968e15])
+    │   │   │   └─ ← [Stop] 
+    │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: RIPEMD-160: [0x0000000000000000000000000000000000000003], id: 1, amount: 3968000000000000 [3.968e15])
+    │   │   ├─ emit TreasuryFeeCollected(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 3968000000000000 [3.968e15])
+    │   │   ├─ [23716] SpendSaveStorage::increaseBalance(ECRecover: [0x0000000000000000000000000000000000000001], 1, 492032000000000000 [4.92e17])
+    │   │   │   └─ ← [Stop] 
+    │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: ECRecover: [0x0000000000000000000000000000000000000001], id: 1, amount: 492032000000000000 [4.92e17])
+    │   │   ├─ emit SavingsTokenMinted(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1, amount: 492032000000000000 [4.92e17])
+    │   │   └─ ← [Return] 
+    │   ├─ [67977] SpendSaveStorage::updateSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
+    │   │   └─ ← [Stop] 
+    │   ├─ [3201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   └─ ← [Return] 496000000000000000 [4.96e17], 1, 1, 0
+    │   ├─ [11298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
+    │   │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
+    │   ├─ [1201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   │   └─ ← [Return] 496000000000000000 [4.96e17], 1, 1, 0
+    │   ├─ emit AmountSaved(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 496000000000000000 [4.96e17], totalSaved: 496000000000000000 [4.96e17])
+    │   └─ ← [Return] 
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return] 
+    ├─ [1489] SpendSaveStorage::savings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   └─ ← [Return] 496000000000000000 [4.96e17]
+    ├─ [0] console::log("User1 savings balance after:", 496000000000000000 [4.96e17]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [1612] SpendSaveStorage::treasuryFee() [staticcall]
+    │   └─ ← [Return] 80
+    ├─ [0] VM::assertGt(496000000000000000 [4.96e17], 0, "Savings should have increased") [staticcall]
+    │   └─ ← [Return] 
+    ├─ [0] VM::assertEq(496000000000000000 [4.96e17], 496000000000000000 [4.96e17], "Savings should match expected amount") [staticcall]
+    │   └─ ← [Return] 
+    ├─ [1489] SpendSaveStorage::savings(RIPEMD-160: [0x0000000000000000000000000000000000000003], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
+    │   └─ ← [Return] 7968000000000000 [7.968e15]
+    ├─ [0] console::log("Treasury savings balance:", 7968000000000000 [7.968e15]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] VM::assertEq(7968000000000000 [7.968e15], 4000000000000000 [4e15], "Treasury should have received fee") [staticcall]
+    │   └─ ← [Revert] Treasury should have received fee: 7968000000000000 != 4000000000000000
+    └─ ← [Revert] Treasury should have received fee: 7968000000000000 != 4000000000000000
+
+[PASS] test_RealSwapWithInputSavings() (gas: 882013)
+Logs:
+  ============ SETUP START ============
+  Deploying core contracts...
+  Deploying storage...
+  Deploying modules...
+  Hook deployed at: 0x00000000000000000000000000000000000000C8
+  Hook flags: 200
+  ============ SETUP COMPLETE ============
+  Initializing test pool with hook...
+  Pool initialized successfully
+  Liquidity added in -60 to +60 range
+  Liquidity added in -120 to +120 range
+  Liquidity added for full range
+  Savings Strategy Percentage: 1000
+  Savings Type: 1
+  User1 token0 balance before swap: 10000000000000000000000
+  User1 savings balance before: 0
+  User1 savings balance after direct deposit: 99200000000000000
+  Performing swap:
+    Sender: 0x0000000000000000000000000000000000000001
+    Zero for One: true
+    Amount Specified: 500000000000000000
+    TokenIn: 0x15cF58144EF33af1e14b5208015d11F9143E27b9
+    TokenOut: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C
+    BalanceInBefore: 9999900000000000000000
+    BalanceOutBefore: 10000000000000000000000
+    Expected savings (10%): 50000000000000000
+    Including sender in hook data
+    Swap failed with bytes error: Unknown error
+  Swap failed, skipping rest of test
+
+Suite result: FAILED. 3 passed; 2 failed; 0 skipped; finished in 12.94ms (8.26ms CPU time)
+
+Ran 1 test suite in 224.63ms (12.94ms CPU time): 3 tests passed, 2 failed, 0 skipped (5 total tests)
+
+Failing tests:
+Encountered 2 failing tests in test/SpendSaveHook.t.sol:SpendSaveHookTest
+[FAIL: User should have spent token0] testBasicSwap() (gas: 806673)
+[FAIL: Treasury should have received fee: 7968000000000000 != 4000000000000000] test_DirectSavings() (gas: 399109)
+
+Encountered a total of 2 failing tests, 3 tests succeeded

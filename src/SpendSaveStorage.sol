@@ -90,6 +90,7 @@ contract SpendSaveStorage {
         address specificSavingsToken;
         address inputToken;     // Track input token for INPUT savings type
         uint256 inputAmount;    // Track input amount for INPUT savings type
+        uint256 pendingSaveAmount;  // Add this field
     }
     
     // DCA execution details

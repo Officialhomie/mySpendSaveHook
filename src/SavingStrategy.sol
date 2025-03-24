@@ -9,12 +9,16 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
 import {PoolId, PoolIdLibrary} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    BeforeSwapDelta,
+    toBeforeSwapDelta
+    } from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
 
 import "./SpendSaveStorage.sol";
 import "./ISavingStrategyModule.sol";
 import "./ISavingsModule.sol";
 
-/**
+/**j
  * @title SavingStrategy
  * @dev Handles user saving strategies and swap preparation
  */
@@ -201,36 +205,70 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         address actualUser, 
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params
-    ) external override nonReentrant {
+    ) external override nonReentrant returns (BeforeSwapDelta) {
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
-        
+
         // Initialize context and exit early if no strategy
         SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(actualUser);
-        
+
         // Fast path - no strategy
         if (strategy.percentage == 0) {
             SpendSaveStorage.SwapContext memory emptyContext;
             emptyContext.hasStrategy = false;
             storage_.setSwapContext(actualUser, emptyContext);
-            return;
+            return toBeforeSwapDelta(0, 0); // No adjustment for either currency
         }
-        
+
         // Build context for swap with strategy
         SpendSaveStorage.SwapContext memory context = _buildSwapContext(actualUser, strategy, key, params);
-        
+
         // Process input token savings if applicable
+        int128 specifiedDelta = 0;
+        int128 unspecifiedDelta = 0;
+        
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            // Use proper error handling without try/catch
-            bool success = _processInputTokenSavings(actualUser, context);
-            if (!success) {
-                emit FailedToApplySavings(actualUser, "Failed to process input token savings");
+            emit ProcessingInputTokenSavings(actualUser, context.inputToken, context.inputAmount);
+        
+            // Calculate savings amount
+            SavingsCalculation memory calc = _calculateInputSavings(context);
+            emit SavingsCalculated(actualUser, calc.saveAmount, calc.reducedSwapAmount);
+            
+            if (calc.saveAmount > 0) {
+                // Store amount for processing in afterSwap
+                context.pendingSaveAmount = calc.saveAmount;
+                
+                // Calculate deltas for both currencies based on swap direction and type
+                if (params.zeroForOne) {
+                    // Swapping token0 for token1 (input is token0)
+                    if (params.amountSpecified < 0) {
+                        // Exact input swap: amountSpecified is negative (input token0)
+                        specifiedDelta = int128(int256(calc.saveAmount)); // Hook takes saveAmount of token0
+                        unspecifiedDelta = -int128(int256(calc.reducedSwapAmount)); // Hook provides reduced output
+                    } else {
+                        // Exact output swap: amountSpecified is positive (output token1)
+                        specifiedDelta = -int128(int256(calc.saveAmount)); // Hook provides saveAmount of token1
+                        unspecifiedDelta = int128(int256(calc.reducedSwapAmount)); // Hook takes input
+                    }
+                } else {
+                    // Swapping token1 for token0 (input is token1)
+                    if (params.amountSpecified < 0) {
+                        specifiedDelta = int128(int256(calc.saveAmount));
+                        unspecifiedDelta = -int128(int256(calc.reducedSwapAmount));
+                    } else {
+                        specifiedDelta = -int128(int256(calc.saveAmount));
+                        unspecifiedDelta = int128(int256(calc.reducedSwapAmount));
+                    }
+                }
             }
         }
-        
-        // Store the context in storage for use in afterSwap
+
+        // Store context
         storage_.setSwapContext(actualUser, context);
         
         emit SwapPrepared(actualUser, context.currentPercentage, strategy.savingsTokenType);
+
+        // Return the delta for both currencies using the toBeforeSwapDelta helper
+        return toBeforeSwapDelta(specifiedDelta, unspecifiedDelta);
     }
 
     // New helper function to build swap context
@@ -307,27 +345,25 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         return (token, amount);
     }
 
-    // Helper to process input token savings - returns success status instead of using try/catch
+    // Helper to process input token savings 
+    // Process the actual input token savings - only executes the transfer and processing
     function _processInputTokenSavings(
         address actualUser,
         SpendSaveStorage.SwapContext memory context
     ) internal returns (bool) {
-        emit ProcessingInputTokenSavings(actualUser, context.inputToken, context.inputAmount);
-        
         // Skip if no input amount
         if (context.inputAmount == 0) {
             emit InputTokenSavingsSkipped(actualUser, "Input amount is 0");
-            return true;
+            return false;
         }
         
         // Calculate savings amount
         SavingsCalculation memory calc = _calculateInputSavings(context);
-        emit SavingsCalculated(actualUser, calc.saveAmount, calc.reducedSwapAmount);
         
         // Skip if nothing to save
         if (calc.saveAmount == 0) {
             emit InputTokenSavingsSkipped(actualUser, "Save amount is 0");
-            return true;
+            return false;
         }
         
         // Check user balance before transfer
@@ -355,14 +391,10 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         }
         
         // Execute the savings transfer and processing
-        bool success = _executeSavingsTransfer(actualUser, context.inputToken, calc.saveAmount);
-        emit SavingsTransferStatus(actualUser, context.inputToken, success);
-        
-        return success;
+        return _executeSavingsTransfer(actualUser, context.inputToken, calc.saveAmount);
     }
 
-
-
+    // Calculate input savings
     function _calculateInputSavings(
         SpendSaveStorage.SwapContext memory context
     ) internal view returns (SavingsCalculation memory) {
@@ -436,6 +468,26 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
             return inputAmount / 2; // Save at most half to ensure swap continues
         }
         return saveAmount;
+    }
+
+    function processInputSavingsAfterSwap(
+        address actualUser,
+        SpendSaveStorage.SwapContext memory context
+    ) external virtual nonReentrant returns (bool) {
+        if (msg.sender != storage_.spendSaveHook()) revert OnlyHook();
+        if (context.pendingSaveAmount == 0) return false;
+        
+        // IMPORTANT CHANGE: For Input token savings, tokens should already be 
+        // in the hook's possession after the swap is complete
+        // Process the savings through the standard pathway
+        uint256 processedAmount = _applyFeeAndProcessSavings(
+            actualUser, 
+            context.inputToken, 
+            context.pendingSaveAmount
+        );
+    
+        // Return true if any amount was processed successfully
+        return processedAmount > 0;
     }
 
     // Helper to apply fee and process savings
