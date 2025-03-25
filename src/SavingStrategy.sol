@@ -13,6 +13,8 @@ import {
     BeforeSwapDelta,
     toBeforeSwapDelta
     } from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
+import {CurrencySettler} from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
+import {Currency} from "v4-core/types/Currency.sol";
 
 import "./SpendSaveStorage.sol";
 import "./ISavingStrategyModule.sol";
@@ -25,6 +27,7 @@ import "./ISavingsModule.sol";
 contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
+    using CurrencySettler for Currency;
     
     // Cached constants to reduce gas costs
     uint256 private constant PERCENTAGE_DENOMINATOR = 10000;
@@ -89,6 +92,12 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     event FeeApplied(address indexed actualUser, address indexed token, uint256 feeAmount);
     event SavingsProcessingFailed(address indexed actualUser, address indexed token, bytes reason);
     event SavingsProcessedSuccessfully(address indexed actualUser, address indexed token, uint256 amount);
+
+    event ProcessInputSavingsAfterSwapCalled(
+        address indexed actualUser,
+        address indexed inputToken,
+        uint256 pendingSaveAmount
+    );
 
 
     
@@ -205,7 +214,7 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         address actualUser, 
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params
-    ) external override nonReentrant returns (BeforeSwapDelta) {
+    ) external virtual override nonReentrant returns (BeforeSwapDelta) {
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
 
         // Initialize context and exit early if no strategy
@@ -227,36 +236,66 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         int128 unspecifiedDelta = 0;
         
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            emit ProcessingInputTokenSavings(actualUser, context.inputToken, context.inputAmount);
-        
             // Calculate savings amount
             SavingsCalculation memory calc = _calculateInputSavings(context);
-            emit SavingsCalculated(actualUser, calc.saveAmount, calc.reducedSwapAmount);
             
             if (calc.saveAmount > 0) {
                 // Store amount for processing in afterSwap
                 context.pendingSaveAmount = calc.saveAmount;
                 
-                // Calculate deltas for both currencies based on swap direction and type
+                // FIXED VERSION: Calculate deltas for only the portion the hook will handle
                 if (params.zeroForOne) {
-                    // Swapping token0 for token1 (input is token0)
                     if (params.amountSpecified < 0) {
-                        // Exact input swap: amountSpecified is negative (input token0)
-                        specifiedDelta = int128(int256(calc.saveAmount)); // Hook takes saveAmount of token0
-                        unspecifiedDelta = -int128(int256(calc.reducedSwapAmount)); // Hook provides reduced output
+                        // Exact input swap: Hook takes a portion of token0 input
+                        specifiedDelta = -int128(int256(calc.saveAmount)); // NEGATIVE - hook takes tokens
+                        // Don't set unspecifiedDelta - hook isn't providing output tokens
+
+                        // Take the tokens from PoolManager and mint claim tokens to the hook
+                        key.currency0.take(
+                            storage_.poolManager(),
+                            address(this),
+                            calc.saveAmount,
+                            true  // Mint claim tokens to the hook
+                        );
                     } else {
-                        // Exact output swap: amountSpecified is positive (output token1)
-                        specifiedDelta = -int128(int256(calc.saveAmount)); // Hook provides saveAmount of token1
-                        unspecifiedDelta = int128(int256(calc.reducedSwapAmount)); // Hook takes input
+                        // Exact output swap: Hook takes a portion of token1 output requirement
+                        // The hook isn't providing specified token (token1)
+                        // The hook is taking some of the unspecified token (token0)
+                        unspecifiedDelta = -int128(int256(calc.saveAmount)); 
+
+                        // Take the tokens from PoolManager and mint claim tokens to the hook
+                        key.currency0.take(
+                            storage_.poolManager(),
+                            address(this),
+                            calc.saveAmount,
+                            true
+                        );
                     }
                 } else {
-                    // Swapping token1 for token0 (input is token1)
                     if (params.amountSpecified < 0) {
-                        specifiedDelta = int128(int256(calc.saveAmount));
-                        unspecifiedDelta = -int128(int256(calc.reducedSwapAmount));
+                        // Exact input swap: Hook takes a portion of token1 input
+                        specifiedDelta = -int128(int256(calc.saveAmount)); // NEGATIVE - hook takes tokens
+
+                        // Take the tokens from PoolManager and mint claim tokens to the hook
+                        key.currency1.take(
+                            storage_.poolManager(),
+                            address(this),
+                            calc.saveAmount,
+                            true
+                        );
                     } else {
-                        specifiedDelta = -int128(int256(calc.saveAmount));
-                        unspecifiedDelta = int128(int256(calc.reducedSwapAmount));
+                        // Exact output swap: Hook takes a portion of token0 output requirement
+                        unspecifiedDelta = -int128(int256(calc.saveAmount));
+
+
+                        // Take the tokens from PoolManager and mint claim tokens to the hook
+                        key.currency1.take(
+                            storage_.poolManager(),
+                            address(this),
+                            calc.saveAmount,
+                            true
+                        );
+
                     }
                 }
             }
@@ -277,7 +316,7 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         SpendSaveStorage.SavingStrategy memory strategy,
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params
-    ) internal view returns (SpendSaveStorage.SwapContext memory context) {
+    ) internal view virtual returns (SpendSaveStorage.SwapContext memory context) {
         context.hasStrategy = true;
         
         // Calculate current percentage with auto-increment if applicable
@@ -339,7 +378,7 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     function _extractInputTokenAndAmount(
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params
-    ) internal pure returns (address token, uint256 amount) {
+    ) internal pure virtual returns (address token, uint256 amount) {
         token = params.zeroForOne ? Currency.unwrap(key.currency0) : Currency.unwrap(key.currency1);
         amount = uint256(params.amountSpecified > 0 ? params.amountSpecified : -params.amountSpecified);
         return (token, amount);
@@ -416,7 +455,8 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         // Apply safety check for saving amount
         saveAmount = _applySavingLimits(saveAmount, inputAmount);
         
-        // Calculate the remaining amount after savings
+        // The reduced swap amount is what will go through the regular pool swap
+        // THIS IS IMPORTANT: The PoolManager will automatically adjust based on the BeforeSwapDelta
         uint256 reducedSwapAmount = inputAmount - saveAmount;
         
         return SavingsCalculation({
@@ -463,7 +503,7 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
 
 
     // Helper to apply saving limits
-    function _applySavingLimits(uint256 saveAmount, uint256 inputAmount) internal pure returns (uint256) {
+    function _applySavingLimits(uint256 saveAmount, uint256 inputAmount) internal pure virtual returns (uint256) {
         if (saveAmount >= inputAmount) {
             return inputAmount / 2; // Save at most half to ensure swap continues
         }
@@ -477,15 +517,16 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         if (msg.sender != storage_.spendSaveHook()) revert OnlyHook();
         if (context.pendingSaveAmount == 0) return false;
         
-        // IMPORTANT CHANGE: For Input token savings, tokens should already be 
-        // in the hook's possession after the swap is complete
-        // Process the savings through the standard pathway
+        // UPDATED: No need to transfer tokens from the user - we already have them via take()
+        emit ProcessInputSavingsAfterSwapCalled(actualUser, context.inputToken, context.pendingSaveAmount);
+        
+        // Apply fee and process savings
         uint256 processedAmount = _applyFeeAndProcessSavings(
             actualUser, 
             context.inputToken, 
             context.pendingSaveAmount
         );
-    
+
         // Return true if any amount was processed successfully
         return processedAmount > 0;
     }
@@ -496,22 +537,11 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         address token,
         uint256 amount
     ) internal returns (uint256) {
-        // Apply treasury fee if configured
+        // Apply treasury fee
         uint256 amountAfterFee = storage_.calculateAndTransferFee(actualUser, token, amount);
 
-        // Emit event if a fee was taken
-        if (amountAfterFee < amount) {
-            uint256 fee = amount - amountAfterFee;
-            emit FeeApplied(actualUser, token, fee);
-        }
-
-        // Ensure we have the correct savingsModule reference
-        if (address(savingsModule) == address(0)) {
-            emit SavingsProcessingFailed(actualUser, token, "Savings module reference is null");
-            return 0;
-        }
-
-        // Process the savings through the savings module
+        // UPDATED: We already have the tokens via take(), so no need to transfer them again
+        // Just process the savings directly
         try savingsModule.processSavings(actualUser, token, amountAfterFee) {
             emit SavingsProcessedSuccessfully(actualUser, token, amountAfterFee);
         } catch Error(string memory reason) {

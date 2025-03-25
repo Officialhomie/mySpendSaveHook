@@ -193,45 +193,13 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         }
         return sender;
     }
-        
-    // Hook into beforeSwap to capture swap details and prepare for savings
-    // function _beforeSwap(
-    //     address sender,
-    //     PoolKey calldata key,
-    //     IPoolManager.SwapParams calldata params,
-    //     bytes calldata hookData
-    // ) internal override nonReentrant returns (bytes4, BeforeSwapDelta, uint24) {
-    //     // Extract actual user from hookData if available
-    //     address actualUser = _extractUserFromHookData(sender, hookData);
-        
-    //     // Default to no adjustment
-    //     int256 deltaAmount = 0;
-        
-    //     // Only check modules if user has a strategy - lazy loading approach
-    //     if (_hasUserStrategy(actualUser)) {
-    //         _checkModulesInitialized();
-            
-    //         // Try to execute beforeSwap and get the adjustment amount
-    //         try savingStrategyModule.beforeSwap(actualUser, key, params) returns (int256 adjustmentAmount) {
-    //             deltaAmount = adjustmentAmount;
-    //         } catch Error(string memory reason) {
-    //             emit BeforeSwapError(actualUser, reason);
-    //             // Continue with zero adjustment
-    //         } catch {
-    //             emit BeforeSwapError(actualUser, "Unknown error in beforeSwap");
-    //             // Continue with zero adjustment
-    //         }
-    //     }
-        
-    //     return (IHooks.beforeSwap.selector, BeforeSwapDelta.wrap(deltaAmount), 0);
-    // }
 
     function _beforeSwap(
         address sender,
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params,
         bytes calldata hookData
-    ) internal override nonReentrant returns (bytes4, BeforeSwapDelta, uint24) {
+    ) internal virtual override nonReentrant returns (bytes4, BeforeSwapDelta, uint24) {
         // Extract actual user from hookData if available
         address actualUser = _extractUserFromHookData(sender, hookData);
         
@@ -294,23 +262,19 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         // Modified to handle INPUT token savings correctly
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
             context.pendingSaveAmount > 0) {
-            // IMPORTANT CHANGE: For INPUT token type, tokens are already diverted by Uniswap
-            // The hook now has possession of these tokens
             
             address inputToken = context.inputToken;
             uint256 saveAmount = context.pendingSaveAmount;
             
             if (saveAmount > 0) {
-                // Transfer the tokens from hook to saving strategy for processing
-                try IERC20(inputToken).transfer(address(savingStrategyModule), saveAmount) {
-                    // Now process the savings
-                    savingsModule.processInputSavingsAfterSwap(
-                        actualUser,
-                        context.inputToken,
-                        context.pendingSaveAmount
-                    );
+                // UPDATED: No need to transfer tokens - they were already taken in beforeSwap via take()
+                // Just process the savings
+                try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
+                    // Success
+                } catch Error(string memory reason) {
+                    emit AfterSwapError(actualUser, reason);
                 } catch {
-                    emit AfterSwapError(actualUser, "Failed to transfer tokens to saving strategy");
+                    emit AfterSwapError(actualUser, "Failed to process input savings");
                 }
             }
             
@@ -389,7 +353,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         IPoolManager.SwapParams calldata params,
         BalanceDelta delta,
         bytes calldata hookData
-    ) internal override nonReentrant returns (bytes4, int128) {
+    ) internal virtual override nonReentrant returns (bytes4, int128) {
         // Extract actual user from hookData if available
         address actualUser = _extractUserFromHookData(sender, hookData);
         
