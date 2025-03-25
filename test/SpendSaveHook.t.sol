@@ -136,7 +136,7 @@ contract TestSavingStrategy is SavingStrategy {
                 if (params.zeroForOne) {
                     if (params.amountSpecified < 0) {
                         // Exact input swap: Hook takes saveAmount of token0
-                        specifiedDelta = int128(int256(saveAmount));
+                        specifiedDelta = -int128(int256(saveAmount));
                         
                         // Take tokens from PoolManager to hook
                         key.currency0.take(
@@ -147,7 +147,7 @@ contract TestSavingStrategy is SavingStrategy {
                         );
                     } else {
                         // Exact output swap
-                        unspecifiedDelta = int128(int256(saveAmount));
+                        unspecifiedDelta = -int128(int256(saveAmount));
                         
                         key.currency0.take(
                             storage_.poolManager(),
@@ -159,7 +159,7 @@ contract TestSavingStrategy is SavingStrategy {
                 } else {
                     if (params.amountSpecified < 0) {
                         // Exact input swap: Hook takes saveAmount of token1
-                        specifiedDelta = int128(int256(saveAmount));
+                        specifiedDelta = -int128(int256(saveAmount));
                         
                         key.currency1.take(
                             storage_.poolManager(),
@@ -169,7 +169,7 @@ contract TestSavingStrategy is SavingStrategy {
                         );
                     } else {
                         // Exact output swap
-                        unspecifiedDelta = int128(int256(saveAmount));
+                        unspecifiedDelta = -int128(int256(saveAmount));
                         
                         key.currency1.take(
                             storage_.poolManager(),
