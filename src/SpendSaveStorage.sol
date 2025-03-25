@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolId} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
+import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @notice Centralized storage for all SpendSave modules
@@ -24,10 +25,8 @@ error InsufficientSavings();
 error IndexOutOfBounds();
 /// @notice Thrown when token balance is insufficient
 error InsufficientBalance();
-/// @notice Thrown when reentrancy is detected
-error ReentrancyGuardReentered();
 
-contract SpendSaveStorage {
+contract SpendSaveStorage is ReentrancyGuard {
     // Owner and access control
     address public owner;
     address public pendingOwner;
@@ -53,10 +52,6 @@ contract SpendSaveStorage {
 
     // Treasury configuration
     uint256 public treasuryFee; // Basis points (0.01%)
-
-    uint256 private _reentrancyStatus;
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
 
     // User saving configuration
     struct SavingStrategy {
@@ -221,13 +216,6 @@ contract SpendSaveStorage {
         }
         _;
     }
-
-    modifier nonReentrant() {
-        if (_reentrancyStatus == _ENTERED) revert ReentrancyGuardReentered();
-        _reentrancyStatus = _ENTERED;
-        _;
-        _reentrancyStatus = _NOT_ENTERED;
-    }
     
     // Module registration functions
     function setSpendSaveHook(address _hook) external onlyOwner {
@@ -280,7 +268,7 @@ contract SpendSaveStorage {
     }
     
     function setTreasuryFee(uint256 _fee) external onlyOwner {
-        if (_fee > 100) revert FeeTooHigh(); // Max 1%
+        if (_fee > 500) revert FeeTooHigh(); // Max 5%
         treasuryFee = _fee;
     }
 

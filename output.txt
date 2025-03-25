@@ -1,239 +1,128 @@
-No files changed, compilation skipped
+Compiler run failed:
+Warning (2519): This declaration shadows an existing declaration.
+   --> src/SpendSaveStorage.sol:690:27:
+    |
+690 |     function getAllowance(address owner, address spender, uint256 id) external view onlyModule returns (uint256) {
+    |                           ^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:32:5:
+   |
+32 |     address public owner;
+   |     ^^^^^^^^^^^^^^^^^^^^
 
-Ran 5 tests for test/SpendSaveHook.t.sol:SpendSaveHookTest
-[PASS] testBasicSwap() (gas: 752652)
-Logs:
-  ============ SETUP START ============
-  Deploying core contracts...
-  Deploying storage...
-  Deploying modules...
-  Hook deployed at: 0x00000000000000000000000000000000000000C8
-  Hook flags: 200
-  ============ SETUP COMPLETE ============
-  Initializing test pool with hook...
-  Pool initialized successfully
-  Liquidity added in -60 to +60 range
-  Liquidity added in -120 to +120 range
-  Liquidity added for full range
-  Savings Strategy Percentage: 1000
-  Savings Type: 1
-  User1 token0 balance before swap: 10000000000000000000000
-  Performing swap:
-    Sender: 0x0000000000000000000000000000000000000001
-    Zero for One: true
-    Amount Specified: 500000000000000000
-    TokenIn: 0x15cF58144EF33af1e14b5208015d11F9143E27b9
-    TokenOut: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C
-    BalanceInBefore: 10000000000000000000000
-    BalanceOutBefore: 10000000000000000000000
-    Expected savings (10%): 50000000000000000
-    Including sender in hook data
-    Swap Successful
-    Delta0: -500000000000000000
-    Delta1: 435797445902528023
-    BalanceInAfter: 9999500000000000000000
-    BalanceOutAfter: 10000435797445902528023
-    Amount In (from balances): 500000000000000000
-    Amount Out (from balances): 435797445902528023
-    Savings balance after swap: 49203200000000000
-  User1 token0 balance after swap: 9999500000000000000000
-  User1 savings balance: 49203200000000000
+Warning (2519): This declaration shadows an existing declaration.
+   --> src/SpendSaveStorage.sol:694:27:
+    |
+694 |     function setAllowance(address owner, address spender, uint256 id, uint256 amount) external onlyModule {
+    |                           ^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:32:5:
+   |
+32 |     address public owner;
+   |     ^^^^^^^^^^^^^^^^^^^^
 
-[PASS] testSetup() (gas: 12923)
-Logs:
-  ============ SETUP START ============
-  Deploying core contracts...
-  Deploying storage...
-  Deploying modules...
-  Hook deployed at: 0x00000000000000000000000000000000000000C8
-  Hook flags: 200
-  ============ SETUP COMPLETE ============
-  Initializing test pool with hook...
-  Pool initialized successfully
-  Liquidity added in -60 to +60 range
-  Liquidity added in -120 to +120 range
-  Liquidity added for full range
-  Setup test passed!
+Warning (8760): This declaration has the same name as another declaration.
+   --> src/DCA.sol:191:9:
+    |
+191 |         bool enableDCA,
+    |         ^^^^^^^^^^^^^^
+Note: The other declaration is here:
+   --> src/DCA.sol:154:5:
+    |
+154 |     function enableDCA(address user, address targetToken, bool enabled) external override onlyAuthorized(user) nonReentrant {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
 
-[PASS] testWithOutputTokenSavings() (gas: 791530)
-Logs:
-  ============ SETUP START ============
-  Deploying core contracts...
-  Deploying storage...
-  Deploying modules...
-  Hook deployed at: 0x00000000000000000000000000000000000000C8
-  Hook flags: 200
-  ============ SETUP COMPLETE ============
-  Initializing test pool with hook...
-  Pool initialized successfully
-  Liquidity added in -60 to +60 range
-  Liquidity added in -120 to +120 range
-  Liquidity added for full range
-  Output Savings Strategy Percentage: 1000
-  Output Savings Type: 0
-  User1 token1 savings before swap: 0
-  Performing swap:
-    Sender: 0x0000000000000000000000000000000000000001
-    Zero for One: true
-    Amount Specified: 500000000000000000
-    TokenIn: 0x15cF58144EF33af1e14b5208015d11F9143E27b9
-    TokenOut: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C
-    BalanceInBefore: 10000000000000000000000
-    BalanceOutBefore: 10000000000000000000000
-    Including sender in hook data
-    Swap Successful
-    Delta0: -500000000000000000
-    Delta1: 482034731878982405
-    BalanceInAfter: 9999500000000000000000
-    BalanceOutAfter: 10000482034731878982405
-    Amount In (from balances): 500000000000000000
-    Amount Out (from balances): 482034731878982405
-    Savings balance after swap: 0
-  User1 token0 balance after swap: 9999500000000000000000
-  User1 token1 balance after swap: 10000482034731878982405
-  User1 token1 savings after swap: 47817845402395055
+Warning (8760): This declaration has the same name as another declaration.
+   --> src/DCA.sol:342:16:
+    |
+342 |         (,,,,, bool enableDCA,,) = storage_.getUserSavingStrategy(user);
+    |                ^^^^^^^^^^^^^^
+Note: The other declaration is here:
+   --> src/DCA.sol:154:5:
+    |
+154 |     function enableDCA(address user, address targetToken, bool enabled) external override onlyAuthorized(user) nonReentrant {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
 
-[FAIL: Treasury should have received fee: 7968000000000000 != 4000000000000000] test_DirectSavings() (gas: 399109)
-Logs:
-  ============ SETUP START ============
-  Deploying core contracts...
-  Deploying storage...
-  Deploying modules...
-  Hook deployed at: 0x00000000000000000000000000000000000000C8
-  Hook flags: 200
-  ============ SETUP COMPLETE ============
-  Initializing test pool with hook...
-  Pool initialized successfully
-  Liquidity added in -60 to +60 range
-  Liquidity added in -120 to +120 range
-  Liquidity added for full range
-  User1 savings balance before: 0
-  User1 savings balance after: 496000000000000000
-  Treasury savings balance: 7968000000000000
+Warning (2519): This declaration shadows an existing declaration.
+  --> src/DCA.sol:71:5:
+   |
+71 |     error InsufficientSavings(address token, uint256 requested, uint256 available);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:22:1:
+   |
+22 | error InsufficientSavings();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Traces:
-  [399109] SpendSaveHookTest::test_DirectSavings()
-    ├─ [3489] SpendSaveStorage::savings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   └─ ← [Return] 0
-    ├─ [0] console::log("User1 savings balance before:", 0) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [0] VM::startPrank(ECRecover: [0x0000000000000000000000000000000000000001])
-    │   └─ ← [Return] 
-    ├─ [24305] MockERC20::approve(Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], 500000000000000000 [5e17])
-    │   ├─ emit Approval(owner: ECRecover: [0x0000000000000000000000000000000000000001], spender: Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], amount: 500000000000000000 [5e17])
-    │   └─ ← [Return] true
-    ├─ [334384] Savings::depositSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 500000000000000000 [5e17])
-    │   ├─ [30116] MockERC20::transferFrom(ECRecover: [0x0000000000000000000000000000000000000001], Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], 500000000000000000 [5e17])
-    │   │   ├─ emit Transfer(from: ECRecover: [0x0000000000000000000000000000000000000001], to: Savings: [0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758], amount: 500000000000000000 [5e17])
-    │   │   └─ ← [Return] true
-    │   ├─ [31931] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 500000000000000000 [5e17])
-    │   │   └─ ← [Return] 496000000000000000 [4.96e17]
-    │   ├─ [21232] SpendSaveStorage::increaseSavings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
-    │   │   └─ ← [Stop] 
-    │   ├─ [147257] Token::mintSavingsToken(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
-    │   │   ├─ [2998] SpendSaveStorage::spendSaveHook() [staticcall]
-    │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000C8
-    │   │   ├─ [3718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   │   └─ ← [Return] 0
-    │   │   ├─ [1718] SpendSaveStorage::tokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   │   └─ ← [Return] 0
-    │   │   ├─ [10494] SpendSaveStorage::getNextTokenId() [staticcall]
-    │   │   │   └─ ← [Return] 1
-    │   │   ├─ [5523] SpendSaveStorage::incrementNextTokenId()
-    │   │   │   └─ ← [Return] 1
-    │   │   ├─ [21766] SpendSaveStorage::setTokenToId(MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 1)
-    │   │   │   └─ ← [Stop] 
-    │   │   ├─ [24370] SpendSaveStorage::setIdToToken(1, MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9])
-    │   │   │   └─ ← [Stop] 
-    │   │   ├─ emit TokenRegistered(token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1)
-    │   │   ├─ [2463] SpendSaveStorage::calculateAndTransferFee(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
-    │   │   │   └─ ← [Return] 492032000000000000 [4.92e17]
-    │   │   ├─ [954] SpendSaveStorage::treasury() [staticcall]
-    │   │   │   └─ ← [Return] RIPEMD-160: [0x0000000000000000000000000000000000000003]
-    │   │   ├─ [23716] SpendSaveStorage::increaseBalance(RIPEMD-160: [0x0000000000000000000000000000000000000003], 1, 3968000000000000 [3.968e15])
-    │   │   │   └─ ← [Stop] 
-    │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: RIPEMD-160: [0x0000000000000000000000000000000000000003], id: 1, amount: 3968000000000000 [3.968e15])
-    │   │   ├─ emit TreasuryFeeCollected(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 3968000000000000 [3.968e15])
-    │   │   ├─ [23716] SpendSaveStorage::increaseBalance(ECRecover: [0x0000000000000000000000000000000000000001], 1, 492032000000000000 [4.92e17])
-    │   │   │   └─ ← [Stop] 
-    │   │   ├─ emit Transfer(sender: 0x0000000000000000000000000000000000000000, receiver: ECRecover: [0x0000000000000000000000000000000000000001], id: 1, amount: 492032000000000000 [4.92e17])
-    │   │   ├─ emit SavingsTokenMinted(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], tokenId: 1, amount: 492032000000000000 [4.92e17])
-    │   │   └─ ← [Return] 
-    │   ├─ [67977] SpendSaveStorage::updateSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], 496000000000000000 [4.96e17])
-    │   │   └─ ← [Stop] 
-    │   ├─ [3201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   └─ ← [Return] 496000000000000000 [4.96e17], 1, 1, 0
-    │   ├─ [11298] SpendSaveStorage::getUserSavingStrategy(ECRecover: [0x0000000000000000000000000000000000000001]) [staticcall]
-    │   │   └─ ← [Return] 1000, 0, 1000, 0, false, false, 1, 0x0000000000000000000000000000000000000000
-    │   ├─ [1201] SpendSaveStorage::getSavingsData(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   │   └─ ← [Return] 496000000000000000 [4.96e17], 1, 1, 0
-    │   ├─ emit AmountSaved(user: ECRecover: [0x0000000000000000000000000000000000000001], token: MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9], amount: 496000000000000000 [4.96e17], totalSaved: 496000000000000000 [4.96e17])
-    │   └─ ← [Return] 
-    ├─ [0] VM::stopPrank()
-    │   └─ ← [Return] 
-    ├─ [1489] SpendSaveStorage::savings(ECRecover: [0x0000000000000000000000000000000000000001], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   └─ ← [Return] 496000000000000000 [4.96e17]
-    ├─ [0] console::log("User1 savings balance after:", 496000000000000000 [4.96e17]) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [1612] SpendSaveStorage::treasuryFee() [staticcall]
-    │   └─ ← [Return] 80
-    ├─ [0] VM::assertGt(496000000000000000 [4.96e17], 0, "Savings should have increased") [staticcall]
-    │   └─ ← [Return] 
-    ├─ [0] VM::assertEq(496000000000000000 [4.96e17], 496000000000000000 [4.96e17], "Savings should match expected amount") [staticcall]
-    │   └─ ← [Return] 
-    ├─ [1489] SpendSaveStorage::savings(RIPEMD-160: [0x0000000000000000000000000000000000000003], MockERC20: [0x15cF58144EF33af1e14b5208015d11F9143E27b9]) [staticcall]
-    │   └─ ← [Return] 7968000000000000 [7.968e15]
-    ├─ [0] console::log("Treasury savings balance:", 7968000000000000 [7.968e15]) [staticcall]
-    │   └─ ← [Stop] 
-    ├─ [0] VM::assertEq(7968000000000000 [7.968e15], 4000000000000000 [4e15], "Treasury should have received fee") [staticcall]
-    │   └─ ← [Revert] Treasury should have received fee: 7968000000000000 != 4000000000000000
-    └─ ← [Revert] Treasury should have received fee: 7968000000000000 != 4000000000000000
+Warning (2519): This declaration shadows an existing declaration.
+  --> src/DailySavings.sol:91:5:
+   |
+91 |     error InsufficientBalance(uint256 required, uint256 available);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:26:1:
+   |
+26 | error InsufficientBalance();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-[PASS] test_RealSwapWithInputSavings() (gas: 755765)
-Logs:
-  ============ SETUP START ============
-  Deploying core contracts...
-  Deploying storage...
-  Deploying modules...
-  Hook deployed at: 0x00000000000000000000000000000000000000C8
-  Hook flags: 200
-  ============ SETUP COMPLETE ============
-  Initializing test pool with hook...
-  Pool initialized successfully
-  Liquidity added in -60 to +60 range
-  Liquidity added in -120 to +120 range
-  Liquidity added for full range
-  Savings Strategy Percentage: 1000
-  Savings Type: 1
-  User1 token0 balance before swap: 10000000000000000000000
-  User1 savings balance before: 0
-  Performing swap:
-    Sender: 0x0000000000000000000000000000000000000001
-    Zero for One: true
-    Amount Specified: 500000000000000000
-    TokenIn: 0x15cF58144EF33af1e14b5208015d11F9143E27b9
-    TokenOut: 0x212224D2F2d262cd093eE13240ca4873fcCBbA3C
-    BalanceInBefore: 10000000000000000000000
-    BalanceOutBefore: 10000000000000000000000
-    Expected savings (10%): 50000000000000000
-    Including sender in hook data
-    Swap Successful
-    Delta0: -500000000000000000
-    Delta1: 435797445902528023
-    BalanceInAfter: 9999500000000000000000
-    BalanceOutAfter: 10000435797445902528023
-    Amount In (from balances): 500000000000000000
-    Amount Out (from balances): 435797445902528023
-    Savings balance after swap: 49203200000000000
-  User1 token0 balance after swap: 9999500000000000000000
-  User1 savings balance after swap: 49203200000000000
+Warning (2519): This declaration shadows an existing declaration.
+  --> src/DailySavings.sol:93:5:
+   |
+93 |     error InsufficientSavings(address token, uint256 required, uint256 available);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:22:1:
+   |
+22 | error InsufficientSavings();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Suite result: FAILED. 4 passed; 1 failed; 0 skipped; finished in 15.73ms (8.75ms CPU time)
+Warning (2519): This declaration shadows an existing declaration.
+  --> src/DailySavings.sol:98:5:
+   |
+98 |     error ReentrancyGuardReentered();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:28:1:
+   |
+28 | error ReentrancyGuardReentered();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Ran 1 test suite in 1.41s (15.73ms CPU time): 4 tests passed, 1 failed, 0 skipped (5 total tests)
+Warning (2519): This declaration shadows an existing declaration.
+  --> src/SavingStrategy.sol:80:5:
+   |
+80 |     event InsufficientBalance(address indexed actualUser, address indexed token, uint256 required, uint256 available);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:26:1:
+   |
+26 | error InsufficientBalance();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Failing tests:
-Encountered 1 failing test in test/SpendSaveHook.t.sol:SpendSaveHookTest
-[FAIL: Treasury should have received fee: 7968000000000000 != 4000000000000000] test_DirectSavings() (gas: 399109)
+Warning (2519): This declaration shadows an existing declaration.
+  --> src/Savings.sol:37:5:
+   |
+37 |     error InsufficientSavings(address token, uint256 requested, uint256 available);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:22:1:
+   |
+22 | error InsufficientSavings();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Encountered a total of 1 failing tests, 4 tests succeeded
+Warning (2519): This declaration shadows an existing declaration.
+  --> src/Token.sol:34:5:
+   |
+34 |     error InsufficientBalance(address owner, uint256 tokenId, uint256 requested, uint256 available);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> src/SpendSaveStorage.sol:26:1:
+   |
+26 | error InsufficientBalance();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error (9553): Invalid type for argument in function call. Invalid implicit conversion from int_const 500000 to address requested.
+  --> test/SpendSaveStorage.t.sol:41:60:
+   |
+41 |         poolManager = IPoolManager(address(new PoolManager(500_000)));
+   |                                                            ^^^^^^^
+

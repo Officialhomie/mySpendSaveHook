@@ -91,8 +91,18 @@ contract Token is ITokenModule, ReentrancyGuard {
     function mintSavingsToken(address user, address token, uint256 amount) external override onlyAuthorized(user) {
         uint256 tokenId = _getOrRegisterTokenId(token);
         
-        // Process fee and update balances
-        _processTokenMinting(user, token, tokenId, amount);
+        // Just mint tokens directly to user with the full amount
+        _mintDirectly(user, tokenId, token, amount);
+    }
+
+    // Helper to mint tokens directly without fee calculation
+    function _mintDirectly(address user, uint256 tokenId, address token, uint256 amount) internal {
+        // Update user's balance directly without fee calculation
+        storage_.increaseBalance(user, tokenId, amount);
+        
+        // Emit events
+        emit Transfer(address(0), user, tokenId, amount);
+        emit SavingsTokenMinted(user, token, tokenId, amount);
     }
 
     // Helper to get or register token ID
@@ -102,33 +112,6 @@ contract Token is ITokenModule, ReentrancyGuard {
             tokenId = registerToken(token);
         }
         return tokenId;
-    }
-
-    // Helper to process token minting with fees
-    function _processTokenMinting(address user, address token, uint256 tokenId, uint256 amount) internal {
-        // Apply treasury fee if configured
-        uint256 finalAmount = storage_.calculateAndTransferFee(user, token, amount);
-        
-        // Handle treasury fee if taken
-        if (finalAmount < amount) {
-            _handleTreasuryFee(user, token, tokenId, amount - finalAmount);
-        }
-        
-        // Update user's balance
-        storage_.increaseBalance(user, tokenId, finalAmount);
-        
-        // Emit events
-        emit Transfer(address(0), user, tokenId, finalAmount);
-        emit SavingsTokenMinted(user, token, tokenId, finalAmount);
-    }
-
-    // Helper to handle treasury fee
-    function _handleTreasuryFee(address user, address token, uint256 tokenId, uint256 feeAmount) internal {
-        address treasury = storage_.treasury();
-        storage_.increaseBalance(treasury, tokenId, feeAmount);
-        
-        emit Transfer(address(0), treasury, tokenId, feeAmount);
-        emit TreasuryFeeCollected(user, token, feeAmount);
     }
     
     // Burn ERC-6909 tokens when withdrawing
