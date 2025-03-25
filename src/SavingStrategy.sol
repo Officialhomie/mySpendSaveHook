@@ -243,59 +243,22 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
                 // Store amount for processing in afterSwap
                 context.pendingSaveAmount = calc.saveAmount;
                 
-                // FIXED VERSION: Calculate deltas for only the portion the hook will handle
+                // FIXED: Use positive deltas to REDUCE the swap amount
                 if (params.zeroForOne) {
                     if (params.amountSpecified < 0) {
-                        // Exact input swap: Hook takes a portion of token0 input
-                        specifiedDelta = -int128(int256(calc.saveAmount)); // NEGATIVE - hook takes tokens
-                        // Don't set unspecifiedDelta - hook isn't providing output tokens
-
-                        // Take the tokens from PoolManager and mint claim tokens to the hook
-                        key.currency0.take(
-                            storage_.poolManager(),
-                            address(this),
-                            calc.saveAmount,
-                            true  // Mint claim tokens to the hook
-                        );
+                        // Exact input swap: Reduce the swap amount
+                        specifiedDelta = int128(int256(calc.saveAmount));
                     } else {
-                        // Exact output swap: Hook takes a portion of token1 output requirement
-                        // The hook isn't providing specified token (token1)
-                        // The hook is taking some of the unspecified token (token0)
-                        unspecifiedDelta = -int128(int256(calc.saveAmount)); 
-
-                        // Take the tokens from PoolManager and mint claim tokens to the hook
-                        key.currency0.take(
-                            storage_.poolManager(),
-                            address(this),
-                            calc.saveAmount,
-                            true
-                        );
+                        // Exact output swap: Reduce the unspecified amount
+                        unspecifiedDelta = int128(int256(calc.saveAmount));
                     }
                 } else {
                     if (params.amountSpecified < 0) {
-                        // Exact input swap: Hook takes a portion of token1 input
-                        specifiedDelta = -int128(int256(calc.saveAmount)); // NEGATIVE - hook takes tokens
-
-                        // Take the tokens from PoolManager and mint claim tokens to the hook
-                        key.currency1.take(
-                            storage_.poolManager(),
-                            address(this),
-                            calc.saveAmount,
-                            true
-                        );
+                        // Exact input swap: Reduce the swap amount
+                        specifiedDelta = int128(int256(calc.saveAmount));
                     } else {
-                        // Exact output swap: Hook takes a portion of token0 output requirement
-                        unspecifiedDelta = -int128(int256(calc.saveAmount));
-
-
-                        // Take the tokens from PoolManager and mint claim tokens to the hook
-                        key.currency1.take(
-                            storage_.poolManager(),
-                            address(this),
-                            calc.saveAmount,
-                            true
-                        );
-
+                        // Exact output swap: Reduce the unspecified amount
+                        unspecifiedDelta = int128(int256(calc.saveAmount));
                     }
                 }
             }

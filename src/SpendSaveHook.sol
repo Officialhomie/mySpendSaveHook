@@ -15,6 +15,8 @@ import {
     BeforeSwapDelta,
     toBeforeSwapDelta
     } from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
+import {CurrencySettler} from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
+
 
 import "./SpendSaveStorage.sol";
 import "./ISavingStrategyModule.sol";
@@ -29,6 +31,8 @@ import "./IDailySavingsModule.sol";
  * @dev Main contract that implements Uniswap V4 hooks and coordinates between modules
  */
 contract SpendSaveHook is BaseHook, ReentrancyGuard {
+    using CurrencySettler for Currency;
+
     // Storage contract reference
     SpendSaveStorage public immutable storage_;
     
@@ -204,9 +208,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         address actualUser = _extractUserFromHookData(sender, hookData);
         
         // Default to no adjustment (zero delta)
-        BeforeSwapDelta deltaBeforeSwap = BeforeSwapDelta.wrap(0);
+        BeforeSwapDelta deltaBeforeSwap = toBeforeSwapDelta(0, 0);
         
-        // Only check modules if user has a strategy - lazy loading approach
+        // Only check modules if user has a strategy
         if (_hasUserStrategy(actualUser)) {
             _checkModulesInitialized();
             
@@ -215,10 +219,8 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
                 deltaBeforeSwap = delta;
             } catch Error(string memory reason) {
                 emit BeforeSwapError(actualUser, reason);
-                // Continue with zero adjustment
             } catch {
                 emit BeforeSwapError(actualUser, "Unknown error in beforeSwap");
-                // Continue with zero adjustment
             }
         }
         
@@ -259,26 +261,20 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     ) internal virtual {
         if (!context.hasStrategy) return;
         
-        // Modified to handle INPUT token savings correctly
+        // Input token savings type handling
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
             context.pendingSaveAmount > 0) {
             
-            address inputToken = context.inputToken;
-            uint256 saveAmount = context.pendingSaveAmount;
-            
-            if (saveAmount > 0) {
-                // UPDATED: No need to transfer tokens - they were already taken in beforeSwap via take()
-                // Just process the savings
-                try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
-                    // Success
-                } catch Error(string memory reason) {
-                    emit AfterSwapError(actualUser, reason);
-                } catch {
-                    emit AfterSwapError(actualUser, "Failed to process input savings");
-                }
+            // UPDATED: Tokens have already been taken in _afterSwap via take()
+            try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
+                // Success
+            } catch Error(string memory reason) {
+                emit AfterSwapError(actualUser, reason);
+            } catch {
+                emit AfterSwapError(actualUser, "Failed to process input savings");
             }
             
-            // Update saving strategy if using auto-increment
+            // Update saving strategy
             savingStrategyModule.updateSavingStrategy(actualUser, context);
             return;
         }
@@ -356,6 +352,34 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     ) internal virtual override nonReentrant returns (bytes4, int128) {
         // Extract actual user from hookData if available
         address actualUser = _extractUserFromHookData(sender, hookData);
+
+        // Get swap context
+        SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+        
+        // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
+        if (context.hasStrategy && 
+            context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
+            context.pendingSaveAmount > 0) {
+            
+            // Take the tokens that were saved from the swap
+            if (params.zeroForOne) {
+                // For zeroForOne swaps, input token is token0
+                key.currency0.take(
+                    poolManager,
+                    address(this),
+                    context.pendingSaveAmount,
+                    true  // Mint claim tokens to the hook
+                );
+            } else {
+                // For oneForZero swaps, input token is token1
+                key.currency1.take(
+                    poolManager,
+                    address(this),
+                    context.pendingSaveAmount,
+                    true  // Mint claim tokens to the hook
+                );
+            }
+        }
         
         // Handle errors without using try/catch at the top level
         bool success = _executeAfterSwapLogic(actualUser, key, params, delta);

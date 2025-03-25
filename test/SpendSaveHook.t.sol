@@ -132,51 +132,22 @@ contract TestSavingStrategy is SavingStrategy {
                 saveAmount = _applySavingLimits(saveAmount, inputAmount);
                 context.pendingSaveAmount = saveAmount;
                 
-                // UPDATED: Calculate deltas and perform token accounting
+                // FIXED: Use positive deltas to REDUCE the swap amount
                 if (params.zeroForOne) {
                     if (params.amountSpecified < 0) {
-                        // Exact input swap: Hook takes saveAmount of token0
-                        specifiedDelta = -int128(int256(saveAmount));
-                        
-                        // Take tokens from PoolManager to hook
-                        key.currency0.take(
-                            storage_.poolManager(),
-                            address(this),
-                            saveAmount,
-                            true
-                        );
+                        // Exact input swap: Reduce the amount of token0 to be swapped
+                        specifiedDelta = int128(int256(saveAmount));
                     } else {
-                        // Exact output swap
-                        unspecifiedDelta = -int128(int256(saveAmount));
-                        
-                        key.currency0.take(
-                            storage_.poolManager(),
-                            address(this),
-                            saveAmount,
-                            true
-                        );
+                        // Exact output swap: Reduce the amount of token0 (unspecified)
+                        unspecifiedDelta = int128(int256(saveAmount));
                     }
                 } else {
                     if (params.amountSpecified < 0) {
-                        // Exact input swap: Hook takes saveAmount of token1
-                        specifiedDelta = -int128(int256(saveAmount));
-                        
-                        key.currency1.take(
-                            storage_.poolManager(),
-                            address(this),
-                            saveAmount,
-                            true
-                        );
+                        // Exact input swap: Reduce the amount of token1 to be swapped
+                        specifiedDelta = int128(int256(saveAmount));
                     } else {
-                        // Exact output swap
-                        unspecifiedDelta = -int128(int256(saveAmount));
-                        
-                        key.currency1.take(
-                            storage_.poolManager(),
-                            address(this),
-                            saveAmount,
-                            true
-                        );
+                        // Exact output swap: Reduce the amount of token1 (unspecified)
+                        unspecifiedDelta = int128(int256(saveAmount));
                     }
                 }
             }
@@ -257,6 +228,8 @@ contract TestSavingStrategy is SavingStrategy {
 }
 
 contract TestSpendSaveHook is SpendSaveHook {
+    using CurrencySettler for Currency;
+
     // Events for tracking test execution
     event TokenHandlingDetails(address token, uint256 savedAmount, uint256 hookBalance);
     event BeforeSwapExecuted(address user, BeforeSwapDelta delta);
@@ -312,6 +285,44 @@ contract TestSpendSaveHook is SpendSaveHook {
         address actualUser = _extractUserFromHookData(sender, hookData);
         
         emit AfterSwapExecuted(actualUser, delta);
+
+        // Get swap context
+        SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+        
+        // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
+        if (context.hasStrategy && 
+            context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
+            context.pendingSaveAmount > 0) {
+            
+            // Take the tokens that were saved from the swap
+            if (params.zeroForOne) {
+                // For zeroForOne swaps, input token is token0
+                key.currency0.take(
+                    storage_.poolManager(),
+                    address(this),
+                    context.pendingSaveAmount,
+                    true  // Mint claim tokens to the hook
+                );
+                emit TokenHandlingDetails(
+                    Currency.unwrap(key.currency0), 
+                    context.pendingSaveAmount, 
+                    0  // We don't actually need the balance here
+                );
+            } else {
+                // For oneForZero swaps, input token is token1
+                key.currency1.take(
+                    storage_.poolManager(),
+                    address(this),
+                    context.pendingSaveAmount,
+                    true  // Mint claim tokens to the hook
+                );
+                emit TokenHandlingDetails(
+                    Currency.unwrap(key.currency1), 
+                    context.pendingSaveAmount, 
+                    0  // We don't actually need the balance here
+                );
+            }
+        }
         
         // Handle errors without using try/catch at the top level
         bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
@@ -336,21 +347,13 @@ contract TestSpendSaveHook is SpendSaveHook {
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
             context.pendingSaveAmount > 0) {
             
-            address inputToken = context.inputToken;
-            uint256 saveAmount = context.pendingSaveAmount;
-            
-            if (saveAmount > 0) {
-                // UPDATED: No need to check token balance or transfer - tokens were taken via take()
-                emit TokenHandlingDetails(inputToken, saveAmount, 0); // Log for debugging
-                
-                // Process the savings
-                try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
-                    // Success
-                } catch Error(string memory reason) {
-                    emit AfterSwapError(actualUser, reason);
-                } catch {
-                    emit AfterSwapError(actualUser, "Unknown error processing input savings");
-                }
+            // Tokens have already been taken via take() in _afterSwap, just process them
+            try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
+                // Success
+            } catch Error(string memory reason) {
+                emit AfterSwapError(actualUser, reason);
+            } catch {
+                emit AfterSwapError(actualUser, "Failed to process input savings");
             }
             
             // Update saving strategy
@@ -816,8 +819,8 @@ contract SpendSaveHookTest is Test, Deployers {
 
         // Prepare swap test settings - these are important to reduce failure causes
         PoolSwapTest.TestSettings memory testSettings = PoolSwapTest.TestSettings({
-            takeClaims: true,   
-            settleUsingBurn: true  
+            takeClaims: false,   
+            settleUsingBurn: false  
         });
 
         // Swap parameters - avoid extreme price limits to prevent overflow
