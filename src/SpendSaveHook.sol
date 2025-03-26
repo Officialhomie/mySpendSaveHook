@@ -28,15 +28,17 @@ import "./IDailySavingsModule.sol";
 
 /**
  * @title SpendSaveHook
- * @dev Main contract that implements Uniswap V4 hooks and coordinates between modules
+ * @author Uniswap Labs
+ * @notice Main contract that implements Uniswap V4 hooks and coordinates between modules
+ * @dev This contract handles savings strategies, DCA, slippage control and daily savings
  */
 contract SpendSaveHook is BaseHook, ReentrancyGuard {
     using CurrencySettler for Currency;
 
-    // Storage contract reference
+    /// @notice Storage contract reference
     SpendSaveStorage public immutable storage_;
     
-    // Module references
+    /// @notice Module references
     ISavingStrategyModule public savingStrategyModule;
     ISavingsModule public savingsModule;
     IDCAModule public dcaModule;
@@ -44,12 +46,12 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     ITokenModule public tokenModule;
     IDailySavingsModule public dailySavingsModule;
     
-    // Error definitions
+    /// @notice Error definitions
     error ModuleNotInitialized(string moduleName);
     error InsufficientGas(uint256 available, uint256 required);
     error UnauthorizedAccess(address caller);
     
-    // Events
+    /// @notice Events
     event DailySavingsExecuted(address indexed user, uint256 totalAmount);
     event DailySavingsDetails(address indexed user, address indexed token, uint256 amount);
     event DailySavingsExecutionFailed(address indexed user, address indexed token, string reason);
@@ -57,14 +59,32 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     event ModulesInitialized(address strategyModule, address savingsModule, address dcaModule, address slippageModule, address tokenModule, address dailySavingsModule);
     event BeforeSwapError(address indexed user, string reason);
     event AfterSwapError(address indexed user, string reason);
+    event OutputSavingsCalculated(
+        address indexed user, 
+        address indexed token, 
+        uint256 amount
+    );
+
+    event OutputSavingsProcessed(
+        address indexed user, 
+        address indexed token, 
+        uint256 amount
+    );
+    event SpecificTokenSwapQueued(
+        address indexed user, 
+        address indexed fromToken, 
+        address indexed toToken, 
+        uint256 amount
+    );
     
-    // Gas configuration for daily savings
+    /// @notice Gas configuration for daily savings
     uint256 private constant GAS_THRESHOLD = 500000;
     uint256 private constant INITIAL_GAS_PER_TOKEN = 150000;
     uint256 private constant MIN_GAS_TO_KEEP = 100000;
     uint256 private constant DAILY_SAVINGS_THRESHOLD = 600000;
     uint256 private constant BATCH_SIZE = 5;
 
+    /// @notice Struct for processing daily savings
     struct DailySavingsProcessor {
         address[] tokens;
         uint256 gasLimit;
@@ -72,27 +92,40 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         uint256 minGasReserve;
     }
 
-    // Efficient data structure for tracking tokens that need processing
+    /// @notice Efficient data structure for tracking tokens that need processing
     struct TokenProcessingQueue {
-        // Mapping from token address to position in the queue (1-based index, 0 means not in queue)
+        /// @dev Mapping from token address to position in the queue (1-based index, 0 means not in queue)
         mapping(address => uint256) tokenPositions;
-        // Array of tokens in processing queue
+        /// @dev Array of tokens in processing queue
         address[] tokenQueue;
-        // Last processing timestamp for each token
+        /// @dev Last processing timestamp for each token
         mapping(address => uint256) lastProcessed;
     }
     
-    // Mapping from user to token processing queue
+    /// @notice Mapping from user to token processing queue
     mapping(address => TokenProcessingQueue) private _tokenProcessingQueues;
     
+    /**
+     * @notice Contract constructor
+     * @param _poolManager The Uniswap V4 pool manager contract
+     * @param _storage The storage contract for saving strategies
+     */
     constructor(
         IPoolManager _poolManager,
         SpendSaveStorage _storage
     ) BaseHook(_poolManager) {
         storage_ = _storage;
     }
-    
-    // Initialize modules - this should be called after all modules are deployed
+
+    /**
+     * @notice Initialize all modules after deployment
+     * @param _strategyModule Address of the saving strategy module
+     * @param _savingsModule Address of the savings module
+     * @param _dcaModule Address of the DCA module
+     * @param _slippageModule Address of the slippage control module
+     * @param _tokenModule Address of the token module
+     * @param _dailySavingsModule Address of the daily savings module
+     */
     function initializeModules(
         address _strategyModule,
         address _savingsModule,
@@ -227,6 +260,60 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         return (IHooks.beforeSwap.selector, deltaBeforeSwap, 0);
     }
 
+    // function _afterSwapReturnDelta(
+    //     address sender,
+    //     PoolKey calldata key,
+    //     IPoolManager.SwapParams calldata params,
+    //     BalanceDelta delta,
+    //     bytes calldata hookData
+    // ) internal virtual nonReentrant returns (bytes4, int128, int128) {
+    //     // Extract actual user from hookData if available
+    //     address actualUser = _extractUserFromHookData(sender, hookData);
+        
+    //     // Get the swap context
+    //     SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+        
+    //     // Early return if no strategy or not applicable to output savings
+    //     if (!context.hasStrategy || 
+    //         (context.savingsTokenType != SpendSaveStorage.SavingsTokenType.OUTPUT && 
+    //          context.savingsTokenType != SpendSaveStorage.SavingsTokenType.SPECIFIC)) {
+    //         return (IHooks.afterSwapReturnDelta.selector, 0, 0);
+    //     }
+        
+    //     // Determine which token is the output, amount, and whether it's token0
+    //     (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
+        
+    //     // Skip if no output
+    //     if (outputAmount == 0) {
+    //         return (IHooks.afterSwapReturnDelta.selector, 0, 0);
+    //     }
+        
+    //     // Calculate how much to save based on strategy percentage
+    //     uint256 saveAmount = savingStrategyModule.calculateSavingsAmount(
+    //         outputAmount,
+    //         context.currentPercentage,
+    //         context.roundUpSavings
+    //     );
+        
+    //     if (saveAmount == 0) {
+    //         return (IHooks.afterSwapReturnDelta.selector, 0, 0);
+    //     }
+        
+    //     // Store saveAmount in context for afterSwap to use
+    //     context.pendingSaveAmount = saveAmount;
+    //     storage_.setSwapContext(actualUser, context);
+        
+    //     emit OutputSavingsCalculated(actualUser, outputToken, saveAmount);
+        
+    //     // Return delta that reduces user's output by the savings amount
+    //     // A negative delta means the hook keeps these tokens
+    //     if (isToken0) {
+    //         return (IHooks.afterSwapReturnDelta.selector, -int128(int256(saveAmount)), 0);
+    //     } else {
+    //         return (IHooks.afterSwapReturnDelta.selector, 0, -int128(int256(saveAmount)));
+    //     }
+    // }
+
     
     
     // Try to execute beforeSwap with error handling
@@ -253,6 +340,50 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     }
 
     // Process savings based on token type - properly organized helper functions
+    // function _processSavings(
+    //     address actualUser,
+    //     SpendSaveStorage.SwapContext memory context,
+    //     PoolKey calldata key,
+    //     BalanceDelta delta
+    // ) internal virtual {
+    //     if (!context.hasStrategy) return;
+        
+    //     // Input token savings type handling
+    //     if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
+    //         context.pendingSaveAmount > 0) {
+            
+    //         // UPDATED: Tokens have already been taken in _afterSwap via take()
+    //         try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
+    //             // Success
+    //         } catch Error(string memory reason) {
+    //             emit AfterSwapError(actualUser, reason);
+    //         } catch {
+    //             emit AfterSwapError(actualUser, "Failed to process input savings");
+    //         }
+            
+    //         // Update saving strategy
+    //         savingStrategyModule.updateSavingStrategy(actualUser, context);
+    //         return;
+    //     }
+        
+    //     // Get output token and amount
+    //     (address outputToken, uint256 outputAmount) = _getOutputTokenAndAmount(key, delta);
+        
+    //     // Skip if no positive output
+    //     if (outputAmount == 0) return;
+        
+    //     // Process based on token type
+    //     if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT) {
+    //         _processOutputTokenSavings(actualUser, context, outputToken, outputAmount);
+    //     } else if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
+    //         _processSpecificTokenSavings(actualUser, context, outputToken, outputAmount);
+    //     }
+        
+    //     // Update saving strategy if using auto-increment
+    //     savingStrategyModule.updateSavingStrategy(actualUser, context);
+    // }
+
+
     function _processSavings(
         address actualUser,
         SpendSaveStorage.SwapContext memory context,
@@ -261,11 +392,11 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     ) internal virtual {
         if (!context.hasStrategy) return;
         
-        // Input token savings type handling
+        // Input token savings type handling - already processed in _afterSwap
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
             context.pendingSaveAmount > 0) {
             
-            // UPDATED: Tokens have already been taken in _afterSwap via take()
+            // Tokens have already been taken in _afterSwap via take()
             try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
                 // Success
             } catch Error(string memory reason) {
@@ -279,13 +410,14 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             return;
         }
         
-        // Get output token and amount
-        (address outputToken, uint256 outputAmount) = _getOutputTokenAndAmount(key, delta);
+        // Output token or specific token savings are handled by _processOutputSavings
+        // This is a fallback in case they weren't already processed
+        (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
         
         // Skip if no positive output
         if (outputAmount == 0) return;
         
-        // Process based on token type
+        // Process based on token type - only if not already processed
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT) {
             _processOutputTokenSavings(actualUser, context, outputToken, outputAmount);
         } else if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
@@ -343,6 +475,55 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     }
 
     // Hook into afterSwap to process savings and check for daily savings
+    // function _afterSwap(
+    //     address sender,
+    //     PoolKey calldata key,
+    //     IPoolManager.SwapParams calldata params,
+    //     BalanceDelta delta,
+    //     bytes calldata hookData
+    // ) internal virtual override nonReentrant returns (bytes4, int128) {
+    //     // Extract actual user from hookData if available
+    //     address actualUser = _extractUserFromHookData(sender, hookData);
+
+    //     // Get swap context
+    //     SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+        
+    //     // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
+    //     if (context.hasStrategy && 
+    //         context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
+    //         context.pendingSaveAmount > 0) {
+            
+    //         // Take the tokens that were saved from the swap
+    //         if (params.zeroForOne) {
+    //             // For zeroForOne swaps, input token is token0
+    //             key.currency0.take(
+    //                 poolManager,
+    //                 address(this),
+    //                 context.pendingSaveAmount,
+    //                 true  // Mint claim tokens to the hook
+    //             );
+    //         } else {
+    //             // For oneForZero swaps, input token is token1
+    //             key.currency1.take(
+    //                 poolManager,
+    //                 address(this),
+    //                 context.pendingSaveAmount,
+    //                 true  // Mint claim tokens to the hook
+    //             );
+    //         }
+    //     }
+        
+    //     // Handle errors without using try/catch at the top level
+    //     bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
+        
+    //     if (!success) {
+    //         // We still return the selector to allow the swap to complete
+    //         emit AfterSwapError(actualUser, "Error in afterSwap execution");
+    //     }
+        
+    //     return (IHooks.afterSwap.selector, 0);
+    // }
+
     function _afterSwap(
         address sender,
         PoolKey calldata key,
@@ -356,7 +537,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         // Get swap context
         SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
         
-        // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
+        // HANDLE INPUT TOKEN SAVINGS
         if (context.hasStrategy && 
             context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
             context.pendingSaveAmount > 0) {
@@ -381,7 +562,49 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             }
         }
         
-        // Handle errors without using try/catch at the top level
+        // HANDLE OUTPUT TOKEN SAVINGS 
+        if (context.hasStrategy && 
+            (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT || 
+            context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC)) {
+            
+            // Get output token information
+            (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
+            
+            if (outputToken != address(0) && outputAmount > 0) {
+                // Calculate how much to save based on strategy percentage
+                uint256 saveAmount = savingStrategyModule.calculateSavingsAmount(
+                    outputAmount,
+                    context.currentPercentage,
+                    context.roundUpSavings
+                );
+                
+                if (saveAmount > 0 && saveAmount <= outputAmount) {
+                    // Store saveAmount in context for processing
+                    context.pendingSaveAmount = saveAmount;
+                    storage_.setSwapContext(actualUser, context);
+                    
+                    // Take the tokens directly from the pool
+                    Currency outputCurrency = isToken0 ? key.currency0 : key.currency1;
+                    
+                    // Note: We need to take these tokens first before returning the delta
+                    outputCurrency.take(
+                        poolManager,
+                        address(this),
+                        saveAmount,
+                        true  // Mint claim tokens to the hook
+                    );
+                    
+                    // Process the output token savings immediately
+                    _processOutputSavings(actualUser, context, key, outputToken, isToken0);
+                    
+                    // Return a negative delta to reduce the user's output by the save amount
+                    // This ensures the pool knows these tokens have been taken
+                    return (IHooks.afterSwap.selector, isToken0 ? -int128(int256(saveAmount)) : -int128(int256(saveAmount)));
+                }
+            }
+        }
+        
+        // Handle other logic without using try/catch at the top level
         bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
         
         if (!success) {
@@ -391,24 +614,145 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         
         return (IHooks.afterSwap.selector, 0);
     }
+
+    // NEW HELPER: Process output savings tokens that were kept by afterSwapReturnDelta
+    function _processOutputSavings(
+        address actualUser,
+        SpendSaveStorage.SwapContext memory context,
+        PoolKey calldata key,
+        address outputToken,
+        bool isToken0
+    ) internal virtual {
+        uint256 saveAmount = context.pendingSaveAmount;
+        
+        // For SPECIFIC token savings type
+        address tokenToSave = outputToken;
+        bool swapQueued = false;
+        
+        // Check if we need to swap to a specific token
+        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC && 
+            context.specificSavingsToken != address(0) &&
+            context.specificSavingsToken != outputToken) {
+            
+            // Approve DCA module to spend our tokens
+            IERC20(outputToken).approve(address(dcaModule), saveAmount);
+            
+            // Create a pool key for the swap from output token to specific token
+            PoolKey memory poolKeyForDCA = storage_.createPoolKey(outputToken, context.specificSavingsToken);
+            
+            // Get current tick for the pool
+            int24 currentTick = dcaModule.getCurrentTick(poolKeyForDCA);
+            
+            // Try to queue a DCA execution for this token with proper pool key and tick
+            try dcaModule.queueDCAExecution(
+                actualUser,
+                outputToken,
+                context.specificSavingsToken,
+                saveAmount,
+                poolKeyForDCA,
+                currentTick,
+                0  // Default custom slippage tolerance
+            ) {
+                // Mark that we've queued a swap
+                swapQueued = true;
+                emit SpecificTokenSwapQueued(
+                    actualUser, 
+                    outputToken, 
+                    context.specificSavingsToken, 
+                    saveAmount
+                );
+                
+                // The DCA module now has the tokens and will process savings after swap
+            } catch Error(string memory reason) {
+                emit AfterSwapError(actualUser, reason);
+            } catch {
+                emit AfterSwapError(actualUser, "Failed to queue specific token swap");
+            }
+        }
+        
+        // Only process savings if we didn't queue a swap
+        if (!swapQueued) {
+            // Process the saved tokens directly
+            try savingsModule.processSavings(actualUser, tokenToSave, saveAmount) {
+                emit OutputSavingsProcessed(actualUser, tokenToSave, saveAmount);
+                
+                // Add token to processing queue for future daily savings
+                _addTokenToProcessingQueue(actualUser, tokenToSave);
+                
+                // Handle regular DCA if enabled (separate from specific token swap)
+                if (context.enableDCA && context.dcaTargetToken != address(0) && 
+                    tokenToSave != context.dcaTargetToken) {
+                    _processDCAIfEnabled(actualUser, context, tokenToSave);
+                }
+            } catch Error(string memory reason) {
+                emit AfterSwapError(actualUser, reason);
+            } catch {
+                emit AfterSwapError(actualUser, "Failed to process output savings");
+            }
+        }
+        
+        // Update saving strategy regardless of whether we queued a swap
+        savingStrategyModule.updateSavingStrategy(actualUser, context);
+    }
     
     // Execute afterSwap logic with proper error handling
+    // function _executeAfterSwapLogic(
+    //     address actualUser, 
+    //     PoolKey calldata key,
+    //     IPoolManager.SwapParams calldata params,
+    //     BalanceDelta delta
+    // ) internal returns (bool) {
+    //     // Only perform work if necessary
+    //     if (!_shouldProcessSwap(actualUser)) {
+    //         return true;
+    //     }
+        
+    //     // Check modules only if needed
+    //     try this.checkModulesInitialized() {
+    //         // Process swap savings
+    //         SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+            
+    //         bool savingsProcessed = _trySavingsProcessing(actualUser, context, key, delta);
+            
+    //         // Clean up context from storage regardless of processing result
+    //         storage_.deleteSwapContext(actualUser);
+            
+    //         // Only process daily savings if conditions are met
+    //         if (savingsProcessed && _shouldProcessDailySavings(actualUser)) {
+    //             _tryProcessDailySavings(actualUser);
+    //         }
+            
+    //         return true;
+    //     } catch Error(string memory reason) {
+    //         emit AfterSwapError(actualUser, reason);
+    //         return false;
+    //     } catch {
+    //         emit AfterSwapError(actualUser, "Module initialization failed");
+    //         return false;
+    //     }
+    // }
+
     function _executeAfterSwapLogic(
         address actualUser, 
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params,
         BalanceDelta delta
     ) internal returns (bool) {
-        // Only perform work if necessary
-        if (!_shouldProcessSwap(actualUser)) {
+        // Only perform work if necessary - skip for savings already processed by _processOutputSavings
+        SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+        
+        if (!_shouldProcessSwap(actualUser) || 
+            ((context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT || 
+              context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) && 
+             context.pendingSaveAmount > 0)) {
+            // Clean up context and return success
+            storage_.deleteSwapContext(actualUser);
             return true;
         }
         
         // Check modules only if needed
         try this.checkModulesInitialized() {
-            // Process swap savings
-            SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
-            
+            // Process swap savings for INPUT token type
             bool savingsProcessed = _trySavingsProcessing(actualUser, context, key, delta);
             
             // Clean up context from storage regardless of processing result
@@ -674,16 +1018,16 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     function _getOutputTokenAndAmount(
         PoolKey calldata key, 
         BalanceDelta delta
-    ) internal virtual pure returns (address outputToken, uint256 outputAmount) {
+    ) internal virtual pure returns (address outputToken, uint256 outputAmount, bool isToken0) {
         int256 amount0 = delta.amount0();
         int256 amount1 = delta.amount1();
         
         if (amount0 > 0) {
-            return (Currency.unwrap(key.currency0), uint256(amount0));
+            return (Currency.unwrap(key.currency0), uint256(amount0), true);
         } else if (amount1 > 0) {
-            return (Currency.unwrap(key.currency1), uint256(amount1));
+            return (Currency.unwrap(key.currency1), uint256(amount1), false);
         }
-        return (address(0), 0);
+        return (address(0), 0, false);
     }
     
     // Callback function to receive tokens from the PoolManager

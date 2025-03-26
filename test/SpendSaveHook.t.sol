@@ -8,6 +8,8 @@ import {console} from "forge-std/console.sol";
 import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
 import {PoolSwapTest} from "v4-core/test/PoolSwapTest.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
+import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+
 
 import {PoolManager} from "v4-core/PoolManager.sol";
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
@@ -833,6 +835,68 @@ contract TestSpendSaveHook is SpendSaveHook {
     }
 
     // Override _afterSwap to emit test events
+    // function _afterSwap(
+    //     address sender,
+    //     PoolKey calldata key,
+    //     IPoolManager.SwapParams calldata params,
+    //     BalanceDelta delta,
+    //     bytes calldata hookData
+    // ) internal override nonReentrant returns (bytes4, int128) {
+    //     // Extract actual user from hookData if available
+    //     address actualUser = _extractUserFromHookData(sender, hookData);
+        
+    //     emit AfterSwapExecuted(actualUser, delta);
+
+    //     // Get swap context
+    //     SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+        
+    //     // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
+    //     if (context.hasStrategy && 
+    //         context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
+    //         context.pendingSaveAmount > 0) {
+            
+    //         // Take the tokens that were saved from the swap
+    //         if (params.zeroForOne) {
+    //             // For zeroForOne swaps, input token is token0
+    //             key.currency0.take(
+    //                 storage_.poolManager(),
+    //                 address(this),
+    //                 context.pendingSaveAmount,
+    //                 true  // Mint claim tokens to the hook
+    //             );
+    //             emit TokenHandlingDetails(
+    //                 Currency.unwrap(key.currency0), 
+    //                 context.pendingSaveAmount, 
+    //                 0  // We don't actually need the balance here
+    //             );
+    //         } else {
+    //             // For oneForZero swaps, input token is token1
+    //             key.currency1.take(
+    //                 storage_.poolManager(),
+    //                 address(this),
+    //                 context.pendingSaveAmount,
+    //                 true  // Mint claim tokens to the hook
+    //             );
+    //             emit TokenHandlingDetails(
+    //                 Currency.unwrap(key.currency1), 
+    //                 context.pendingSaveAmount, 
+    //                 0  // We don't actually need the balance here
+    //             );
+    //         }
+    //     }
+        
+    //     // Handle errors without using try/catch at the top level
+    //     bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
+        
+    //     if (!success) {
+    //         emit AfterSwapError(actualUser, "Error in afterSwap execution");
+    //     }
+        
+    //     return (IHooks.afterSwap.selector, 0);
+    // }
+
+
+    // Override _afterSwap to emit test events and handle output/specific token savings
     function _afterSwap(
         address sender,
         PoolKey calldata key,
@@ -848,7 +912,7 @@ contract TestSpendSaveHook is SpendSaveHook {
         // Get swap context
         SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
         
-        // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
+        // Handle token taking in afterSwap for INPUT savings type
         if (context.hasStrategy && 
             context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
             context.pendingSaveAmount > 0) {
@@ -883,7 +947,53 @@ contract TestSpendSaveHook is SpendSaveHook {
             }
         }
         
-        // Handle errors without using try/catch at the top level
+        // HANDLE OUTPUT TOKEN SAVINGS 
+        if (context.hasStrategy && 
+            (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT || 
+            context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC)) {
+            
+            // Get output token information
+            (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
+            
+            if (outputToken != address(0) && outputAmount > 0) {
+                // Calculate how much to save based on strategy percentage
+                uint256 saveAmount = savingStrategyModule.calculateSavingsAmount(
+                    outputAmount,
+                    context.currentPercentage,
+                    context.roundUpSavings
+                );
+                
+                if (saveAmount > 0 && saveAmount <= outputAmount) {
+                    // Store saveAmount in context for processing
+                    context.pendingSaveAmount = saveAmount;
+                    storage_.setSwapContext(actualUser, context);
+                    
+                    // Take the tokens directly from the pool
+                    Currency outputCurrency = isToken0 ? key.currency0 : key.currency1;
+                    
+                    outputCurrency.take(
+                        storage_.poolManager(),
+                        address(this),
+                        saveAmount,
+                        true  // Mint claim tokens to the hook
+                    );
+                    
+                    emit TokenHandlingDetails(
+                        outputToken, 
+                        saveAmount, 
+                        0  // We don't need the balance here
+                    );
+                    
+                    // Process the output token savings immediately
+                    _processOutputSavings(actualUser, context, key, outputToken, isToken0);
+                    
+                    // Return a negative delta for the amount we took
+                    return (IHooks.afterSwap.selector, isToken0 ? -int128(int256(saveAmount)) : -int128(int256(saveAmount)));
+                }
+            }
+        }
+        
+        // Handle other logic without using try/catch at the top level
         bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
         
         if (!success) {
@@ -891,6 +1001,85 @@ contract TestSpendSaveHook is SpendSaveHook {
         }
         
         return (IHooks.afterSwap.selector, 0);
+    }
+
+    function _processOutputSavings(
+        address actualUser,
+        SpendSaveStorage.SwapContext memory context,
+        PoolKey calldata key,
+        address outputToken,
+        bool isToken0
+    ) internal override {
+        uint256 saveAmount = context.pendingSaveAmount;
+        
+        // For SPECIFIC token savings type
+        address tokenToSave = outputToken;
+        bool swapQueued = false;
+        
+        // Check if we need to swap to a specific token
+        if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC && 
+            context.specificSavingsToken != address(0) &&
+            context.specificSavingsToken != outputToken) {
+            
+            // Approve DCA module to spend our tokens
+            IERC20(outputToken).approve(address(dcaModule), saveAmount);
+            
+            // Create a pool key for the swap from output token to specific token
+            PoolKey memory poolKeyForDCA = storage_.createPoolKey(outputToken, context.specificSavingsToken);
+            
+            // Get current tick for the pool
+            int24 currentTick = dcaModule.getCurrentTick(poolKeyForDCA);
+            
+            // Try to queue a DCA execution for this token with proper pool key and tick
+            try dcaModule.queueDCAExecution(
+                actualUser,
+                outputToken,
+                context.specificSavingsToken,
+                saveAmount,
+                poolKeyForDCA,
+                currentTick,
+                0  // Default custom slippage tolerance
+            ) {
+                // Mark that we've queued a swap
+                swapQueued = true;
+                emit SpecificTokenSwapQueued(
+                    actualUser, 
+                    outputToken, 
+                    context.specificSavingsToken, 
+                    saveAmount
+                );
+                
+                // The DCA module now has the tokens and will process savings after swap
+            } catch Error(string memory reason) {
+                emit AfterSwapError(actualUser, reason);
+            } catch {
+                emit AfterSwapError(actualUser, "Failed to queue specific token swap");
+            }
+        }
+        
+        // Only process savings if we didn't queue a swap
+        if (!swapQueued) {
+            // Process the saved tokens directly
+            try savingsModule.processSavings(actualUser, tokenToSave, saveAmount) {
+                emit OutputSavingsProcessed(actualUser, tokenToSave, saveAmount);
+                
+                // Add token to processing queue for future daily savings
+                _addTokenToProcessingQueue(actualUser, tokenToSave);
+                
+                // Handle regular DCA if enabled (separate from specific token swap)
+                if (context.enableDCA && context.dcaTargetToken != address(0) && 
+                    tokenToSave != context.dcaTargetToken) {
+                    _processDCAIfEnabled(actualUser, context, tokenToSave);
+                }
+            } catch Error(string memory reason) {
+                emit AfterSwapError(actualUser, reason);
+            } catch {
+                emit AfterSwapError(actualUser, "Failed to process output savings");
+            }
+        }
+        
+        // Update saving strategy regardless of whether we queued a swap
+        savingStrategyModule.updateSavingStrategy(actualUser, context);
     }
 
     // Override to fix token handling for INPUT token savings in test environment
@@ -921,7 +1110,7 @@ contract TestSpendSaveHook is SpendSaveHook {
         }
         
         // Regular flow for other savings types
-        (address outputToken, uint256 outputAmount) = _getOutputTokenAndAmount(key, delta);
+        (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
         
         if (outputAmount == 0) return;
         
@@ -937,16 +1126,16 @@ contract TestSpendSaveHook is SpendSaveHook {
     function _getOutputTokenAndAmount(
         PoolKey calldata key, 
         BalanceDelta delta
-    ) internal pure override returns (address outputToken, uint256 outputAmount) {
+    ) internal pure override returns (address outputToken, uint256 outputAmount, bool isToken0) {
         int256 amount0 = delta.amount0();
         int256 amount1 = delta.amount1();
         
         if (amount0 > 0) {
-            return (Currency.unwrap(key.currency0), uint256(amount0));
+            return (Currency.unwrap(key.currency0), uint256(amount0), true);
         } else if (amount1 > 0) {
-            return (Currency.unwrap(key.currency1), uint256(amount1));
+            return (Currency.unwrap(key.currency1), uint256(amount1), false);
         }
-        return (address(0), 0);
+        return (address(0), 0, false);
     }
     
     // Override the hook permission validation for testing

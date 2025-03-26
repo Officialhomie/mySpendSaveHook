@@ -256,7 +256,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         if (amount == 0) return;
         
         // Create the pool key and queue the DCA execution
-        PoolKey memory poolKey = createPoolKey(fromToken, context.dcaTargetToken);
+        PoolKey memory poolKey = storage_.createPoolKey(fromToken, context.dcaTargetToken);
         
         queueDCAExecution(
             user,
@@ -364,7 +364,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         address targetToken = _validateDCAPrerequisites(user, fromToken, amount);
         
         // Create pool key for the swap
-        PoolKey memory poolKey = createPoolKey(fromToken, targetToken);
+        PoolKey memory poolKey = storage_.createPoolKey(fromToken, targetToken);
         
         // Get current tick
         int24 currentTick = getCurrentTick(poolKey);
@@ -973,18 +973,4 @@ contract DCA is IDCAModule, ReentrancyGuard {
         return baseAmount + (baseAmount * multiplier) / 100;
     }
     
-    
-    // Helper function to create a pool key
-    function createPoolKey(address tokenA, address tokenB) internal view returns (PoolKey memory) {
-        // Ensure tokens are in correct order
-        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        
-        return PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
-            fee: DEFAULT_FEE_TIER, // 0.3% fee tier
-            tickSpacing: DEFAULT_TICK_SPACING,
-            hooks: IHooks(address(0)) // No hooks for this swap to avoid recursive calls
-        });
-    }
 }

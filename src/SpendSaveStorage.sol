@@ -4,6 +4,9 @@ pragma solidity ^0.8.20;
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolId} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
+import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
+import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 
 /**
  * @notice Centralized storage for all SpendSave modules
@@ -600,6 +603,42 @@ contract SpendSaveStorage is ReentrancyGuard {
     // Pool ticks
     function poolTicks(PoolId poolId) external view returns (int24) {
         return _poolTicks[poolId];
+    }
+
+    /**
+    * @notice Creates a pool key with custom parameters
+    * @param tokenA First token address
+    * @param tokenB Second token address
+    * @param feeTier Fee tier (e.g., 3000 for 0.3%)
+    * @param tickSpacing Tick spacing for the pool
+    * @return Pool key for the specified parameters
+    */
+    function createPoolKey(
+        address tokenA, 
+        address tokenB, 
+        uint24 feeTier, 
+        int24 tickSpacing
+    ) public pure returns (PoolKey memory) {
+        // Ensure tokens are in correct order
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        
+        return PoolKey({
+            currency0: Currency.wrap(token0),
+            currency1: Currency.wrap(token1),
+            fee: feeTier,
+            tickSpacing: tickSpacing,
+            hooks: IHooks(address(0)) // No hooks for this swap to avoid recursive calls
+        });
+    }
+
+    /**
+    * @notice Creates a pool key with default parameters (0.3% fee tier, 60 tick spacing)
+    * @param tokenA First token address
+    * @param tokenB Second token address
+    * @return Pool key with default parameters
+    */
+    function createPoolKey(address tokenA, address tokenB) public pure returns (PoolKey memory) {
+        return createPoolKey(tokenA, tokenB, 3000, 60); // Default 0.3% fee tier and 60 tick spacing
     }
     
     function setPoolTick(PoolId poolId, int24 tick) external onlyModule {
