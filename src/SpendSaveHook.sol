@@ -59,6 +59,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     event ModulesInitialized(address strategyModule, address savingsModule, address dcaModule, address slippageModule, address tokenModule, address dailySavingsModule);
     event BeforeSwapError(address indexed user, string reason);
     event AfterSwapError(address indexed user, string reason);
+    event AfterSwapExecuted(address indexed user, BalanceDelta delta);
     event OutputSavingsCalculated(
         address indexed user, 
         address indexed token, 
@@ -207,7 +208,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             beforeDonate: false,
             afterDonate: false,
             beforeSwapReturnDelta: true, // Enable beforeSwapReturnsDelta
-            afterSwapReturnDelta: false,
+            afterSwapReturnDelta: true,
             afterAddLiquidityReturnDelta: false,
             afterRemoveLiquidityReturnDelta: false
         });
@@ -403,6 +404,100 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
      * @return int128 The delta adjustment to apply to output amounts for savings
      * @custom:security nonReentrant Only one execution at a time
      */
+    // function _afterSwap(
+    //     address sender,
+    //     PoolKey calldata key,
+    //     IPoolManager.SwapParams calldata params,
+    //     BalanceDelta delta,
+    //     bytes calldata hookData
+    // ) internal virtual override nonReentrant returns (bytes4, int128) {
+    //     // Extract actual user from hookData if available
+    //     address actualUser = _extractUserFromHookData(sender, hookData);
+        
+    //     emit AfterSwapExecuted(actualUser, delta);
+
+    //     // Get swap context
+    //     SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
+        
+    //     // HANDLE INPUT TOKEN SAVINGS
+    //     if (context.hasStrategy && 
+    //         context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
+    //         context.pendingSaveAmount > 0) {
+            
+    //         // Take the tokens that were saved from the swap
+    //         if (params.zeroForOne) {
+    //             // For zeroForOne swaps, input token is token0
+    //             key.currency0.take(
+    //                 storage_.poolManager(),
+    //                 address(this),
+    //                 context.pendingSaveAmount,
+    //                 false  // Do not mint claim tokens to the hook
+    //             );
+    //         } else {
+    //             // For oneForZero swaps, input token is token1
+    //             key.currency1.take(
+    //                 storage_.poolManager(),
+    //                 address(this),
+    //                 context.pendingSaveAmount,
+    //                 false  // Do not mint claim tokens to the hook
+    //             );
+    //         }
+    //     }
+        
+    //     // HANDLE OUTPUT TOKEN SAVINGS 
+    //     if (context.hasStrategy && 
+    //         (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT || 
+    //         context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC)) {
+            
+    //         // Get output token information
+    //         (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
+            
+    //         if (outputToken != address(0) && outputAmount > 0) {
+    //             // Calculate how much to save based on strategy percentage
+    //             uint256 saveAmount = savingStrategyModule.calculateSavingsAmount(
+    //                 outputAmount,
+    //                 context.currentPercentage,
+    //                 context.roundUpSavings
+    //             );
+                
+    //             if (saveAmount > 0 && saveAmount <= outputAmount) {
+    //                 // Store saveAmount in context for processing
+    //                 context.pendingSaveAmount = saveAmount;
+    //                 storage_.setSwapContext(actualUser, context);
+                    
+    //                 // Take the tokens directly from the pool
+    //                 Currency outputCurrency = isToken0 ? key.currency0 : key.currency1;
+                    
+    //                 // Take tokens with simplified approach
+    //                 outputCurrency.take(
+    //                     storage_.poolManager(),
+    //                     address(this),
+    //                     saveAmount,
+    //                     false  // Don't mint claim tokens to simplify
+    //                 );
+                    
+    //                 // Process the output token savings immediately
+    //                 _processOutputSavings(actualUser, context, key, outputToken, isToken0);
+                    
+    //                 // Return the proper signed delta
+    //                 // For token0 (isToken0 true), we need a negative delta amount0
+    //                 // For token1 (isToken0 false), we need a negative delta amount1
+    //                 int128 deltaAdjustment = -int128(int256(saveAmount));
+    //                 return (IHooks.afterSwap.selector, deltaAdjustment);
+    //             }
+    //         }
+    //     }
+        
+    //     // Handle other logic without using try/catch at the top level
+    //     bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
+        
+    //     if (!success) {
+    //         emit AfterSwapError(actualUser, "Error in afterSwap execution");
+    //     }
+        
+    //     return (IHooks.afterSwap.selector, 0);
+    // }
+
     function _afterSwap(
         address sender,
         PoolKey calldata key,
@@ -415,7 +510,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
 
         // Get swap context
         SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
-        
+
         // HANDLE INPUT TOKEN SAVINGS
         if (context.hasStrategy && 
             context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
@@ -425,18 +520,18 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             if (params.zeroForOne) {
                 // For zeroForOne swaps, input token is token0
                 key.currency0.take(
-                    poolManager,
+                    storage_.poolManager(),
                     address(this),
                     context.pendingSaveAmount,
-                    true  // Mint claim tokens to the hook
+                    false  // Do not mint claim tokens to the hook
                 );
             } else {
                 // For oneForZero swaps, input token is token1
                 key.currency1.take(
-                    poolManager,
+                    storage_.poolManager(),
                     address(this),
                     context.pendingSaveAmount,
-                    true  // Mint claim tokens to the hook
+                    false  // Do not mint claim tokens to the hook
                 );
             }
         }
@@ -446,48 +541,62 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT || 
             context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC)) {
             
-            // Get output token information
-            (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
+            // Get output token based on swap direction
+            Currency outputCurrency;
+            address outputToken;
+            int256 outputAmount;
+            bool isToken0;
             
-            if (outputToken != address(0) && outputAmount > 0) {
-                // Calculate how much to save based on strategy percentage
+            if (params.zeroForOne) {
+                // If swapping token0 → token1, output is token1
+                outputCurrency = key.currency1;
+                outputToken = Currency.unwrap(key.currency1);
+                outputAmount = delta.amount1();
+                isToken0 = false;
+            } else {
+                // If swapping token1 → token0, output is token0
+                outputCurrency = key.currency0;
+                outputToken = Currency.unwrap(key.currency0);
+                outputAmount = delta.amount0();
+                isToken0 = true;
+            }
+            
+            // Only proceed if output is positive
+            if (outputAmount > 0) {
+                // Calculate savings amount (10% of output)
                 uint256 saveAmount = savingStrategyModule.calculateSavingsAmount(
-                    outputAmount,
+                    uint256(outputAmount),
                     context.currentPercentage,
                     context.roundUpSavings
                 );
                 
-                if (saveAmount > 0 && saveAmount <= outputAmount) {
-                    // Store saveAmount in context for processing
+                if (saveAmount > 0 && saveAmount <= uint256(outputAmount)) {
+                    // Store saveAmount in context
                     context.pendingSaveAmount = saveAmount;
                     storage_.setSwapContext(actualUser, context);
                     
-                    // Take the tokens directly from the pool
-                    Currency outputCurrency = isToken0 ? key.currency0 : key.currency1;
-                    
-                    // Note: We need to take these tokens first before returning the delta
+                    // CRITICAL FIX 1: Enable claim tokens when taking currency
                     outputCurrency.take(
                         poolManager,
                         address(this),
                         saveAmount,
-                        true  // Mint claim tokens to the hook
+                        true  // ENABLE claim tokens for proper settlement
                     );
                     
-                    // Process the output token savings immediately
+                    // Process savings
                     _processOutputSavings(actualUser, context, key, outputToken, isToken0);
                     
-                    // Return a negative delta to reduce the user's output by the save amount
-                    // This ensures the pool knows these tokens have been taken
-                    return (IHooks.afterSwap.selector, isToken0 ? -int128(int256(saveAmount)) : -int128(int256(saveAmount)));
+                    // CRITICAL FIX 2: Return POSITIVE delta to properly account for taken tokens
+                    // This tells Uniswap we're taking these tokens from the user's output
+                    return (IHooks.afterSwap.selector, int128(int256(saveAmount)));
                 }
             }
         }
         
-        // Handle other logic without using try/catch at the top level
+        // Handle other logic without using try/catch
         bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
         
         if (!success) {
-            // We still return the selector to allow the swap to complete
             emit AfterSwapError(actualUser, "Error in afterSwap execution");
         }
         

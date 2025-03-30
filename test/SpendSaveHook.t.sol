@@ -135,7 +135,8 @@ contract SpendSaveBaseTest is Test, Deployers {
         uint160 flags = uint160(
             Hooks.BEFORE_SWAP_FLAG | 
             Hooks.AFTER_SWAP_FLAG | 
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
+            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         address hookAddress = address(flags);
@@ -489,11 +490,20 @@ contract SpendSaveBaseTest is Test, Deployers {
             console.log("  Delta1:", delta.amount1());
         } catch Error(string memory reason) {
             console.log("  Swap failed with reason:", reason);
-            vm.stopPrank();
-            return (BalanceDelta.wrap(0), 0, 0);
-        } catch (bytes memory errorData) {
-            string memory revertReason = _extractRevertReason(errorData);
-            console.log("  Swap failed with bytes error:", revertReason);
+            // Try to get more detailed info about the context
+            (
+                uint256 percentage,
+                ,
+                ,
+                ,
+                ,
+                ,
+                SpendSaveStorage.SavingsTokenType savingsTokenType,
+                
+            ) = storage_.getUserSavingStrategy(sender);
+            console.log("  User strategy: Percentage:", percentage);
+            console.log("  User strategy: Type:", uint(savingsTokenType));
+            
             vm.stopPrank();
             return (BalanceDelta.wrap(0), 0, 0);
         }
@@ -794,7 +804,7 @@ contract TestSpendSaveHook is SpendSaveHook {
     // Events for tracking test execution
     event TokenHandlingDetails(address token, uint256 savedAmount, uint256 hookBalance);
     event BeforeSwapExecuted(address user, BeforeSwapDelta delta);
-    event AfterSwapExecuted(address user, BalanceDelta delta);
+    // event AfterSwapExecuted(address user, BalanceDelta delta);
     
     constructor(IPoolManager _poolManager, SpendSaveStorage _storage) 
         SpendSaveHook(_poolManager, _storage) {
@@ -866,7 +876,7 @@ contract TestSpendSaveHook is SpendSaveHook {
         // Get swap context
         SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
         
-        // Handle token taking in afterSwap for INPUT savings type
+        // HANDLE INPUT TOKEN SAVINGS
         if (context.hasStrategy && 
             context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
             context.pendingSaveAmount > 0) {
@@ -878,12 +888,7 @@ contract TestSpendSaveHook is SpendSaveHook {
                     storage_.poolManager(),
                     address(this),
                     context.pendingSaveAmount,
-                    true  // Mint claim tokens to the hook
-                );
-                emit TokenHandlingDetails(
-                    Currency.unwrap(key.currency0), 
-                    context.pendingSaveAmount, 
-                    0  // We don't actually need the balance here
+                    false  // Do not mint claim tokens to the hook
                 );
             } else {
                 // For oneForZero swaps, input token is token1
@@ -891,58 +896,63 @@ contract TestSpendSaveHook is SpendSaveHook {
                     storage_.poolManager(),
                     address(this),
                     context.pendingSaveAmount,
-                    true  // Mint claim tokens to the hook
-                );
-                emit TokenHandlingDetails(
-                    Currency.unwrap(key.currency1), 
-                    context.pendingSaveAmount, 
-                    0  // We don't actually need the balance here
+                    false  // Do not mint claim tokens to the hook
                 );
             }
         }
         
         // HANDLE OUTPUT TOKEN SAVINGS 
-        if (context.hasStrategy && 
-            (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT || 
+        if (context.hasStrategy && (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT || 
             context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC)) {
             
-            // Get output token information
-            (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
+            // Get output token based on swap direction
+            Currency outputCurrency;
+            address outputToken;
+            int256 outputAmount;
+            bool isToken0;
             
-            if (outputToken != address(0) && outputAmount > 0) {
-                // Calculate how much to save based on strategy percentage
+            if (params.zeroForOne) {
+                // If swapping token0 → token1, output is token1
+                outputCurrency = key.currency1;
+                outputToken = Currency.unwrap(key.currency1);
+                outputAmount = delta.amount1();
+                isToken0 = false;
+            } else {
+                // If swapping token1 → token0, output is token0
+                outputCurrency = key.currency0;
+                outputToken = Currency.unwrap(key.currency0);
+                outputAmount = delta.amount0();
+                isToken0 = true;
+            }
+            
+            // Only proceed if output is positive
+            if (outputAmount > 0) {
+                // Calculate savings amount (10% of output)
                 uint256 saveAmount = savingStrategyModule.calculateSavingsAmount(
-                    outputAmount,
+                    uint256(outputAmount),
                     context.currentPercentage,
                     context.roundUpSavings
                 );
                 
-                if (saveAmount > 0 && saveAmount <= outputAmount) {
-                    // Store saveAmount in context for processing
+                if (saveAmount > 0 && saveAmount <= uint256(outputAmount)) {
+                    // Store saveAmount in context
                     context.pendingSaveAmount = saveAmount;
                     storage_.setSwapContext(actualUser, context);
                     
-                    // Take the tokens directly from the pool
-                    Currency outputCurrency = isToken0 ? key.currency0 : key.currency1;
-                    
+                    // CRITICAL FIX 1: Enable claim tokens when taking currency
                     outputCurrency.take(
-                        storage_.poolManager(),
+                        poolManager,
                         address(this),
                         saveAmount,
-                        true  // Mint claim tokens to the hook
+                        true  // ENABLE claim tokens for proper settlement
                     );
                     
-                    emit TokenHandlingDetails(
-                        outputToken, 
-                        saveAmount, 
-                        0  // We don't need the balance here
-                    );
-                    
-                    // Process the output token savings immediately
+                    // Process savings
                     _processOutputSavings(actualUser, context, key, outputToken, isToken0);
                     
-                    // Return a negative delta for the amount we took
-                    return (IHooks.afterSwap.selector, isToken0 ? -int128(int256(saveAmount)) : -int128(int256(saveAmount)));
+                    // CRITICAL FIX 2: Return POSITIVE delta to properly account for taken tokens
+                    // This tells Uniswap we're taking these tokens from the user's output
+                    return (IHooks.afterSwap.selector, int128(int256(saveAmount)));
                 }
             }
         }
@@ -1143,7 +1153,8 @@ contract SpendSaveHookTest is SpendSaveBaseTest {
         uint160 expectedFlags = uint160(
             Hooks.BEFORE_SWAP_FLAG | 
             Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
+            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
         uint160 actualFlags = uint160(address(hook)) & 0xFF;
         assertTrue((actualFlags & expectedFlags) == expectedFlags, "Hook address doesn't have required flags");
@@ -1239,6 +1250,12 @@ contract SpendSaveHookTest is SpendSaveBaseTest {
         vm.revertToState(snapshot);
     }
 
+    function testHookPermissions() public {
+        Hooks.Permissions memory perms = hook.validateHookPermissionsTest();
+        assertTrue(perms.afterSwap, "Hook should have afterSwap permission");
+        assertTrue(perms.afterSwapReturnDelta, "Hook should have afterSwapReturnDelta permission");
+    }
+
     // Testing real swap with the modified SavingStrategy
     function test_SwapWithInputSavings() public {
         // Take a snapshot
@@ -1330,17 +1347,7 @@ contract SpendSaveHookTest is SpendSaveBaseTest {
         console.log("=== Testing Swap with Output Savings ===");
         
         // Set up output savings strategy (10%)
-        vm.startPrank(user1);
-        savingStrategyModule.setSavingStrategy(
-            user1,
-            1000, // 10% savings
-            0,    // no auto increment
-            1000, // max percentage
-            false, // no round up
-            SpendSaveStorage.SavingsTokenType.OUTPUT, // Save from OUTPUT token
-            address(0) // no specific token
-        );
-        vm.stopPrank();
+        _setupOutputSavingsStrategy(user1, 1000);
         
         // Check if strategy is set
         (
@@ -1353,6 +1360,8 @@ contract SpendSaveHookTest is SpendSaveBaseTest {
             SpendSaveStorage.SavingsTokenType savingsTokenType,
             
         ) = storage_.getUserSavingStrategy(user1);
+
+        assertEq(uint(savingsTokenType), uint(SpendSaveStorage.SavingsTokenType.OUTPUT), "Savings type should be OUTPUT");
         
         console.log("Strategy settings:");
         console.log("  Percentage:", percentage);
