@@ -209,67 +209,78 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         emit GoalSet(user, token, amount);
     }
     
-    // Prepare for savings before swap - optimized for gas usage
+    /**
+     * @notice Prepares savings calculations and adjustments before a swap occurs
+     * @dev This function is called by the SpendSaveHook before executing a Uniswap V4 swap
+     * @param actualUser The address of the user performing the swap
+     * @param key The Uniswap V4 pool key containing token and fee information
+     * @param params The Uniswap V4 swap parameters containing amounts and direction
+     * @return BeforeSwapDelta The delta adjustments to apply to the swap amounts
+     * @custom:security nonReentrant Only callable by storage contract or hook
+     */
     function beforeSwap(
         address actualUser, 
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params
     ) external virtual override nonReentrant returns (BeforeSwapDelta) {
+        // Verify caller is authorized
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
 
-        // Initialize context and exit early if no strategy
+        // Get user's saving strategy configuration
         SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(actualUser);
 
-        // Fast path - no strategy
+        // If user has no savings percentage set, create empty context and return no adjustments
         if (strategy.percentage == 0) {
             SpendSaveStorage.SwapContext memory emptyContext;
             emptyContext.hasStrategy = false;
             storage_.setSwapContext(actualUser, emptyContext);
-            return toBeforeSwapDelta(0, 0); // No adjustment for either currency
+            return toBeforeSwapDelta(0, 0);
         }
 
-        // Build context for swap with strategy
+        // Build context containing swap and strategy information
         SpendSaveStorage.SwapContext memory context = _buildSwapContext(actualUser, strategy, key, params);
 
-        // Process input token savings if applicable
+        // Initialize delta adjustments
         int128 specifiedDelta = 0;
         int128 unspecifiedDelta = 0;
         
+        // Only process savings if user wants to save input tokens
         if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT) {
-            // Calculate savings amount
+            // Calculate how much to save and adjust swap amount
             SavingsCalculation memory calc = _calculateInputSavings(context);
             
             if (calc.saveAmount > 0) {
-                // Store amount for processing in afterSwap
+                // Store savings amount to process after swap
                 context.pendingSaveAmount = calc.saveAmount;
                 
-                // FIXED: Use positive deltas to REDUCE the swap amount
+                // Adjust swap amounts based on direction and exact input/output
+                // Positive deltas reduce the swap amount to account for savings
                 if (params.zeroForOne) {
                     if (params.amountSpecified < 0) {
-                        // Exact input swap: Reduce the swap amount
+                        // For exact input swaps token0 -> token1, reduce specified amount
                         specifiedDelta = int128(int256(calc.saveAmount));
                     } else {
-                        // Exact output swap: Reduce the unspecified amount
+                        // For exact output swaps token0 -> token1, reduce unspecified amount
                         unspecifiedDelta = int128(int256(calc.saveAmount));
                     }
                 } else {
                     if (params.amountSpecified < 0) {
-                        // Exact input swap: Reduce the swap amount
+                        // For exact input swaps token1 -> token0, reduce specified amount  
                         specifiedDelta = int128(int256(calc.saveAmount));
                     } else {
-                        // Exact output swap: Reduce the unspecified amount
+                        // For exact output swaps token1 -> token0, reduce unspecified amount
                         unspecifiedDelta = int128(int256(calc.saveAmount));
                     }
                 }
             }
         }
 
-        // Store context
+        // Store context for use in afterSwap
         storage_.setSwapContext(actualUser, context);
         
         emit SwapPrepared(actualUser, context.currentPercentage, strategy.savingsTokenType);
 
-        // Return the delta for both currencies using the toBeforeSwapDelta helper
+        // Return calculated adjustments
         return toBeforeSwapDelta(specifiedDelta, unspecifiedDelta);
     }
 

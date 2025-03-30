@@ -29,6 +29,13 @@ error IndexOutOfBounds();
 /// @notice Thrown when token balance is insufficient
 error InsufficientBalance();
 
+/**
+ * @title SpendSaveStorage
+ * @author Your Name
+ * @notice Central storage contract for the SpendSave protocol
+ * @dev This contract acts as a shared database for all SpendSave modules,
+ *      maintaining all state and providing controlled access to different modules
+ */
 contract SpendSaveStorage is ReentrancyGuard {
     // Owner and access control
     address public owner;
@@ -56,7 +63,18 @@ contract SpendSaveStorage is ReentrancyGuard {
     // Treasury configuration
     uint256 public treasuryFee; // Basis points (0.01%)
 
-    // User saving configuration
+/**
+ * @notice User's saving strategy configuration
+ * @dev Defines how tokens are saved during swaps
+ * @param percentage Base percentage to save (0-10000, where 10000 = 100%)
+ * @param autoIncrement Percentage to increase after each swap
+ * @param maxPercentage Maximum percentage cap for auto-increments
+ * @param goalAmount Target savings goal for each token
+ * @param roundUpSavings Whether to round up to nearest whole token unit
+ * @param enableDCA Whether dollar-cost averaging is enabled
+ * @param savingsTokenType Which token to save (INPUT, OUTPUT, or SPECIFIC)
+ * @param specificSavingsToken Address of specific token to save, if applicable
+ */
     struct SavingStrategy {
         uint256 percentage;     // Base percentage to save (0-100%)
         uint256 autoIncrement;  // Optional auto-increment percentage per swap
@@ -182,7 +200,12 @@ contract SpendSaveStorage is ReentrancyGuard {
 
 
 
-    // Constructor
+/**
+ * @notice Contract constructor
+ * @param _owner Address of the contract owner
+ * @param _treasury Address of the treasury to collect fees
+ * @param _poolManager Address of the Uniswap V4 pool manager
+ */
     constructor(address _owner, address _treasury, IPoolManager _poolManager) {
         owner = _owner;
         treasury = _treasury;
@@ -192,12 +215,19 @@ contract SpendSaveStorage is ReentrancyGuard {
         _nextTokenId = FIRST_TOKEN_ID;
     }
     
-    // Access control modifier
+    /**
+     * @notice Access control modifier
+     * @dev Only allows the contract owner to call functions
+     */
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
         _;
     }
 
+    /**
+     * @notice Access control modifier
+     * @dev Only allows authorized modules to call functions
+     */
     function _isAuthorizedModule(
         address caller
     ) internal view returns (bool) {
@@ -219,28 +249,51 @@ contract SpendSaveStorage is ReentrancyGuard {
         }
         _;
     }
-    
-    // Module registration functions
+    /**
+    * @notice Sets the SpendSave hook contract address
+    * @param _hook Address of the SpendSave hook contract
+    * @dev Only callable by the contract owner
+    */
     function setSpendSaveHook(address _hook) external onlyOwner {
         spendSaveHook = _hook;
     }
-    
+    /**
+    * @notice Sets the SavingStrategy module address
+    * @param _module Address of the SavingStrategy module
+    * @dev Only callable by the contract owner
+    */
     function setSavingStrategyModule(address _module) external onlyOwner {
         savingStrategyModule = _module;
     }
-    
+    /**
+    * @notice Sets the Savings module address
+    * @param _module Address of the Savings module
+    * @dev Only callable by the contract owner
+    */
     function setSavingsModule(address _module) external onlyOwner {
         savingsModule = _module;
     }
-    
+    /**
+    * @notice Sets the DCA module address
+    * @param _module Address of the DCA module
+    * @dev Only callable by the contract owner
+    */
     function setDCAModule(address _module) external onlyOwner {
         dcaModule = _module;
     }
-    
+    /**
+    * @notice Sets the SlippageControl module address
+    * @param _module Address of the SlippageControl module
+    * @dev Only callable by the contract owner
+    */
     function setSlippageControlModule(address _module) external onlyOwner {
         slippageControlModule = _module;
     }
-    
+    /**
+    * @notice Sets the Token module address
+    * @param _module Address of the Token module
+    * @dev Only callable by the contract owner
+    */
     function setTokenModule(address _module) external onlyOwner {
         tokenModule = _module;
     }
@@ -275,6 +328,13 @@ contract SpendSaveStorage is ReentrancyGuard {
         treasuryFee = _fee;
     }
 
+    /**
+    * @notice Calculates and transfers the fee to the treasury
+    * @param user Address of the user
+    * @param token Address of the token
+    * @param amount Amount of tokens to calculate fee for
+    * @return Amount after fee deduction
+    */
     function calculateAndTransferFee(address user, address token, uint256 amount) external onlyModule returns (uint256) {
         return _calculateAndTransferFee(user, token, amount);
     }
@@ -290,7 +350,7 @@ contract SpendSaveStorage is ReentrancyGuard {
         return amount;
     }
     
-    // Getter and setter methods for SavingStrategy
+
     function getUserSavingStrategy(address user) external view returns (
         uint256 percentage,
         uint256 autoIncrement,
@@ -313,7 +373,14 @@ contract SpendSaveStorage is ReentrancyGuard {
             strategy.specificSavingsToken
         );
     }
-    
+    /**
+    * @notice Sets the user's saving strategy
+    * @param user Address of the user
+    * @param percentage Base percentage to save (0-100%)
+    * @param autoIncrement Percentage to increase after each swap
+    * @param maxPercentage Maximum percentage cap for auto-increments
+    * @param goalAmount Target savings goal for each token
+    */
     function setUserSavingStrategy(
         address user,
         uint256 percentage,
@@ -336,11 +403,21 @@ contract SpendSaveStorage is ReentrancyGuard {
         strategy.specificSavingsToken = specificSavingsToken;
     }
     
-    // Getters and setters for savings
+    /**
+    * @notice Getter for savings
+    * @param user Address of the user
+    * @param token Address of the token
+    * @return Amount of savings
+    */
     function savings(address user, address token) external view returns (uint256) {
         return _savings[user][token];
     }
-    
+    /**
+    * @notice Sets the savings
+    * @param user Address of the user
+    * @param token Address of the token
+    * @param amount Amount of savings to set
+    */
     function setSavings(address user, address token, uint256 amount) external onlyModule {
         _savings[user][token] = amount;
     }
@@ -370,6 +447,15 @@ contract SpendSaveStorage is ReentrancyGuard {
         );
     }
     
+    /**
+    * @notice Sets the savings data
+    * @param user Address of the user
+    * @param token Address of the token
+    * @param totalSaved Amount of savings
+    * @param lastSaveTime Last save time
+    * @param swapCount Number of swaps
+    * @param targetSellPrice Target sell price
+    */
     function setSavingsData(
         address user,
         address token,
@@ -384,7 +470,13 @@ contract SpendSaveStorage is ReentrancyGuard {
         data.swapCount = swapCount;
         data.targetSellPrice = targetSellPrice;
     }
-    
+
+    /**
+    * @notice Updates the savings data
+    * @param user Address of the user
+    * @param token Address of the token
+    * @param additionalSaved Amount of additional savings
+    */
     function updateSavingsData(
         address user,
         address token,
@@ -631,12 +723,6 @@ contract SpendSaveStorage is ReentrancyGuard {
         });
     }
 
-    /**
-    * @notice Creates a pool key with default parameters (0.3% fee tier, 60 tick spacing)
-    * @param tokenA First token address
-    * @param tokenB Second token address
-    * @return Pool key with default parameters
-    */
     function createPoolKey(address tokenA, address tokenB) public pure returns (PoolKey memory) {
         return createPoolKey(tokenA, tokenB, 3000, 60); // Default 0.3% fee tier and 60 tick spacing
     }

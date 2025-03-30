@@ -801,100 +801,54 @@ contract TestSpendSaveHook is SpendSaveHook {
         // Do nothing else - don't try to register with storage
     }
     
-    // Override _beforeSwap to emit test events
+    /**
+     * @notice Override of _beforeSwap to handle test events and swap adjustments
+     * @dev Handles extraction of user from hook data, checks strategy, and executes beforeSwap logic
+     * @param sender The address initiating the swap
+     * @param key The pool key containing currency pair and fee information
+     * @param params The swap parameters including amounts and direction
+     * @param hookData Additional data passed to the hook, containing user address
+     * @return bytes4 The function selector for beforeSwap
+     * @return BeforeSwapDelta The delta adjustment to apply before swap
+     * @return uint24 The custom slippage tolerance (0 in this case)
+     */
     function _beforeSwap(
         address sender,
         PoolKey calldata key,
         IPoolManager.SwapParams calldata params,
         bytes calldata hookData
     ) internal override nonReentrant returns (bytes4, BeforeSwapDelta, uint24) {
-        // Extract actual user from hookData if available
+        // Extract the actual user address from the hook data
         address actualUser = _extractUserFromHookData(sender, hookData);
-        
-        // Default to no adjustment (zero delta)
+
+        // Initialize delta with zero adjustment as default
         BeforeSwapDelta deltaBeforeSwap = toBeforeSwapDelta(0, 0);
-        
-        // Only check modules if user has a strategy - lazy loading approach
+
+        // Only proceed with module checks if user has an active strategy
         if (_hasUserStrategy(actualUser)) {
+            // First try to verify all modules are properly initialized
             try this.checkModulesInitialized() {
-                // Try to execute beforeSwap and get the adjustment delta
+                // If modules are initialized, attempt to execute the beforeSwap strategy
                 try savingStrategyModule.beforeSwap(actualUser, key, params) returns (BeforeSwapDelta delta) {
+                    // Strategy executed successfully - store and emit the delta
                     deltaBeforeSwap = delta;
                     emit BeforeSwapExecuted(actualUser, delta);
                 } catch Error(string memory reason) {
+                    // Catch and emit any specific error from beforeSwap
                     emit BeforeSwapError(actualUser, reason);
                 } catch {
+                    // Catch and emit any unknown errors from beforeSwap
                     emit BeforeSwapError(actualUser, "Unknown error in beforeSwap");
                 }
             } catch {
+                // Emit error if module initialization check fails
                 emit BeforeSwapError(actualUser, "Module initialization failed");
             }
         }
         
+        // Return the hook selector, calculated delta, and no custom slippage
         return (IHooks.beforeSwap.selector, deltaBeforeSwap, 0);
     }
-
-    // Override _afterSwap to emit test events
-    // function _afterSwap(
-    //     address sender,
-    //     PoolKey calldata key,
-    //     IPoolManager.SwapParams calldata params,
-    //     BalanceDelta delta,
-    //     bytes calldata hookData
-    // ) internal override nonReentrant returns (bytes4, int128) {
-    //     // Extract actual user from hookData if available
-    //     address actualUser = _extractUserFromHookData(sender, hookData);
-        
-    //     emit AfterSwapExecuted(actualUser, delta);
-
-    //     // Get swap context
-    //     SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
-        
-    //     // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
-    //     if (context.hasStrategy && 
-    //         context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
-    //         context.pendingSaveAmount > 0) {
-            
-    //         // Take the tokens that were saved from the swap
-    //         if (params.zeroForOne) {
-    //             // For zeroForOne swaps, input token is token0
-    //             key.currency0.take(
-    //                 storage_.poolManager(),
-    //                 address(this),
-    //                 context.pendingSaveAmount,
-    //                 true  // Mint claim tokens to the hook
-    //             );
-    //             emit TokenHandlingDetails(
-    //                 Currency.unwrap(key.currency0), 
-    //                 context.pendingSaveAmount, 
-    //                 0  // We don't actually need the balance here
-    //             );
-    //         } else {
-    //             // For oneForZero swaps, input token is token1
-    //             key.currency1.take(
-    //                 storage_.poolManager(),
-    //                 address(this),
-    //                 context.pendingSaveAmount,
-    //                 true  // Mint claim tokens to the hook
-    //             );
-    //             emit TokenHandlingDetails(
-    //                 Currency.unwrap(key.currency1), 
-    //                 context.pendingSaveAmount, 
-    //                 0  // We don't actually need the balance here
-    //             );
-    //         }
-    //     }
-        
-    //     // Handle errors without using try/catch at the top level
-    //     bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
-        
-    //     if (!success) {
-    //         emit AfterSwapError(actualUser, "Error in afterSwap execution");
-    //     }
-        
-    //     return (IHooks.afterSwap.selector, 0);
-    // }
-
 
     // Override _afterSwap to emit test events and handle output/specific token savings
     function _afterSwap(

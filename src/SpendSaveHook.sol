@@ -28,7 +28,7 @@ import "./IDailySavingsModule.sol";
 
 /**
  * @title SpendSaveHook
- * @author Uniswap Labs
+ * @author OneTrueHomie.sol
  * @notice Main contract that implements Uniswap V4 hooks and coordinates between modules
  * @dev This contract handles savings strategies, DCA, slippage control and daily savings
  */
@@ -189,7 +189,11 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         storage_.setDailySavingsModule(_dailySavingsModule);
     }
     
-    // Implement hook permissions
+    /**
+    * @notice Defines which hook points are used by this contract
+    * @return Hooks.Permissions Permission configuration for the hook
+    * @dev Enables beforeSwap, afterSwap, and beforeSwapReturnDelta
+    */
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
             beforeInitialize: false,
@@ -209,7 +213,10 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         });
     }
     
-    // Verify modules are initialized - only when needed
+    /**
+    * @notice Verifies that all modules are initialized - only when needed
+    * @dev Reverts if any module is not initialized
+    */
     function _checkModulesInitialized() internal view {
         if (address(savingStrategyModule) == address(0)) revert ModuleNotInitialized("SavingStrategy");
         if (address(savingsModule) == address(0)) revert ModuleNotInitialized("Savings");
@@ -231,6 +238,16 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         return sender;
     }
 
+    /**
+    * @notice Implements the beforeSwap hook
+    * @param sender The address of the sender
+    * @param key The pool key
+    * @param params The swap parameters
+    * @param hookData Additional data for the hook
+    * @return bytes4 The selector for the hook
+    * @return BeforeSwapDelta The delta before the swap
+    * @return uint24 The custom slippage tolerance
+    */
     function _beforeSwap(
         address sender,
         PoolKey calldata key,
@@ -260,62 +277,6 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         return (IHooks.beforeSwap.selector, deltaBeforeSwap, 0);
     }
 
-    // function _afterSwapReturnDelta(
-    //     address sender,
-    //     PoolKey calldata key,
-    //     IPoolManager.SwapParams calldata params,
-    //     BalanceDelta delta,
-    //     bytes calldata hookData
-    // ) internal virtual nonReentrant returns (bytes4, int128, int128) {
-    //     // Extract actual user from hookData if available
-    //     address actualUser = _extractUserFromHookData(sender, hookData);
-        
-    //     // Get the swap context
-    //     SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
-        
-    //     // Early return if no strategy or not applicable to output savings
-    //     if (!context.hasStrategy || 
-    //         (context.savingsTokenType != SpendSaveStorage.SavingsTokenType.OUTPUT && 
-    //          context.savingsTokenType != SpendSaveStorage.SavingsTokenType.SPECIFIC)) {
-    //         return (IHooks.afterSwapReturnDelta.selector, 0, 0);
-    //     }
-        
-    //     // Determine which token is the output, amount, and whether it's token0
-    //     (address outputToken, uint256 outputAmount, bool isToken0) = _getOutputTokenAndAmount(key, delta);
-        
-    //     // Skip if no output
-    //     if (outputAmount == 0) {
-    //         return (IHooks.afterSwapReturnDelta.selector, 0, 0);
-    //     }
-        
-    //     // Calculate how much to save based on strategy percentage
-    //     uint256 saveAmount = savingStrategyModule.calculateSavingsAmount(
-    //         outputAmount,
-    //         context.currentPercentage,
-    //         context.roundUpSavings
-    //     );
-        
-    //     if (saveAmount == 0) {
-    //         return (IHooks.afterSwapReturnDelta.selector, 0, 0);
-    //     }
-        
-    //     // Store saveAmount in context for afterSwap to use
-    //     context.pendingSaveAmount = saveAmount;
-    //     storage_.setSwapContext(actualUser, context);
-        
-    //     emit OutputSavingsCalculated(actualUser, outputToken, saveAmount);
-        
-    //     // Return delta that reduces user's output by the savings amount
-    //     // A negative delta means the hook keeps these tokens
-    //     if (isToken0) {
-    //         return (IHooks.afterSwapReturnDelta.selector, -int128(int256(saveAmount)), 0);
-    //     } else {
-    //         return (IHooks.afterSwapReturnDelta.selector, 0, -int128(int256(saveAmount)));
-    //     }
-    // }
-
-    
-    
     // Try to execute beforeSwap with error handling
     function _tryBeforeSwap(
         address actualUser, 
@@ -340,50 +301,6 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     }
 
     // Process savings based on token type - properly organized helper functions
-    // function _processSavings(
-    //     address actualUser,
-    //     SpendSaveStorage.SwapContext memory context,
-    //     PoolKey calldata key,
-    //     BalanceDelta delta
-    // ) internal virtual {
-    //     if (!context.hasStrategy) return;
-        
-    //     // Input token savings type handling
-    //     if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
-    //         context.pendingSaveAmount > 0) {
-            
-    //         // UPDATED: Tokens have already been taken in _afterSwap via take()
-    //         try savingStrategyModule.processInputSavingsAfterSwap(actualUser, context) {
-    //             // Success
-    //         } catch Error(string memory reason) {
-    //             emit AfterSwapError(actualUser, reason);
-    //         } catch {
-    //             emit AfterSwapError(actualUser, "Failed to process input savings");
-    //         }
-            
-    //         // Update saving strategy
-    //         savingStrategyModule.updateSavingStrategy(actualUser, context);
-    //         return;
-    //     }
-        
-    //     // Get output token and amount
-    //     (address outputToken, uint256 outputAmount) = _getOutputTokenAndAmount(key, delta);
-        
-    //     // Skip if no positive output
-    //     if (outputAmount == 0) return;
-        
-    //     // Process based on token type
-    //     if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.OUTPUT) {
-    //         _processOutputTokenSavings(actualUser, context, outputToken, outputAmount);
-    //     } else if (context.savingsTokenType == SpendSaveStorage.SavingsTokenType.SPECIFIC) {
-    //         _processSpecificTokenSavings(actualUser, context, outputToken, outputAmount);
-    //     }
-        
-    //     // Update saving strategy if using auto-increment
-    //     savingStrategyModule.updateSavingStrategy(actualUser, context);
-    // }
-
-
     function _processSavings(
         address actualUser,
         SpendSaveStorage.SwapContext memory context,
@@ -474,56 +391,18 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         }
     }
 
-    // Hook into afterSwap to process savings and check for daily savings
-    // function _afterSwap(
-    //     address sender,
-    //     PoolKey calldata key,
-    //     IPoolManager.SwapParams calldata params,
-    //     BalanceDelta delta,
-    //     bytes calldata hookData
-    // ) internal virtual override nonReentrant returns (bytes4, int128) {
-    //     // Extract actual user from hookData if available
-    //     address actualUser = _extractUserFromHookData(sender, hookData);
-
-    //     // Get swap context
-    //     SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
-        
-    //     // IMPORTANT NEW CODE: Handle token taking in afterSwap for INPUT savings type
-    //     if (context.hasStrategy && 
-    //         context.savingsTokenType == SpendSaveStorage.SavingsTokenType.INPUT && 
-    //         context.pendingSaveAmount > 0) {
-            
-    //         // Take the tokens that were saved from the swap
-    //         if (params.zeroForOne) {
-    //             // For zeroForOne swaps, input token is token0
-    //             key.currency0.take(
-    //                 poolManager,
-    //                 address(this),
-    //                 context.pendingSaveAmount,
-    //                 true  // Mint claim tokens to the hook
-    //             );
-    //         } else {
-    //             // For oneForZero swaps, input token is token1
-    //             key.currency1.take(
-    //                 poolManager,
-    //                 address(this),
-    //                 context.pendingSaveAmount,
-    //                 true  // Mint claim tokens to the hook
-    //             );
-    //         }
-    //     }
-        
-    //     // Handle errors without using try/catch at the top level
-    //     bool success = _executeAfterSwapLogic(actualUser, key, params, delta);
-        
-    //     if (!success) {
-    //         // We still return the selector to allow the swap to complete
-    //         emit AfterSwapError(actualUser, "Error in afterSwap execution");
-    //     }
-        
-    //     return (IHooks.afterSwap.selector, 0);
-    // }
-
+    /**
+     * @notice Hook function called after a Uniswap V4 swap to process savings and check daily savings
+     * @dev This function handles saving input tokens, output tokens, and specific token savings
+     * @param sender The address initiating the swap
+     * @param key The Uniswap V4 pool key containing token and fee information
+     * @param params The Uniswap V4 swap parameters containing amounts and direction
+     * @param delta The balance changes from the swap
+     * @param hookData Additional data passed to the hook, may contain actual user address
+     * @return bytes4 The function selector to indicate successful hook execution
+     * @return int128 The delta adjustment to apply to output amounts for savings
+     * @custom:security nonReentrant Only one execution at a time
+     */
     function _afterSwap(
         address sender,
         PoolKey calldata key,
@@ -696,42 +575,6 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     }
     
     // Execute afterSwap logic with proper error handling
-    // function _executeAfterSwapLogic(
-    //     address actualUser, 
-    //     PoolKey calldata key,
-    //     IPoolManager.SwapParams calldata params,
-    //     BalanceDelta delta
-    // ) internal returns (bool) {
-    //     // Only perform work if necessary
-    //     if (!_shouldProcessSwap(actualUser)) {
-    //         return true;
-    //     }
-        
-    //     // Check modules only if needed
-    //     try this.checkModulesInitialized() {
-    //         // Process swap savings
-    //         SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(actualUser);
-            
-    //         bool savingsProcessed = _trySavingsProcessing(actualUser, context, key, delta);
-            
-    //         // Clean up context from storage regardless of processing result
-    //         storage_.deleteSwapContext(actualUser);
-            
-    //         // Only process daily savings if conditions are met
-    //         if (savingsProcessed && _shouldProcessDailySavings(actualUser)) {
-    //             _tryProcessDailySavings(actualUser);
-    //         }
-            
-    //         return true;
-    //     } catch Error(string memory reason) {
-    //         emit AfterSwapError(actualUser, reason);
-    //         return false;
-    //     } catch {
-    //         emit AfterSwapError(actualUser, "Module initialization failed");
-    //         return false;
-    //     }
-    // }
-
     function _executeAfterSwapLogic(
         address actualUser, 
         PoolKey calldata key,
