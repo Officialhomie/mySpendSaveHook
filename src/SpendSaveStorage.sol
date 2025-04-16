@@ -800,12 +800,12 @@ contract SpendSaveStorage is ReentrancyGuard {
         _balances[user][id] -= amount;
     }
     
-    function getAllowance(address owner, address spender, uint256 id) external view onlyModule returns (uint256) {
-        return _allowances[owner][spender][id];
+    function getAllowance(address tokenOwner, address spender, uint256 id) external view onlyModule returns (uint256) {
+        return _allowances[tokenOwner][spender][id];
     }
     
-    function setAllowance(address owner, address spender, uint256 id, uint256 amount) external onlyModule {
-        _allowances[owner][spender][id] = amount;
+    function setAllowance(address tokenOwner, address spender, uint256 id, uint256 amount) external onlyModule {
+        _allowances[tokenOwner][spender][id] = amount;
     }
     
     function tokenToId(address token) external view returns (uint256) {

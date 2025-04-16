@@ -6,15 +6,16 @@ import {Test, Vm} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
-import {PoolManager} from "v4-core/PoolManager.sol";
-import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol"; 
+import {PoolManager} from "lib/v4-periphery/lib/v4-core/src/PoolManager.sol";
+import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
+import {Deployers} from "lib/v4-periphery/lib/v4-core/test/utils/Deployers.sol"; 
 
 // Our contracts
 import {SpendSaveStorage} from "../src/SpendSaveStorage.sol";
 import {Savings} from "../src/Savings.sol";
 import {SavingStrategy} from "../src/SavingStrategy.sol";
 import {Token} from "../src/Token.sol";
+import {DCA} from "../src/DCA.sol";
 
 // Mock contracts
 
@@ -26,6 +27,7 @@ contract SavingsTest is Test, Deployers { // Add Deployers here
     SavingStrategy public strategy;
     Token public token; 
     PoolManager public poolManager;
+    DCA public dcaModule;
     
     // Test addresses
     address public owner;
@@ -81,6 +83,7 @@ contract SavingsTest is Test, Deployers { // Add Deployers here
         savings = new Savings();
         strategy = new SavingStrategy();
         token = new Token(); 
+        dcaModule = new DCA();
         
         console.log("Savings module deployed:", address(savings));
         
@@ -88,17 +91,19 @@ contract SavingsTest is Test, Deployers { // Add Deployers here
         savings.initialize(storage_);
         strategy.initialize(storage_);
         token.initialize(storage_);
+        dcaModule.initialize(storage_);
         
         // Register modules with storage
         vm.startPrank(owner);
         storage_.setSavingsModule(address(savings));
         storage_.setSavingStrategyModule(address(strategy));
         storage_.setTokenModule(address(token));
+        storage_.setDCAModule(address(dcaModule));
         vm.stopPrank();
         
         // Set module references
         vm.prank(owner);
-        savings.setModuleReferences(address(token), address(strategy));
+        savings.setModuleReferences(address(token), address(strategy), address(dcaModule));
         
         // THIS IS THE KEY ADDITION - Set the Savings module reference in the Token contract
         vm.prank(owner);

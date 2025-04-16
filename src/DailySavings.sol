@@ -77,6 +77,9 @@ contract DailySavings is IDailySavingsModule {
     event DailySavingsGoalReached(address indexed user, address indexed token, uint256 totalAmount);
     event BatchProcessingCompleted(address indexed user, uint256 tokenCount, uint256 totalSaved, uint256 gasUsed);
     event TransferError(address indexed user, address indexed token, string reason);
+    event YieldModuleNotInitialized(address indexed user, address indexed token);
+    event YieldStrategyApplied(address indexed user, address indexed token, SpendSaveStorage.YieldStrategy strategy);
+    event YieldStrategyFailed(address indexed user, address indexed token, string reason);
     
     // Custom errors
     error AlreadyInitialized();
@@ -314,6 +317,12 @@ contract DailySavings is IDailySavingsModule {
         // Process the savings
         uint256 amount = _executeTokenSavings(user, token, context.amountToSave);
         
+        // Add explicit check for failed execution
+        if (amount == 0) {
+            emit DailySavingsExecutionSkipped(user, token, "Token transfer failed");
+            return 0;
+        }
+        
         uint256 gasUsed = startGas - gasleft();
         emit DailySavingsExecuted(user, token, amount, gasUsed);
         
@@ -390,10 +399,10 @@ contract DailySavings is IDailySavingsModule {
         uint256 amount
     ) internal returns (uint256) {
         // Try to transfer tokens with proper error handling
+        bool transferSuccess;
+        
         try IERC20(token).transferFrom(user, address(this), amount) {
-            // Update storage and process tokens
-            _updateSavingsState(user, token, amount);
-            return amount;
+            transferSuccess = true;
         } catch Error(string memory reason) {
             emit TransferError(user, token, reason);
             return 0;
@@ -401,7 +410,16 @@ contract DailySavings is IDailySavingsModule {
             emit TransferError(user, token, "Unknown transfer error");
             return 0;
         }
+        
+        if (transferSuccess) {
+            // Update storage and process tokens only if transfer was successful
+            _updateSavingsState(user, token, amount);
+            return amount;
+        }
+        
+        return 0;
     }
+
 
     // Update savings state with all necessary operations
     function _updateSavingsState(
@@ -437,10 +455,22 @@ contract DailySavings is IDailySavingsModule {
 
     // Apply yield strategy if configured
     function _applyYieldStrategy(address user, address token) internal {
+        // First check if yield module is initialized
+        if (address(yieldModule) == address(0)) {
+            emit YieldModuleNotInitialized(user, token);
+            return;
+        }
+        
         SpendSaveStorage.YieldStrategy strategy = storage_.getDailySavingsYieldStrategy(user, token);
         
         if (strategy != SpendSaveStorage.YieldStrategy.NONE) {
-            yieldModule.applyYieldStrategy(user, token);
+            try yieldModule.applyYieldStrategy(user, token) {
+                emit YieldStrategyApplied(user, token, strategy);
+            } catch Error(string memory reason) {
+                emit YieldStrategyFailed(user, token, reason);
+            } catch {
+                emit YieldStrategyFailed(user, token, "Unknown error");
+            }
         }
     }
     

@@ -215,8 +215,8 @@ contract SpendSaveBaseTest is Test, Deployers {
         
         // Set module references
         savingStrategyModule.setModuleReferences(address(savingsModule));
-        savingsModule.setModuleReferences(address(tokenModule), address(savingStrategyModule));
-        dcaModule.setModuleReferences(address(tokenModule), address(slippageControlModule));
+        savingsModule.setModuleReferences(address(tokenModule), address(savingStrategyModule), address(dcaModule));
+        dcaModule.setModuleReferences(address(tokenModule), address(slippageControlModule), address(savingsModule));
         dailySavingsModule.setModuleReferences(address(tokenModule), address(yieldModule));
         tokenModule.setModuleReferences(address(savingsModule));
         vm.stopPrank();

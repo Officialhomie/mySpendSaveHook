@@ -17,6 +17,7 @@ import "./SpendSaveStorage.sol";
 import "./IDCAModule.sol";
 import "./ITokenModule.sol";
 import "./ISlippageControlModule.sol";
+import "./ISavingsModule.sol";
 
 /**
  * @title DCA
@@ -53,6 +54,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
     // Module references
     ITokenModule public tokenModule;
     ISlippageControlModule public slippageModule;
+    ISavingsModule public savingsModule;
     
     // Events
     event DCAEnabled(address indexed user, address indexed targetToken, bool enabled);
@@ -60,10 +62,25 @@ contract DCA is IDCAModule, ReentrancyGuard {
     event DCAQueued(address indexed user, address fromToken, address toToken, uint256 amount, int24 executionTick);
     event DCAExecuted(address indexed user, address fromToken, address toToken, uint256 fromAmount, uint256 toAmount);
     event TickUpdated(PoolId indexed poolId, int24 oldTick, int24 newTick);
-    event ModuleReferencesSet(address tokenModule, address slippageModule);
+    event ModuleReferencesSet(address tokenModule, address slippageModule, address savingsModule);
     event ModuleInitialized(address storage_);
     event TreasuryFeeCollected(address indexed user, address token, uint256 amount);
     event TransferFailure(address indexed user, address token, uint256 amount, bytes reason);
+    event SwapExecutionZeroOutput(uint256 amount, bool zeroForOne);
+    event SpecificTokenSwapProcessed(
+        address indexed user,
+        address indexed fromToken,
+        address indexed toToken,
+        uint256 inputAmount,
+        uint256 outputAmount
+    );
+
+    event SpecificTokenSwapFailed(
+        address indexed user,
+        address indexed fromToken,
+        address indexed toToken,
+        string reason
+    );
     
     // Custom errors
     error DCANotEnabled();
@@ -112,10 +129,11 @@ contract DCA is IDCAModule, ReentrancyGuard {
     }
     
     // Set references to other modules
-    function setModuleReferences(address _tokenModule, address _slippageModule) external nonReentrant onlyOwner {
+    function setModuleReferences(address _tokenModule, address _slippageModule, address _savingsModule) external nonReentrant onlyOwner {
         tokenModule = ITokenModule(_tokenModule);
         slippageModule = ISlippageControlModule(_slippageModule);
-        emit ModuleReferencesSet(_tokenModule, _slippageModule);
+        savingsModule = ISavingsModule(_savingsModule);
+        emit ModuleReferencesSet(_tokenModule, _slippageModule, _savingsModule);
     }
     
     // Helper function to get current strategy parameters
@@ -432,6 +450,57 @@ contract DCA is IDCAModule, ReentrancyGuard {
             _processQueueItem(user, i, poolKey, currentTick);
         }
     }
+
+    function processSpecificTokenSwap(
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 amount
+    ) external onlyAuthorized(user) nonReentrant returns (bool) {
+        // Create pool key for the swap
+        PoolKey memory poolKey = storage_.createPoolKey(fromToken, toToken);
+        
+        // Get current tick
+        int24 currentTick = getCurrentTick(poolKey);
+        
+        // Determine if this is a zero for one swap
+        bool zeroForOne = fromToken < toToken;
+        
+        // Get slippage tolerance
+        uint256 slippageTolerance = _getCurrentCustomSlippageTolerance(user);
+        if (slippageTolerance == 0) {
+            // Use default if not set
+            slippageTolerance = storage_.defaultSlippageTolerance();
+        }
+        
+        // Execute the swap directly
+        try this.executeDCASwap(
+            user,
+            fromToken,
+            toToken,
+            amount,
+            poolKey,
+            zeroForOne,
+            slippageTolerance
+        ) returns (uint256 receivedAmount) {
+            // Check if we got any tokens
+            if (receivedAmount > 0) {
+                // Process the specific token savings after swap
+                savingsModule.processSavings(user, toToken, receivedAmount);
+                emit SpecificTokenSwapProcessed(user, fromToken, toToken, amount, receivedAmount);
+                return true;
+            } else {
+                emit SpecificTokenSwapFailed(user, fromToken, toToken, "Zero tokens received");
+                return false;
+            }
+        } catch Error(string memory reason) {
+            emit SpecificTokenSwapFailed(user, fromToken, toToken, reason);
+            return false;
+        } catch {
+            emit SpecificTokenSwapFailed(user, fromToken, toToken, "Unknown error");
+            return false;
+        }
+    }
     
     // Helper to process a single queue item
     function _processQueueItem(address user, uint256 index, PoolKey memory poolKey, int24 currentTick) internal {
@@ -593,7 +662,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         PoolKey memory poolKey,
         bool zeroForOne,
         uint256 customSlippageTolerance
-    ) internal {
+    ) public returns (uint256) {
         if (amount == 0) revert ZeroAmountSwap();
 
         // Validate balance
@@ -609,10 +678,34 @@ contract DCA is IDCAModule, ReentrancyGuard {
             poolKey, params, zeroForOne, amount
         );
         
+        // Check if swap succeeded
+        if (!result.success) revert SwapExecutionFailed();
+        
+        // Get minimum amount out
+        uint256 minAmountOut = params.minAmountOut;
+        
+        // Check for slippage
+        if (result.receivedAmount < minAmountOut) {
+            bool shouldContinue = slippageModule.handleSlippageExceeded(
+                user,
+                fromToken,
+                toToken,
+                amount,
+                result.receivedAmount,
+                minAmountOut
+            );
+            
+            if (!shouldContinue) {
+                revert SlippageToleranceExceeded(result.receivedAmount, minAmountOut);
+            }
+        }
+        
         // Process the results
         _processSwapResults(user, fromToken, toToken, amount, result.receivedAmount);
         
         emit DCAExecuted(user, fromToken, toToken, amount, result.receivedAmount);
+        
+        return result.receivedAmount;
     }
 
     function _prepareSwapExecution(
@@ -666,9 +759,16 @@ contract DCA is IDCAModule, ReentrancyGuard {
         // Calculate the amount received
         uint256 receivedAmount = _calculateReceivedAmount(delta, zeroForOne);
         
+        // Check if we received any tokens
+        bool success = receivedAmount > 0;
+        
+        if (!success) {
+            emit SwapExecutionZeroOutput(amount, zeroForOne);
+        }
+        
         return SwapExecutionResult({
             receivedAmount: receivedAmount,
-            success: true
+            success: success
         });
     }
     

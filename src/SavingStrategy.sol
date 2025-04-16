@@ -111,6 +111,7 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     error OnlyHook();
     error OnlyOwner();
     error UnauthorizedCaller();
+    error ModuleNotInitialized(string moduleName);
     
     // Constructor is empty since module will be initialized via initialize()
     constructor() {}
@@ -226,6 +227,9 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         // Verify caller is authorized
         if (msg.sender != address(storage_) && msg.sender != storage_.spendSaveHook()) revert OnlyHook();
 
+        // Check that required modules are initialized
+        if (address(savingsModule) == address(0)) revert ModuleNotInitialized("SavingsModule");
+    
         // Get user's saving strategy configuration
         SpendSaveStorage.SavingStrategy memory strategy = _getUserSavingStrategy(actualUser);
 

@@ -9,6 +9,7 @@ import "./SpendSaveStorage.sol";
 import "./ISavingsModule.sol";
 import "./ITokenModule.sol";
 import "./ISavingStrategyModule.sol";
+import "./IDCAModule.sol";
 
 /**
  * @title Savings
@@ -23,15 +24,18 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     // Module references
     ITokenModule public tokenModule;
     ISavingStrategyModule public strategyModule;
+    IDCAModule public dcaModule;
     
     // Events
     event AmountSaved(address indexed user, address indexed token, uint256 amount, uint256 totalSaved);
     event SavingsWithdrawn(address indexed user, address indexed token, uint256 amount, uint256 remaining);
     event GoalReached(address indexed user, address indexed token, uint256 amount);
     event ModuleInitialized(address storage_);
-    event ModuleReferencesSet(address tokenModule, address strategyModule);
+    event ModuleReferencesSet(address tokenModule, address strategyModule, address dcaModule);
     event WithdrawalTimelockSet(address indexed user, uint256 timelock);
     event TreasuryFeeCollected(address indexed user, address token, uint256 amount);
+    event SpecificTokenSwapQueued(address indexed user, address indexed fromToken, address indexed toToken, uint256 amount);
+    event SwapQueueingFailed(address indexed user, address indexed fromToken, address indexed toToken, string reason);
     
     // Custom errors
     error InsufficientSavings(address token, uint256 requested, uint256 available);
@@ -76,10 +80,11 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     }
     
     // Set references to other modules
-    function setModuleReferences(address _tokenModule, address _strategyModule) external onlyOwner {
+    function setModuleReferences(address _tokenModule, address _strategyModule, address _dcaModule) external onlyOwner {
         tokenModule = ITokenModule(_tokenModule);
         strategyModule = ISavingStrategyModule(_strategyModule);
-        emit ModuleReferencesSet(_tokenModule, _strategyModule);
+        dcaModule = IDCAModule(_dcaModule);
+        emit ModuleReferencesSet(_tokenModule, _strategyModule, _dcaModule);
     }
     
     // Process savings from swap output
@@ -160,16 +165,35 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         // If the output token is already the specific token, no need to swap
         if (outputToken == specificToken) {
             processSavings(user, specificToken, saveAmount);
-        } else {
-            // In a real implementation, we would handle swapping from output token
-            // to specific token here, but that requires complex swap execution logic.
-            // For simplicity, we'll just save the output token.
-            
-            // First, process the savings of the output token
+            return;
+        }
+        
+        // Create a pool key for the swap
+        PoolKey memory poolKey = storage_.createPoolKey(outputToken, specificToken);
+        
+        // First approve the DCA module to spend our tokens
+        IERC20(outputToken).forceApprove(address(dcaModule), saveAmount);
+        
+        // Queue the DCA swap using the DCA module
+        try dcaModule.queueDCAExecution(
+            user,
+            outputToken,
+            specificToken,
+            saveAmount,
+            poolKey,
+            0, // Current tick will be fetched by the DCA module
+            0  // Use default slippage
+        ) {
+            // Success - DCA module now has the tokens and will process the swap
+            emit SpecificTokenSwapQueued(user, outputToken, specificToken, saveAmount);
+        } catch Error(string memory reason) {
+            // If DCA queueing fails, fall back to saving the output token
+            emit SwapQueueingFailed(user, outputToken, specificToken, reason);
             processSavings(user, outputToken, saveAmount);
-            
-            // In a full implementation, we would swap these tokens to the specific token
-            // This would be handled by a specialized swap execution module
+        } catch {
+            // Unknown error, fall back to saving the output token
+            emit SwapQueueingFailed(user, outputToken, specificToken, "Unknown error");
+            processSavings(user, outputToken, saveAmount);
         }
     }
     

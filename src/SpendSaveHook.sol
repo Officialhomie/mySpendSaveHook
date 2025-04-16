@@ -15,8 +15,7 @@ import {
     BeforeSwapDelta,
     toBeforeSwapDelta
     } from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
-import {CurrencySettler} from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
-
+import {CurrencySettler} from "lib/v4-periphery/lib/v4-core/test/utils/CurrencySettler.sol";
 
 import "./SpendSaveStorage.sol";
 import "./ISavingStrategyModule.sol";
@@ -45,11 +44,18 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     ISlippageControlModule public slippageControlModule;
     ITokenModule public tokenModule;
     IDailySavingsModule public dailySavingsModule;
+
+    /// @notice Additional state variables
+    address public token;
+    address public savings;
+    address public savingStrategy;
+    address public yieldModule;
     
     /// @notice Error definitions
     error ModuleNotInitialized(string moduleName);
     error InsufficientGas(uint256 available, uint256 required);
     error UnauthorizedAccess(address caller);
+    error InvalidAddress();
     
     /// @notice Events
     event DailySavingsExecuted(address indexed user, uint256 totalAmount);
@@ -77,6 +83,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         address indexed toToken, 
         uint256 amount
     );
+    event ExternalProcessingSavingsCall(address indexed caller);
     
     /// @notice Gas configuration for daily savings
     uint256 private constant GAS_THRESHOLD = 500000;
@@ -224,6 +231,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         if (address(dcaModule) == address(0)) revert ModuleNotInitialized("DCA");
         if (address(slippageControlModule) == address(0)) revert ModuleNotInitialized("SlippageControl");
         if (address(tokenModule) == address(0)) revert ModuleNotInitialized("Token");
+        if (address(dailySavingsModule) == address(0)) revert ModuleNotInitialized("DailySavings");
+        // Also check the yieldModule if it's used in any functions
+        // if (address(yieldModule) == address(0)) revert ModuleNotInitialized("Yield");
     }
 
     // helper function to extract user identity
@@ -661,7 +671,14 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         PoolKey calldata key,
         BalanceDelta delta
     ) external {
-        require(msg.sender == address(this), "Only self-call allowed");
+        if (msg.sender != address(this)) {
+            // Allow authorized callers with appropriate warning
+            if (msg.sender == storage_.owner() || msg.sender == storage_.spendSaveHook()) {
+                emit ExternalProcessingSavingsCall(msg.sender);
+            } else {
+                revert UnauthorizedAccess(msg.sender);
+            }
+        }
         _processSavings(actualUser, context, key, delta);
     }
     
@@ -676,22 +693,22 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     }
 
     // Efficient token processing queue management
-    function _addTokenToProcessingQueue(address user, address token) internal {
-        if (token == address(0)) return;
+    function _addTokenToProcessingQueue(address user, address tokenAddr) internal {
+        if (tokenAddr == address(0)) return;
         
         TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
         
         // If token is not in queue, add it
-        if (queue.tokenPositions[token] == 0) {
-            queue.tokenQueue.push(token);
-            queue.tokenPositions[token] = queue.tokenQueue.length;
+        if (queue.tokenPositions[tokenAddr] == 0) {
+            queue.tokenQueue.push(tokenAddr);
+            queue.tokenPositions[tokenAddr] = queue.tokenQueue.length;
         }
     }
     
     // Remove token from processing queue
-    function _removeTokenFromProcessingQueue(address user, address token) internal {
+    function _removeTokenFromProcessingQueue(address user, address tokenAddr) internal {
         TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
-        uint256 position = queue.tokenPositions[token];
+        uint256 position = queue.tokenPositions[tokenAddr];
         
         // If token is in queue
         if (position > 0) {
@@ -707,7 +724,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             
             // Remove last element
             queue.tokenQueue.pop();
-            queue.tokenPositions[token] = 0;
+            queue.tokenPositions[tokenAddr] = 0;
         }
     }
     
@@ -718,11 +735,11 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         uint256 count = 0;
         
         for (uint256 i = 0; i < queue.tokenQueue.length; i++) {
-            address token = queue.tokenQueue[i];
-            (bool canExecute, , ) = _getDailyExecutionStatus(user, token);
+            address tokenAddr = queue.tokenQueue[i];
+            (bool canExecute, , ) = _getDailyExecutionStatus(user, tokenAddr);
             
             if (canExecute) {
-                dueTokens[count] = token;
+                dueTokens[count] = tokenAddr;
                 count++;
             }
         }
@@ -785,15 +802,15 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         for (uint256 i = startIdx; i < endIdx; i++) {
             if (gasleft() < processor.gasLimit + processor.minGasReserve) break;
             
-            address token = processor.tokens[i];
+            address tokenAddr = processor.tokens[i];
             uint256 gasStart = gasleft();
             
-            (uint256 savedAmount, bool success) = _processSingleToken(user, token);
+            (uint256 savedAmount, bool success) = _processSingleToken(user, tokenAddr);
             processor.totalSaved += savedAmount;
             
             // If successful, update last processed timestamp and maybe remove from queue
             if (success) {
-                _updateTokenProcessingStatus(user, token);
+                _updateTokenProcessingStatus(user, tokenAddr);
             }
             
             // Adjust gas estimate based on actual usage
@@ -802,16 +819,16 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         }
     }
     
-    function _updateTokenProcessingStatus(address user, address token) internal {
+    function _updateTokenProcessingStatus(address user, address tokenAddr) internal {
         TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
-        queue.lastProcessed[token] = block.timestamp;
+        queue.lastProcessed[tokenAddr] = block.timestamp;
         
         // Check if this token is done with daily savings
-        (bool canExecuteAgain, , ) = _getDailyExecutionStatus(user, token);
+        (bool canExecuteAgain, , ) = _getDailyExecutionStatus(user, tokenAddr);
         
         // If it can't be executed again (completed or no longer eligible), remove from queue
         if (!canExecuteAgain) {
-            _removeTokenFromProcessingQueue(user, token);
+            _removeTokenFromProcessingQueue(user, tokenAddr);
         }
     }
 
@@ -830,16 +847,16 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         return currentLimit; // Keep same limit if usage is close to estimate
     }
 
-    function _processSingleToken(address user, address token) internal returns (uint256 savedAmount, bool success) {
-        try dailySavingsModule.executeDailySavingsForToken(user, token) returns (uint256 amount) {
+    function _processSingleToken(address user, address tokenAddr) internal returns (uint256 savedAmount, bool success) {
+        try dailySavingsModule.executeDailySavingsForToken(user, tokenAddr) returns (uint256 amount) {
             if (amount > 0) {
-                emit DailySavingsDetails(user, token, amount);
+                emit DailySavingsDetails(user, tokenAddr, amount);
                 return (amount, true);
             }
         } catch Error(string memory reason) {
-            emit DailySavingsExecutionFailed(user, token, reason);
+            emit DailySavingsExecutionFailed(user, tokenAddr, reason);
         } catch {
-            emit DailySavingsExecutionFailed(user, token, "Unknown error");
+            emit DailySavingsExecutionFailed(user, tokenAddr, "Unknown error");
         }
         return (0, false);
     }
@@ -859,9 +876,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     // Helper to get daily execution status
     function _getDailyExecutionStatus(
         address user,
-        address token
+        address tokenAddr
     ) internal view returns (bool canExecute, uint256 nextExecutionTime, uint256 amountToSave) {
-        return dailySavingsModule.getDailyExecutionStatus(user, token);
+        return dailySavingsModule.getDailyExecutionStatus(user, tokenAddr);
     }
 
     // Check if there are pending daily savings
@@ -904,8 +921,8 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         return _tokenProcessingQueues[user].tokenQueue;
     }
     
-    function getTokenLastProcessed(address user, address token) external view returns (uint256) {
-        return _tokenProcessingQueues[user].lastProcessed[token];
+    function getTokenLastProcessed(address user, address tokenAddr) external view returns (uint256) {
+        return _tokenProcessingQueues[user].lastProcessed[tokenAddr];
     }
     
     // Token module proxy functions
@@ -935,5 +952,40 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     
     function safeTransferFrom(address sender, address receiver, uint256 id, uint256 amount, bytes calldata data) external returns (bool) {
         return tokenModule.safeTransferFrom(msg.sender, sender, receiver, id, amount, data);
+    }
+
+    function _setToken(address token_) internal {
+        if (token_ == address(0)) revert InvalidAddress();
+        token = token_;
+    }
+
+    function _setSavings(address savings_) internal {
+        if (savings_ == address(0)) revert InvalidAddress();
+        savings = savings_;
+    }
+
+    function _setSavingStrategy(address savingStrategy_) internal {
+        if (savingStrategy_ == address(0)) revert InvalidAddress();
+        savingStrategy = savingStrategy_;
+    }
+
+    function _setDcaModule(address dcaModule_) internal {
+        if (dcaModule_ == address(0)) revert InvalidAddress();
+        dcaModule = IDCAModule(dcaModule_);
+    }
+
+    function _setDailySavingsModule(address dailySavingsModule_) internal {
+        if (dailySavingsModule_ == address(0)) revert InvalidAddress();
+        dailySavingsModule = IDailySavingsModule(dailySavingsModule_);
+    }
+
+    function _setYieldModule(address yieldModule_) internal {
+        if (yieldModule_ == address(0)) revert InvalidAddress();
+        yieldModule = yieldModule_;
+    }
+
+    function _setSlippageControlModule(address slippageControlModule_) internal {
+        if (slippageControlModule_ == address(0)) revert InvalidAddress();
+        slippageControlModule = ISlippageControlModule(slippageControlModule_);
     }
 }
