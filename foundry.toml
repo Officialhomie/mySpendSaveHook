@@ -23,3 +23,6 @@ via_ir = true
 
 [profile.dev]
 via_ir = true
+
+[rpc_endpoints]
+base_sepolia = "https://sepolia.base.org"
