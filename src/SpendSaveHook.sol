@@ -143,24 +143,27 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         address _dailySavingsModule
     ) external virtual {
         require(msg.sender == storage_.owner(), "Only owner can initialize modules");
-        _storeModuleReferences(
-            _strategyModule, 
-            _savingsModule, 
-            _dcaModule, 
-            _slippageModule, 
-            _tokenModule, 
-            _dailySavingsModule
-        );
-        _registerModulesWithStorage(
-            _strategyModule, 
-            _savingsModule, 
-            _dcaModule, 
-            _slippageModule, 
-            _tokenModule, 
-            _dailySavingsModule
-        );
         
-        emit ModulesInitialized(_strategyModule, _savingsModule, _dcaModule, _slippageModule, _tokenModule, _dailySavingsModule);
+        // Only cache the references locally inside the hook. Registration in storage must be
+        // carried out beforehand by the owner (deployment script) to avoid the onlyOwner
+        // restriction inside SpendSaveStorage.
+        _storeModuleReferences(
+            _strategyModule,
+            _savingsModule,
+            _dcaModule,
+            _slippageModule,
+            _tokenModule,
+            _dailySavingsModule
+        );
+
+        emit ModulesInitialized(
+            _strategyModule,
+            _savingsModule,
+            _dcaModule,
+            _slippageModule,
+            _tokenModule,
+            _dailySavingsModule
+        );
     }
     
     // Separate helper to store module references
@@ -178,23 +181,6 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         slippageControlModule = ISlippageControlModule(_slippageModule);
         tokenModule = ITokenModule(_tokenModule);
         dailySavingsModule = IDailySavingsModule(_dailySavingsModule);
-    }
-    
-    // Separate helper to register modules with storage
-    function _registerModulesWithStorage(
-        address _strategyModule,
-        address _savingsModule,
-        address _dcaModule,
-        address _slippageModule,
-        address _tokenModule,
-        address _dailySavingsModule
-    ) internal {
-        storage_.setSavingStrategyModule(_strategyModule);
-        storage_.setSavingsModule(_savingsModule);
-        storage_.setDCAModule(_dcaModule);
-        storage_.setSlippageControlModule(_slippageModule);
-        storage_.setTokenModule(_tokenModule);
-        storage_.setDailySavingsModule(_dailySavingsModule);
     }
     
     /**

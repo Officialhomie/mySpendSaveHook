@@ -93,14 +93,6 @@ contract DeploySpendSave is Script {
         // Start the deployment
         vm.startBroadcast(deployerPrivateKey);
         
-        // Deploy Uniswap V4 PoolManager if needed
-        // Uncomment the next line to deploy a new PoolManager
-        // poolManager = new PoolManager(500000);
-        
-        // Or use an existing PoolManager address
-        poolManager = PoolManager(vm.envAddress("POOL_MANAGER_ADDRESS"));
-        console.log("PoolManager address:", address(poolManager));
-        
         // Deploy SpendSaveStorage
         spendSaveStorage = new SpendSaveStorage(owner, treasury, IPoolManager(address(poolManager)));
         console.log("SpendSaveStorage deployed at:", address(spendSaveStorage));
@@ -108,29 +100,27 @@ contract DeploySpendSave is Script {
         // Deploy all modules
         deployModules();
         
+        // Initialize modules (each module gets the storage reference)
+        initializeModules();
+        
         // Deploy SpendSaveHook with HookMiner for correct address
         deployHook();
         
-        // Initialize modules
-        initializeModules();
+        // Register every module address inside SpendSaveStorage so the hook's _checkModulesInitialized passes
+        registerModulesWithStorage();
         
-        // Set module references
+        // Fully wire up the protocol by calling the hook's initializeModules (stores local refs inside hook)
+        spendSaveHook.initializeModules(
+            address(savingStrategyModule),
+            address(savingsModule),
+            address(dcaModule),
+            address(slippageControlModule),
+            address(tokenModule),
+            address(dailySavingsModule)
+        );
+        
+        // Now that the hook knows every module, set any inter-module references
         setModuleReferences();
-        
-        // Register modules with storage
-        // This is needed because the hook needs to access modules via storage
-        initializeHook();
-        
-        // After deployment, we need the OWNER to call initializeModules on the hook
-        console.log("\nIMPORTANT: After deployment, the owner must call this function:");
-        console.log("spendSaveHook.initializeModules(");
-        console.log("    ", address(savingStrategyModule), ",");
-        console.log("    ", address(savingsModule), ",");
-        console.log("    ", address(dcaModule), ",");
-        console.log("    ", address(slippageControlModule), ",");
-        console.log("    ", address(tokenModule), ",");
-        console.log("    ", address(dailySavingsModule));
-        console.log(")");
         
         vm.stopBroadcast();
         
@@ -164,7 +154,6 @@ contract DeploySpendSave is Script {
         console.log("YieldModule deployed at:", address(yieldModule));
     }
     
-
     function deployHook() internal {
         console.log("Mining hook address with correct flags...");
         
@@ -262,15 +251,15 @@ contract DeploySpendSave is Script {
             address(tokenModule), 
             address(yieldModule)
         );
+        
+        // Register YieldModule with storage for completeness
+        spendSaveStorage.setYieldModule(address(yieldModule));
     }
     
-    function initializeHook() internal {
-        console.log("Initializing hook with modules...");
+    function registerModulesWithStorage() internal {
+        console.log("Registering modules with storage...");
         
-        // For the SpendSaveHook contract, we need to set modules directly through storage
-        // since the hook's initializeModules method requires owner as caller
-        
-        // First register modules with storage
+        // Register each module with storage
         spendSaveStorage.setSavingStrategyModule(address(savingStrategyModule));
         spendSaveStorage.setSavingsModule(address(savingsModule));
         spendSaveStorage.setDCAModule(address(dcaModule));
@@ -278,16 +267,10 @@ contract DeploySpendSave is Script {
         spendSaveStorage.setTokenModule(address(tokenModule));
         spendSaveStorage.setDailySavingsModule(address(dailySavingsModule));
         spendSaveStorage.setYieldModule(address(yieldModule));
-        
-        // Now the hook can load its references from storage through appropriate methods
-        // or will do so automatically when functions are called
-        
-        console.log("All module references registered with storage");
     }
     
     function logDeployedAddresses() internal view {
         console.log("\n--- Deployed Contract Addresses ---");
-        console.log("PoolManager:          ", address(poolManager));
         console.log("SpendSaveStorage:     ", address(spendSaveStorage));
         console.log("SpendSaveHook:        ", address(spendSaveHook));
         console.log("SavingStrategy:       ", address(savingStrategyModule));
