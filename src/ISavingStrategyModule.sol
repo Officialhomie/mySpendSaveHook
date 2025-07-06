@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
+import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 import {
     BeforeSwapDelta,
     toBeforeSwapDelta
@@ -27,7 +28,7 @@ interface ISavingStrategyModule is ISpendSaveModule {
     function beforeSwap(
         address actualUser, 
         PoolKey calldata key,
-        IPoolManager.SwapParams calldata params
+        SwapParams calldata params
     ) external returns (BeforeSwapDelta);
     
     function updateSavingStrategy(address sender, SpendSaveStorage.SwapContext memory context) external;

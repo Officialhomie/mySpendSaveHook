@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-con
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
+import {ERC6909} from "lib/v4-periphery/lib/v4-core/lib/solmate/src/tokens/ERC6909.sol";
 
 /**
  * @notice Centralized storage for all SpendSave modules
@@ -63,18 +64,18 @@ contract SpendSaveStorage is ReentrancyGuard {
     // Treasury configuration
     uint256 public treasuryFee; // Basis points (0.01%)
 
-/**
- * @notice User's saving strategy configuration
- * @dev Defines how tokens are saved during swaps
- * @param percentage Base percentage to save (0-10000, where 10000 = 100%)
- * @param autoIncrement Percentage to increase after each swap
- * @param maxPercentage Maximum percentage cap for auto-increments
- * @param goalAmount Target savings goal for each token
- * @param roundUpSavings Whether to round up to nearest whole token unit
- * @param enableDCA Whether dollar-cost averaging is enabled
- * @param savingsTokenType Which token to save (INPUT, OUTPUT, or SPECIFIC)
- * @param specificSavingsToken Address of specific token to save, if applicable
- */
+    /**
+    * @notice User's saving strategy configuration
+    * @dev Defines how tokens are saved during swaps
+    * @param percentage Base percentage to save (0-10000, where 10000 = 100%)
+    * @param autoIncrement Percentage to increase after each swap
+    * @param maxPercentage Maximum percentage cap for auto-increments
+    * @param goalAmount Target savings goal for each token
+    * @param roundUpSavings Whether to round up to nearest whole token unit
+    * @param enableDCA Whether dollar-cost averaging is enabled
+    * @param savingsTokenType Which token to save (INPUT, OUTPUT, or SPECIFIC)
+    * @param specificSavingsToken Address of specific token to save, if applicable
+    */
     struct SavingStrategy {
         uint256 percentage;     // Base percentage to save (0-100%)
         uint256 autoIncrement;  // Optional auto-increment percentage per swap
@@ -200,12 +201,12 @@ contract SpendSaveStorage is ReentrancyGuard {
 
 
 
-/**
- * @notice Contract constructor
- * @param _owner Address of the contract owner
- * @param _treasury Address of the treasury to collect fees
- * @param _poolManager Address of the Uniswap V4 pool manager
- */
+    /**
+    * @notice Contract constructor
+    * @param _owner Address of the contract owner
+    * @param _treasury Address of the treasury to collect fees
+    * @param _poolManager Address of the Uniswap V4 pool manager
+    */
     constructor(address _owner, address _treasury, IPoolManager _poolManager) {
         owner = _owner;
         treasury = _treasury;
