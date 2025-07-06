@@ -7,7 +7,6 @@ import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-con
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
-import {ERC6909} from "lib/v4-periphery/lib/v4-core/lib/solmate/src/tokens/ERC6909.sol";
 
 /**
  * @notice Centralized storage for all SpendSave modules
