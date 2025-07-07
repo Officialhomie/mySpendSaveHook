@@ -168,6 +168,10 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     /// @notice User withdrawal timelock timestamps
     mapping(address => uint256) public userWithdrawalTimelocks;
 
+    /// @notice DCA Queue for users
+    
+    mapping(address => DCAQueue) public dcaQueues;
+
     // ==================== ENUMS AND STRUCTS ====================
     
     /// @notice Token types for savings strategy
@@ -707,28 +711,26 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
     
     /**
-     * @notice Get user saving strategy
-     * @param user The user address
-     * @return strategy The complete saving strategy configuration
-     * @dev Constructs strategy from both packed and individual storage for compatibility
-     */
+    * @notice Get user saving strategy
+    * @param user The user address
+    * @return strategy The complete saving strategy configuration
+    * @dev Now uses only packed storage - no more legacy fallbacks
+    */
     function getUserSavingStrategy(address user) external view returns (SavingStrategy memory strategy) {
-        // Try to get from packed storage first for gas efficiency
+        // Get from packed storage only
         PackedUserConfig memory packed = _packedUserConfigs[user];
         
-        // If packed config exists, use it; otherwise fall back to legacy storage
-        if (packed.percentage > 0 || userSavingStrategies[user].percentage > 0) {
-            strategy = SavingStrategy({
-                percentage: packed.percentage > 0 ? packed.percentage : userSavingStrategies[user].percentage,
-                autoIncrement: packed.autoIncrement > 0 ? packed.autoIncrement : userSavingStrategies[user].autoIncrement,
-                maxPercentage: packed.maxPercentage > 0 ? packed.maxPercentage : userSavingStrategies[user].maxPercentage,
-                goalAmount: savingsGoals[user],
-                roundUpSavings: packed.percentage > 0 ? (packed.roundUpSavings == 1) : userSavingStrategies[user].roundUpSavings,
-                enableDCA: packed.percentage > 0 ? (packed.enableDCA == 1) : userSavingStrategies[user].enableDCA,
-                savingsTokenType: packed.percentage > 0 ? SavingsTokenType(packed.savingsTokenType) : userSavingStrategies[user].savingsTokenType,
-                specificSavingsToken: specificSavingsToken[user] != address(0) ? specificSavingsToken[user] : userSavingStrategies[user].specificSavingsToken
-            });
-        }
+        // Construct strategy from packed storage and individual mappings
+        strategy = SavingStrategy({
+            percentage: packed.percentage,
+            autoIncrement: packed.autoIncrement,
+            maxPercentage: packed.maxPercentage,
+            goalAmount: savingsGoals[user],
+            roundUpSavings: packed.roundUpSavings == 1,
+            enableDCA: packed.enableDCA == 1,
+            savingsTokenType: SavingsTokenType(packed.savingsTokenType),
+            specificSavingsToken: specificSavingsToken[user]
+        });
     }
     
     /**
@@ -815,49 +817,52 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== SWAP CONTEXT MANAGEMENT ====================
-    
+
     /**
      * @notice Set swap context for transaction processing
      * @param user The user address
      * @param context The swap context data
-     * @dev Legacy compatibility function for existing module interfaces
+     * @dev Updated to use only transient storage - no more legacy _swapContexts
      */
     function setSwapContext(address user, SwapContext memory context) external onlyModule {
-        _swapContexts[user] = context;
+        // Convert to packed format for transient storage
+        _transientSwapContexts[user] = PackedSwapContext({
+            pendingSaveAmount: uint128(context.pendingSaveAmount),
+            currentPercentage: uint16(context.currentPercentage),
+            hasStrategy: context.hasStrategy ? 1 : 0,
+            savingsTokenType: uint8(context.savingsTokenType),
+            roundUpSavings: context.roundUpSavings ? 1 : 0,
+            enableDCA: context.enableDCA ? 1 : 0,
+            reserved: 0
+        });
     }
-    
+
     /**
      * @notice Get swap context for legacy compatibility
      * @param user The user address
      * @return context The swap context data
-     * @dev Converts from packed format when available
+     * @dev Converts from packed transient storage only
      */
     function getSwapContext(address user) external view returns (SwapContext memory context) {
-        // Check if we have transient context first (for active swaps)
+        // Get from transient storage only
         PackedSwapContext memory packed = _transientSwapContexts[user];
-        
-        if (packed.hasStrategy == 1) {
-            // Convert from packed transient storage
-            context = SwapContext({
-                hasStrategy: true,
-                currentPercentage: packed.currentPercentage,
-                inputAmount: 0, // Not stored in packed format
-                inputToken: address(0), // Not stored in packed format
-                roundUpSavings: packed.roundUpSavings == 1,
-                enableDCA: packed.enableDCA == 1,
-                dcaTargetToken: address(0), // Retrieved separately if needed
-                savingsTokenType: SavingsTokenType(packed.savingsTokenType),
-                specificSavingsToken: specificSavingsToken[user],
-                pendingSaveAmount: packed.pendingSaveAmount
-            });
-        } else {
-            // Fall back to legacy storage
-            context = _swapContexts[user];
-        }
+        // Convert from packed transient storage
+        context = SwapContext({
+            hasStrategy: packed.hasStrategy == 1,
+            currentPercentage: packed.currentPercentage,
+            inputAmount: 0, // Not stored in packed format
+            inputToken: address(0), // Not stored in packed format
+            roundUpSavings: packed.roundUpSavings == 1,
+            enableDCA: packed.enableDCA == 1,
+            dcaTargetToken: address(0), // Retrieved separately if needed
+            savingsTokenType: SavingsTokenType(packed.savingsTokenType),
+            specificSavingsToken: specificSavingsToken[user],
+            pendingSaveAmount: packed.pendingSaveAmount
+        });
     }
 
     // ==================== DCA MANAGEMENT FUNCTIONS ====================
-    
+
     /**
      * @notice Add DCA order to user's queue
      * @param user The user address
@@ -875,7 +880,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         
         emit DCAQueued(user, amount, token, executionTime);
     }
-    
+
     /**
      * @notice Get user's DCA queue
      * @param user The user address
@@ -1039,7 +1044,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @param user The user address
      * @return timelock The timelock timestamp
      */
-    function withdrawalTimelock(address user) external view returns (uint256) {
-        return userWithdrawalTimelocks[user];
+    function getWithdrawalTimelock(address user) external view returns (uint256) {
+        return withdrawalTimelock[user];
     }
 }

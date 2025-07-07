@@ -784,7 +784,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @notice Pause savings operations (owner only)
      * @dev Emergency pause for critical situations
      */
-    function pauseSavings() external onlyInitialized {
+    function pauseSavings() external onlyHook whenNotPaused onlyInitialized {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         paused = true;
         emit PauseStateChanged(true);
@@ -794,7 +794,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @notice Resume savings operations (owner only)
      * @dev Resume operations after emergency pause
      */
-    function resumeSavings() external onlyInitialized {
+    function resumeSavings() external nonReentrant whenNotPaused onlyInitialized {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         paused = false;
         emit PauseStateChanged(false);

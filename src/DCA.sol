@@ -142,6 +142,7 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         slippageModule = ISlippageControlModule(slippage);
         savingsModule = ISavingsModule(savings);
         // Ignore other parameters as not needed for DCA module
+        emit ModuleReferencesSet(token, slippage, savings);
     }
     
     // Helper function to get current strategy parameters
@@ -370,8 +371,8 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         uint256 amount
     ) internal view returns (address targetToken) {
         // Check if DCA is enabled
-        (,,,,, bool enableDCA,,) = storage_.getUserSavingStrategy(user);
-        if (!enableDCA) revert DCANotEnabled();
+        (,,,,, bool isDCAEnabled,,) = storage_.getUserSavingStrategy(user);
+        if (!isDCAEnabled) revert DCANotEnabled();
         
         targetToken = storage_.dcaTargetToken(user);
         if (targetToken == address(0)) revert NoTargetTokenSet();
