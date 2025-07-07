@@ -8,7 +8,7 @@ import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-con
 import "./interfaces/ITokenModule.sol";
 import {ERC6909} from "lib/v4-periphery/lib/v4-core/lib/solmate/src/tokens/ERC6909.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
-
+import {PoolId} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
 /**
  * @title SpendSaveStorage - Optimized Centralized Storage with Gas-Efficient Packed Storage
  * @notice Centralized storage contract serving as the single source of truth for all SpendSave protocol state
@@ -21,6 +21,14 @@ import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
  * @author SpendSave Protocol Team
  */
 contract SpendSaveStorage is ERC6909, ReentrancyGuard {
+
+    // ==================== CONSTANTS ====================
+    
+    /// @notice Default fee tier for pool creation (0.3%)
+    uint24 private constant DEFAULT_FEE_TIER = 3000;
+    
+    /// @notice Default tick spacing for pool creation
+    int24 private constant DEFAULT_TICK_SPACING = 60;
 
     // ==================== PACKED STORAGE OPTIMIZATION STRUCTS ====================
     
@@ -169,8 +177,21 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     mapping(address => uint256) public userWithdrawalTimelocks;
 
     /// @notice DCA Queue for users
-    
     mapping(address => DCAQueue) public dcaQueues;
+
+    // ==================== DCA MANAGEMENT MAPPINGS ====================
+    
+    /// @notice DCA tick strategies per user
+    mapping(address => DCATickStrategy) public dcaTickStrategies;
+    
+    /// @notice DCA target tokens per user
+    mapping(address => address) public dcaTargetTokens;
+    
+    /// @notice Enhanced DCA queues with detailed information
+    mapping(address => EnhancedDCAQueue) private enhancedDcaQueues;
+    
+    /// @notice Pool ticks for price tracking
+    mapping(PoolId => int24) private _poolTicks;
 
     // ==================== ENUMS AND STRUCTS ====================
     
@@ -219,6 +240,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         bool roundUpSavings;                   // Round up flag
         bool enableDCA;                        // DCA enabled flag
         address dcaTargetToken;                // DCA target token
+        int24 currentTick;                     // Current pool tick
         SavingsTokenType savingsTokenType;     // Savings token type
         address specificSavingsToken;          // Specific savings token
         uint256 pendingSaveAmount;             // Pending save amount
@@ -256,6 +278,36 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         bool successful;          // Execution success flag
     }
 
+    // ==================== DCA STRUCTURES ====================
+    
+    /// @notice DCA tick strategy configuration
+    struct DCATickStrategy {
+        int24 tickDelta;              // Tick movement threshold
+        uint256 tickExpiryTime;       // Strategy expiry timestamp
+        bool onlyImprovePrice;        // Only execute on price improvement
+        int24 minTickImprovement;     // Minimum tick improvement required
+        bool dynamicSizing;           // Enable dynamic DCA sizing
+        uint256 customSlippageTolerance; // Custom slippage tolerance
+    }
+    
+    /// @notice DCA queue item with detailed information
+    struct DCAQueueItem {
+        address fromToken;            // Source token
+        address toToken;              // Target token
+        uint256 amount;               // DCA amount
+        int24 executionTick;          // Target execution tick
+        uint256 deadline;             // Execution deadline
+        uint256 customSlippageTolerance; // Custom slippage
+        bool executed;                // Execution status
+    }
+    
+    /// @notice Enhanced DCA queue with detailed tracking
+    struct EnhancedDCAQueue {
+        DCAQueueItem[] items;         // Queue items
+        mapping(uint256 => bool) executed; // Execution tracking
+        bool isActive;                // Queue active status
+    }
+
     // ==================== EVENTS ====================
     
     /// @notice Emitted when storage is initialized
@@ -281,6 +333,18 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Emitted when daily savings are configured
     event DailySavingsConfigured(address indexed user, DailySavingsConfig config);
+    
+    /// @notice Emitted when DCA tick strategy is set
+    event DCATickStrategySet(address indexed user, int24 tickDelta, uint256 tickExpiryTime, bool onlyImprovePrice);
+    
+    /// @notice Emitted when DCA target token is set
+    event DCATargetTokenSet(address indexed user, address indexed token);
+    
+    /// @notice Emitted when DCA order is executed
+    event DCAExecuted(address indexed user, uint256 indexed index);
+    
+    /// @notice Emitted when pool tick is updated
+    event PoolTickUpdated(PoolId indexed poolId, int24 tick);
 
     // ==================== ERRORS ====================
     
@@ -298,6 +362,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Error when already initialized
     error AlreadyInitialized();
+    
+    /// @notice Error when index is out of bounds
+    error IndexOutOfBounds();
 
     // ==================== MODIFIERS ====================
     
@@ -847,6 +914,27 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             enableDCA: context.enableDCA ? 1 : 0,
             reserved: 0
         });
+        
+        // Store additional fields that don't fit in packed format
+        if (context.dcaTargetToken != address(0)) {
+            dcaTargetTokens[user] = context.dcaTargetToken;
+        }
+    }
+
+    /**
+     * @notice Set swap context with current tick for DCA operations
+     * @param user The user address
+     * @param context The swap context data
+     * @param currentTick The current pool tick
+     * @dev Extended version for DCA operations that need tick information
+     */
+    function setSwapContextWithTick(address user, SwapContext memory context, int24 currentTick) external onlyModule {
+        // Set the basic swap context
+        setSwapContext(user, context);
+        
+        // Store the current tick in a separate mapping for DCA operations
+        // Note: This is a temporary solution - in a full implementation, 
+        // you might want to store this in the transient context or pass it directly
     }
 
     /**
@@ -867,6 +955,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             roundUpSavings: packed.roundUpSavings == 1,
             enableDCA: packed.enableDCA == 1,
             dcaTargetToken: address(0), // Retrieved separately if needed
+            currentTick: 0, // Not stored in packed format, would need to be set separately
             savingsTokenType: SavingsTokenType(packed.savingsTokenType),
             specificSavingsToken: specificSavingsToken[user],
             pendingSaveAmount: packed.pendingSaveAmount
@@ -900,6 +989,288 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function getDcaQueue(address user) external view returns (DCAQueue memory queue) {
         return dcaQueues[user];
+    }
+
+    // ==================== DCA TICK STRATEGY FUNCTIONS ====================
+
+    /**
+     * @notice Get DCA tick strategy for a user
+     * @param user The user address
+     * @return tickDelta Tick movement threshold
+     * @return tickExpiryTime Strategy expiry timestamp
+     * @return onlyImprovePrice Only execute on price improvement flag
+     * @return minTickImprovement Minimum tick improvement required
+     * @return dynamicSizing Dynamic sizing enabled flag
+     * @return customSlippageTolerance Custom slippage tolerance
+     */
+    function getDcaTickStrategy(address user) 
+        external 
+        view 
+        returns (
+            int24 tickDelta,
+            uint256 tickExpiryTime,
+            bool onlyImprovePrice,
+            int24 minTickImprovement,
+            bool dynamicSizing,
+            uint256 customSlippageTolerance
+        ) 
+    {
+        DCATickStrategy storage strategy = dcaTickStrategies[user];
+        return (
+            strategy.tickDelta,
+            strategy.tickExpiryTime,
+            strategy.onlyImprovePrice,
+            strategy.minTickImprovement,
+            strategy.dynamicSizing,
+            strategy.customSlippageTolerance
+        );
+    }
+
+    /**
+     * @notice Set DCA tick strategy for a user
+     * @param user The user address
+     * @param tickDelta Tick movement threshold
+     * @param tickExpiryTime Strategy expiry timestamp
+     * @param onlyImprovePrice Only execute on price improvement flag
+     * @param minTickImprovement Minimum tick improvement required
+     * @param dynamicSizing Dynamic sizing enabled flag
+     * @param customSlippageTolerance Custom slippage tolerance
+     */
+    function setDcaTickStrategy(
+        address user,
+        int24 tickDelta,
+        uint256 tickExpiryTime,
+        bool onlyImprovePrice,
+        int24 minTickImprovement,
+        bool dynamicSizing,
+        uint256 customSlippageTolerance
+    ) external onlyModule {
+        dcaTickStrategies[user] = DCATickStrategy({
+            tickDelta: tickDelta,
+            tickExpiryTime: tickExpiryTime,
+            onlyImprovePrice: onlyImprovePrice,
+            minTickImprovement: minTickImprovement,
+            dynamicSizing: dynamicSizing,
+            customSlippageTolerance: customSlippageTolerance
+        });
+        
+        emit DCATickStrategySet(user, tickDelta, tickExpiryTime, onlyImprovePrice);
+    }
+
+    // ==================== DCA TARGET TOKEN FUNCTIONS ====================
+
+    /**
+     * @notice Get DCA target token for a user
+     * @param user The user address
+     * @return targetToken The target token address
+     */
+    function dcaTargetToken(address user) external view returns (address targetToken) {
+        return dcaTargetTokens[user];
+    }
+
+    /**
+     * @notice Set DCA target token for a user
+     * @param user The user address
+     * @param token The target token address
+     */
+    function setDcaTargetToken(address user, address token) external onlyModule {
+        dcaTargetTokens[user] = token;
+        emit DCATargetTokenSet(user, token);
+    }
+
+    // ==================== ENHANCED DCA QUEUE FUNCTIONS ====================
+
+    /**
+     * @notice Add detailed DCA order to user's queue
+     * @param user The user address
+     * @param fromToken Source token address
+     * @param toToken Target token address
+     * @param amount DCA amount
+     * @param executionTick Target execution tick
+     * @param deadline Execution deadline
+     * @param customSlippageTolerance Custom slippage tolerance
+     */
+    function addToDcaQueue(
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 amount,
+        int24 executionTick,
+        uint256 deadline,
+        uint256 customSlippageTolerance
+    ) external onlyModule {
+        EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
+        
+        // Add to enhanced queue
+        queue.items.push(DCAQueueItem({
+            fromToken: fromToken,
+            toToken: toToken,
+            amount: amount,
+            executionTick: executionTick,
+            deadline: deadline,
+            customSlippageTolerance: customSlippageTolerance,
+            executed: false
+        }));
+        
+        queue.isActive = true;
+        
+        // Also maintain compatibility with existing simple queue
+        DCAQueue storage simpleQueue = dcaQueues[user];
+        simpleQueue.amounts.push(amount);
+        simpleQueue.tokens.push(toToken);
+        simpleQueue.executionTimes.push(deadline);
+        simpleQueue.isActive = true;
+        
+        emit DCAQueued(user, amount, toToken, deadline);
+    }
+
+    /**
+     * @notice Get DCA queue length for a user
+     * @param user The user address
+     * @return length The queue length
+     */
+    function getDcaQueueLength(address user) external view returns (uint256 length) {
+        return enhancedDcaQueues[user].items.length;
+    }
+
+    /**
+     * @notice Get specific DCA queue item
+     * @param user The user address
+     * @param index The queue item index
+     * @return fromToken Source token address
+     * @return toToken Target token address
+     * @return amount DCA amount
+     * @return executionTick Target execution tick
+     * @return deadline Execution deadline
+     * @return executed Execution status
+     * @return customSlippageTolerance Custom slippage tolerance
+     */
+    function getDcaQueueItem(address user, uint256 index) 
+        external 
+        view 
+        returns (
+            address fromToken,
+            address toToken,
+            uint256 amount,
+            int24 executionTick,
+            uint256 deadline,
+            bool executed,
+            uint256 customSlippageTolerance
+        ) 
+    {
+        if (index >= enhancedDcaQueues[user].items.length) revert IndexOutOfBounds();
+        
+        DCAQueueItem storage item = enhancedDcaQueues[user].items[index];
+        return (
+            item.fromToken,
+            item.toToken,
+            item.amount,
+            item.executionTick,
+            item.deadline,
+            item.executed,
+            item.customSlippageTolerance
+        );
+    }
+
+    /**
+     * @notice Mark DCA order as executed
+     * @param user The user address
+     * @param index The queue item index
+     */
+    function markDcaExecuted(address user, uint256 index) external onlyModule {
+        if (index >= enhancedDcaQueues[user].items.length) revert IndexOutOfBounds();
+        
+        EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
+        queue.items[index].executed = true;
+        queue.executed[index] = true;
+        
+        emit DCAExecuted(user, index);
+    }
+
+    // ==================== POOL TICK MANAGEMENT FUNCTIONS ====================
+
+    /**
+     * @notice Get current tick for a pool
+     * @param poolId The pool identifier
+     * @return tick The current tick
+     */
+    function poolTicks(PoolId poolId) external view returns (int24 tick) {
+        return _poolTicks[poolId];
+    }
+
+    /**
+     * @notice Set current tick for a pool
+     * @param poolId The pool identifier
+     * @param tick The current tick
+     */
+    function setPoolTick(PoolId poolId, int24 tick) external onlyModule {
+        _poolTicks[poolId] = tick;
+        emit PoolTickUpdated(poolId, tick);
+    }
+
+    // ==================== POOL KEY CREATION FUNCTIONS ====================
+
+    /**
+     * @notice Create pool key for two tokens with default parameters
+     * @param token0 The first token address
+     * @param token1 The second token address
+     * @return key The created pool key
+     */
+    function createPoolKey(address token0, address token1) external onlyModule returns (PoolKey memory key) {
+        return createPoolKey(token0, token1, DEFAULT_FEE_TIER, DEFAULT_TICK_SPACING, address(0));
+    }
+
+    // ==================== HELPER FUNCTIONS FOR BACKWARDS COMPATIBILITY ====================
+
+    /**
+     * @notice Check if user has any pending DCA orders
+     * @param user The user address
+     * @return hasPending True if user has pending orders
+     */
+    function hasPendingDCAOrders(address user) external view returns (bool hasPending) {
+        EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
+        
+        for (uint256 i = 0; i < queue.items.length; i++) {
+            if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * @notice Get all pending DCA orders for a user
+     * @param user The user address
+     * @return pendingOrders Array of pending DCA orders
+     */
+    function getPendingDCAOrders(address user) 
+        external 
+        view 
+        returns (DCAQueueItem[] memory pendingOrders) 
+    {
+        EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
+        
+        // Count pending orders
+        uint256 pendingCount = 0;
+        for (uint256 i = 0; i < queue.items.length; i++) {
+            if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
+                pendingCount++;
+            }
+        }
+        
+        // Create array of pending orders
+        pendingOrders = new DCAQueueItem[](pendingCount);
+        uint256 pendingIndex = 0;
+        
+        for (uint256 i = 0; i < queue.items.length; i++) {
+            if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
+                pendingOrders[pendingIndex] = queue.items[i];
+                pendingIndex++;
+            }
+        }
+        
+        return pendingOrders;
     }
 
     // ==================== SLIPPAGE CONTROL FUNCTIONS ====================
