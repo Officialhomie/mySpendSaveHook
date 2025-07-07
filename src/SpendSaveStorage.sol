@@ -126,17 +126,12 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     // ==================== COMPREHENSIVE DATA STRUCTURES ====================
     
-    /// @notice User strategy configuration (legacy compatibility)
-    mapping(address => SavingStrategy) public userSavingStrategies;
-    
-    /// @notice Swap contexts for transaction processing (legacy compatibility)
-    mapping(address => SwapContext) private _swapContexts;
-    
-    /// @notice DCA queue for each user
-    mapping(address => DCAQueue) public dcaQueues;
-    
-    /// @notice DCA execution records
-    mapping(address => mapping(uint256 => DCAExecution)) public dcaExecutions;
+    // LEGACY - Removed:
+    // mapping(address => SavingStrategy) public userSavingStrategies;
+    // mapping(address => SwapContext) private _swapContexts;
+    // mapping(address => DCAQueue) public dcaQueues;
+    // mapping(address => mapping(uint256 => DCAExecution)) public dcaExecutions;
+    // mapping(address => DailySavingsConfig) public dailySavingsConfigs;
     
     /// @notice User slippage tolerance settings
     mapping(address => uint256) public userSlippageTolerance;
@@ -162,6 +157,16 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Pool initialization status
     mapping(bytes32 => bool) public poolInitialized;
+
+    // Add new mappings to track totalSaved and lastSaveTime for each user/token
+    mapping(address => mapping(address => uint256)) public totalSaved;
+    mapping(address => mapping(address => uint256)) public lastSaveTime;
+
+    // Add mapping for withdrawal timelock if not present
+    mapping(address => uint256) public withdrawalTimelock;
+
+    /// @notice User withdrawal timelock timestamps
+    mapping(address => uint256) public userWithdrawalTimelocks;
 
     // ==================== ENUMS AND STRUCTS ====================
     
@@ -681,8 +686,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @dev Maintains legacy compatibility while leveraging packed storage
      */
     function setSavingStrategy(address user, SavingStrategy memory strategy) external onlyModule {
-        userSavingStrategies[user] = strategy;
-        
+        // userSavingStrategies[user] = strategy; // ⚠️ REMOVED LEGACY STORAGE WRITE
         // Also update packed configuration for gas optimization
         setPackedUserConfig(
             user,
@@ -693,15 +697,12 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             strategy.enableDCA,
             uint8(strategy.savingsTokenType)
         );
-        
         // Store specific token if applicable
         if (strategy.savingsTokenType == SavingsTokenType.SPECIFIC) {
             specificSavingsToken[user] = strategy.specificSavingsToken;
         }
-        
         // Store savings goal
         savingsGoals[user] = strategy.goalAmount;
-        
         emit SavingStrategySet(user, strategy);
     }
     
@@ -787,6 +788,30 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function savings(address user, address token) external view returns (uint256 amount) {
         return _savings[user][token];
+    }
+
+    /**
+     * @notice Get detailed savings information for a user and token
+     * @param user The user address
+     * @param token The token address
+     * @return balance Current savings balance
+     * @return _totalSaved Total amount saved historically
+     * @return _lastSaveTime Timestamp of last save operation
+     * @return isLocked Whether withdrawals are currently locked
+     * @return _withdrawalTimelock Timestamp when withdrawals will be unlocked
+     */
+    function getSavingsDetails(address user, address token) external view returns (
+        uint256 balance,
+        uint256 _totalSaved,
+        uint256 _lastSaveTime,
+        bool isLocked,
+        uint256 _withdrawalTimelock
+    ) {
+        balance = _savings[user][token];
+        _totalSaved = totalSaved[user][token];
+        _lastSaveTime = lastSaveTime[user][token];
+        _withdrawalTimelock = withdrawalTimelock[user];
+        isLocked = block.timestamp < _withdrawalTimelock;
     }
 
     // ==================== SWAP CONTEXT MANAGEMENT ====================
@@ -998,5 +1023,23 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function emergencyPause() external onlyOwner {
         // Emergency pause implementation
         // Could disable specific functions or set emergency flags
+    }
+
+    /**
+     * @notice Set withdrawal timelock for a user
+     * @param user The user address
+     * @param timelock The timelock timestamp
+     */
+    function setWithdrawalTimelock(address user, uint256 timelock) external onlyModule {
+        userWithdrawalTimelocks[user] = timelock;
+    }
+
+    /**
+     * @notice Get withdrawal timelock for a user
+     * @param user The user address
+     * @return timelock The timelock timestamp
+     */
+    function withdrawalTimelock(address user) external view returns (uint256) {
+        return userWithdrawalTimelocks[user];
     }
 }

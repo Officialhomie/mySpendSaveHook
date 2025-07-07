@@ -293,7 +293,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address outputToken,
         uint256 outputAmount,
         SpendSaveStorage.SwapContext memory context
-    ) external override onlyHook whenNotPaused onlyInitialized returns (uint256 savedAmount) {
+    ) external onlyHook whenNotPaused onlyInitialized returns (uint256 savedAmount) {
         return _processSavingsFromOutput(user, outputToken, outputAmount, context);
     }
     function _processSavingsFromOutput(
@@ -328,7 +328,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address outputToken,
         uint256 outputAmount,
         SpendSaveStorage.SwapContext memory context
-    ) external override onlyHook whenNotPaused onlyInitialized returns (uint256 savedAmount) {
+    ) external onlyHook whenNotPaused onlyInitialized returns (uint256 savedAmount) {
         return _processSavingsToSpecificToken(user, outputToken, outputAmount, context);
     }
     function _processSavingsToSpecificToken(
@@ -494,7 +494,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address user,
         address token,
         uint256 amount
-    ) external override {
+    ) external {
         _withdraw(user, token, amount, false);
     }
 
@@ -551,7 +551,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address user,
         address token,
         uint256 amount
-    ) external override onlyHook whenNotPaused onlyInitialized {
+    ) external onlyHook whenNotPaused onlyInitialized {
         if (amount > 0) {
             SpendSaveStorage.SwapContext memory context = SpendSaveStorage.SwapContext({
                 hasStrategy: true,
@@ -580,7 +580,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address user,
         address token,
         uint256 amount
-    ) external override nonReentrant whenNotPaused onlyInitialized {
+    ) external nonReentrant whenNotPaused onlyInitialized {
         if (msg.sender != user) revert Unauthorized();
         if (amount == 0) revert InvalidAmount();
         if (token == address(0)) revert InvalidToken();
@@ -676,7 +676,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address fromToken,
         uint256 amount,
         address targetToken
-    ) external override onlyAuthorized onlyInitialized {
+    ) external onlyAuthorized onlyInitialized {
         if (address(dcaModule) != address(0)) {
             dcaModule.queueDCAExecution(user, fromToken, targetToken, amount);
             emit SavingsQueuedForDCA(user, fromToken, targetToken, amount);
@@ -784,7 +784,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @notice Pause savings operations (owner only)
      * @dev Emergency pause for critical situations
      */
-    function pauseSavings() external override onlyInitialized {
+    function pauseSavings() external onlyInitialized {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         paused = true;
         emit PauseStateChanged(true);
@@ -794,7 +794,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @notice Resume savings operations (owner only)
      * @dev Resume operations after emergency pause
      */
-    function resumeSavings() external override onlyInitialized {
+    function resumeSavings() external onlyInitialized {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         paused = false;
         emit PauseStateChanged(false);

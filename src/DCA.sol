@@ -130,11 +130,18 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
     }
     
     // Set references to other modules
-    function setModuleReferences(address _tokenModule, address _slippageModule, address _savingsModule) external override nonReentrant onlyOwner {
-        tokenModule = ITokenModule(_tokenModule);
-        slippageModule = ISlippageControlModule(_slippageModule);
-        savingsModule = ISavingsModule(_savingsModule);
-        emit ModuleReferencesSet(_tokenModule, _slippageModule, _savingsModule);
+    function setModuleReferences(
+        address savingStrategy,
+        address savings,
+        address dca,
+        address slippage,
+        address token,
+        address dailySavings
+    ) external override nonReentrant onlyOwner {
+        tokenModule = ITokenModule(token);
+        slippageModule = ISlippageControlModule(slippage);
+        savingsModule = ISavingsModule(savings);
+        // Ignore other parameters as not needed for DCA module
     }
     
     // Helper function to get current strategy parameters
@@ -170,7 +177,12 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
     }
 
     // Enable DCA into a target token
-    function enableDCA(address user, address targetToken, bool enabled) external override onlyAuthorized(user) nonReentrant {
+    function enableDCA(
+        address user,
+        address targetToken,
+        uint256 minAmount,
+        uint256 maxSlippage
+    ) external override onlyAuthorized(user) nonReentrant {
         // Get current strategy parameters
         (
             uint256 percentage,
@@ -190,13 +202,13 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
             maxPercentage,
             goalAmount,
             roundUpSavings,
-            enabled,
+            true, // Assuming enableDCA is true for this function
             savingsTokenType,
             specificSavingsToken,
             targetToken
         );
         
-        emit DCAEnabled(user, targetToken, enabled);
+        emit DCAEnabled(user, targetToken, true);
     }
     
     // Helper to update saving strategy
@@ -378,7 +390,7 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         address fromToken,
         uint256 amount,
         uint256 customSlippageTolerance
-    ) external override onlyAuthorized(user) nonReentrant {
+    ) external onlyAuthorized(user) nonReentrant {
         // Validate prerequisites and get target token
         address targetToken = _validateDCAPrerequisites(user, fromToken, amount);
         
@@ -443,7 +455,7 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
     }
         
     // Process all queued DCAs that should execute at current tick
-    function processQueuedDCAs(address user, PoolKey memory poolKey) external override onlyAuthorized(user) nonReentrant {
+    function processQueuedDCAs(address user, PoolKey memory poolKey) external onlyAuthorized(user) nonReentrant {
         int24 currentTick = getCurrentTick(poolKey);
         uint256 queueLength = storage_.getDcaQueueLength(user);
         

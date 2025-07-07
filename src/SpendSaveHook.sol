@@ -50,18 +50,18 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     uint256 private constant DAILY_SAVINGS_THRESHOLD = 600000;
     uint256 private constant BATCH_SIZE = 5;
 
+    // ==================== MODULE REGISTRY CONSTANTS ====================
+    bytes32 private constant STRATEGY_MODULE = keccak256("STRATEGY");
+    bytes32 private constant SAVINGS_MODULE = keccak256("SAVINGS");
+    bytes32 private constant DCA_MODULE = keccak256("DCA");
+    bytes32 private constant SLIPPAGE_MODULE = keccak256("SLIPPAGE");
+    bytes32 private constant TOKEN_MODULE = keccak256("TOKEN");
+    bytes32 private constant DAILY_MODULE = keccak256("DAILY");
+
     // ==================== STORAGE VARIABLES ====================
     
     /// @notice Immutable reference to storage contract
     SpendSaveStorage public immutable storage_;
-    
-    /// @notice Module references (maintained for backward compatibility)
-    ISavingStrategyModule public savingStrategyModule;
-    ISavingsModule public savingsModule;
-    IDCAModule public dcaModule;
-    ISlippageControlModule public slippageControlModule;
-    ITokenModule public tokenModule;
-    IDailySavingsModule public dailySavingsModule;
 
     /// @notice Additional state variables for compatibility
     address public token;
@@ -540,81 +540,41 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         // Implementation depends on specific strategy update requirements
     }
 
+    // ==================== MODULE REGISTRY HELPERS ====================
+    function _strategyModule() internal view returns (ISavingStrategyModule) {
+        return ISavingStrategyModule(storage_.getModule(STRATEGY_MODULE));
+    }
+    function _savingsModule() internal view returns (ISavingsModule) {
+        return ISavingsModule(storage_.getModule(SAVINGS_MODULE));
+    }
+    function _dcaModule() internal view returns (IDCAModule) {
+        return IDCAModule(storage_.getModule(DCA_MODULE));
+    }
+    function _slippageControlModule() internal view returns (ISlippageControlModule) {
+        return ISlippageControlModule(storage_.getModule(SLIPPAGE_MODULE));
+    }
+    function _tokenModule() internal view returns (ITokenModule) {
+        return ITokenModule(storage_.getModule(TOKEN_MODULE));
+    }
+    function _dailySavingsModule() internal view returns (IDailySavingsModule) {
+        return IDailySavingsModule(storage_.getModule(DAILY_MODULE));
+    }
+
     // ==================== MODULE INITIALIZATION ====================
     
     /**
      * @notice Initialize all modules after deployment
-     * @param _strategyModule Address of the saving strategy module
-     * @param _savingsModule Address of the savings module
-     * @param _dcaModule Address of the DCA module
-     * @param _slippageModule Address of the slippage control module
-     * @param _tokenModule Address of the token module
-     * @param _dailySavingsModule Address of the daily savings module
-     * @dev Only callable by owner, registers modules for backward compatibility
+     * @dev Module registry pattern: modules are registered in storage, not stored as state variables here
      */
-    function initializeModules(
-        address _strategyModule,
-        address _savingsModule,
-        address _dcaModule,
-        address _slippageModule,
-        address _tokenModule,
-        address _dailySavingsModule
-    ) external virtual {
-        require(msg.sender == storage_.owner(), "Only owner can initialize modules");
-        
-        // Store module references for backward compatibility
-        _storeModuleReferences(
-            _strategyModule,
-            _savingsModule,
-            _dcaModule,
-            _slippageModule,
-            _tokenModule,
-            _dailySavingsModule
-        );
-
-        emit ModulesInitialized(
-            _strategyModule,
-            _savingsModule,
-            _dcaModule,
-            _slippageModule,
-            _tokenModule,
-            _dailySavingsModule
-        );
-        
-        emit GasOptimizationActive(true);
-    }
-    
-    /**
-     * @notice Store module references internally
-     * @dev Helper function to organize module initialization
-     */
-    function _storeModuleReferences(
-        address _strategyModule,
-        address _savingsModule,
-        address _dcaModule,
-        address _slippageModule,
-        address _tokenModule,
-        address _dailySavingsModule
-    ) internal {
-        savingStrategyModule = ISavingStrategyModule(_strategyModule);
-        savingsModule = ISavingsModule(_savingsModule);
-        dcaModule = IDCAModule(_dcaModule);
-        slippageControlModule = ISlippageControlModule(_slippageModule);
-        tokenModule = ITokenModule(_tokenModule);
-        dailySavingsModule = IDailySavingsModule(_dailySavingsModule);
-    }
-    
-    /**
-     * @notice Verify that all modules are initialized
-     * @dev Internal check used when modules are required
-     */
+    // function initializeModules(...) external virtual { ... } // REMOVED
+    // function _storeModuleReferences(...) internal { ... } // REMOVED
     function _checkModulesInitialized() internal view {
-        if (address(savingStrategyModule) == address(0)) revert ModuleNotInitialized("SavingStrategy");
-        if (address(savingsModule) == address(0)) revert ModuleNotInitialized("Savings");
-        if (address(dcaModule) == address(0)) revert ModuleNotInitialized("DCA");
-        if (address(slippageControlModule) == address(0)) revert ModuleNotInitialized("SlippageControl");
-        if (address(tokenModule) == address(0)) revert ModuleNotInitialized("Token");
-        if (address(dailySavingsModule) == address(0)) revert ModuleNotInitialized("DailySavings");
+        if (storage_.getModule(STRATEGY_MODULE) == address(0)) revert ModuleNotInitialized("SavingStrategy");
+        if (storage_.getModule(SAVINGS_MODULE) == address(0)) revert ModuleNotInitialized("Savings");
+        if (storage_.getModule(DCA_MODULE) == address(0)) revert ModuleNotInitialized("DCA");
+        if (storage_.getModule(SLIPPAGE_MODULE) == address(0)) revert ModuleNotInitialized("SlippageControl");
+        if (storage_.getModule(TOKEN_MODULE) == address(0)) revert ModuleNotInitialized("Token");
+        if (storage_.getModule(DAILY_MODULE) == address(0)) revert ModuleNotInitialized("DailySavings");
     }
 
     // ==================== DAILY SAVINGS PROCESSING ====================
@@ -704,9 +664,8 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
      */
     function _processSingleToken(address user, address tokenAddr) external returns (uint256 savedAmount, bool success) {
         require(msg.sender == address(this), "Only self-call allowed");
-        
         // Delegate to daily savings module
-        try dailySavingsModule.executeTokenSavings(user, tokenAddr) returns (uint256 amount) {
+        try _dailySavingsModule().executeTokenSavings(user, tokenAddr) returns (uint256 amount) {
             return (amount, true);
         } catch {
             return (0, false);
@@ -722,10 +681,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     function _updateTokenProcessingStatus(address user, address tokenAddr) internal {
         TokenProcessingQueue storage queue = _tokenProcessingQueues[user];
         queue.lastProcessed[tokenAddr] = block.timestamp;
-        
         // Check if this token needs to be removed from processing queue
         // Use getDailyExecutionStatus to determine if token should be removed from queue
-        (bool canExecute,,) = dailySavingsModule.getDailyExecutionStatus(user, tokenAddr);
+        (bool canExecute,,) = _dailySavingsModule().getDailyExecutionStatus(user, tokenAddr);
         if (!canExecute) {
             _removeTokenFromProcessingQueue(user, tokenAddr);
         }
@@ -789,12 +747,12 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
      * @dev Public view function for verification
      */
     function checkModulesInitialized() external view returns (bool initialized) {
-        return address(savingStrategyModule) != address(0) &&
-               address(savingsModule) != address(0) &&
-               address(dcaModule) != address(0) &&
-               address(slippageControlModule) != address(0) &&
-               address(tokenModule) != address(0) &&
-               address(dailySavingsModule) != address(0);
+        return storage_.getModule(STRATEGY_MODULE) != address(0) &&
+               storage_.getModule(SAVINGS_MODULE) != address(0) &&
+               storage_.getModule(DCA_MODULE) != address(0) &&
+               storage_.getModule(SLIPPAGE_MODULE) != address(0) &&
+               storage_.getModule(TOKEN_MODULE) != address(0) &&
+               storage_.getModule(DAILY_MODULE) != address(0);
     }
     
     /**
