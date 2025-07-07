@@ -2,14 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "./SpendSaveStorage.sol";
-import "./ITokenModule.sol";
+import "./interfaces/ITokenModule.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title Token
  * @dev Implements ERC6909 token standard for representing savings
  */
-contract Token is ITokenModule, ReentrancyGuard {
+abstract contract Token is ITokenModule, ReentrancyGuard {
     // Storage reference
     SpendSaveStorage public storage_;
     
@@ -22,7 +22,6 @@ contract Token is ITokenModule, ReentrancyGuard {
     // Events (same as in ERC6909)
     event Transfer(address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 indexed id, uint256 amount);
-    event TokenRegistered(address indexed token, uint256 indexed tokenId);
     event ModuleInitialized(address indexed storage_);
     event SavingsTokenMinted(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
     event SavingsTokenBurned(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
@@ -88,7 +87,7 @@ contract Token is ITokenModule, ReentrancyGuard {
     }
     
     // Mint ERC-6909 tokens to represent savings
-    function mintSavingsToken(address user, address token, uint256 amount) external override onlyAuthorized(user) {
+    function mintSavingsToken(address user, address token, uint256 amount) external onlyAuthorized(user) {
         uint256 tokenId = _getOrRegisterTokenId(token);
         
         // Just mint tokens directly to user with the full amount
@@ -115,7 +114,7 @@ contract Token is ITokenModule, ReentrancyGuard {
     }
     
     // Burn ERC-6909 tokens when withdrawing
-    function burnSavingsToken(address user, address token, uint256 amount) external override onlyAuthorized(user) nonReentrant {
+    function burnSavingsToken(address user, address token, uint256 amount) external onlyAuthorized(user) nonReentrant {
         uint256 tokenId = storage_.tokenToId(token);
         if (tokenId == 0) revert TokenNotRegistered(token);
         
@@ -135,12 +134,12 @@ contract Token is ITokenModule, ReentrancyGuard {
     }
     
     // ERC6909: Get allowance for a spender
-    function allowance(address owner, address spender, uint256 id) external view override returns (uint256) {
+    function allowance(address owner, address spender, uint256 id) external view returns (uint256) {
         return storage_.getAllowance(owner, spender, id);
     }
     
     // ERC6909: Transfer tokens
-    function transfer(address sender, address receiver, uint256 id, uint256 amount) external override onlyAuthorized(sender) nonReentrant returns (bool) {
+    function transfer(address sender, address receiver, uint256 id, uint256 amount) external onlyAuthorized(sender) nonReentrant returns (bool) {
         if (receiver == address(0)) revert TransferToZeroAddress();
         
         uint256 senderBalance = storage_.getBalance(sender, id);
@@ -162,7 +161,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         address receiver, 
         uint256 id, 
         uint256 amount
-    ) external override onlyAuthorized(operator) nonReentrant returns (bool) {
+    ) external onlyAuthorized(operator) nonReentrant returns (bool) {
         _validateTransferAddresses(sender, receiver);
         _checkSenderBalance(sender, id, amount);
         
@@ -206,7 +205,7 @@ contract Token is ITokenModule, ReentrancyGuard {
     }
     
     // ERC6909: Approve spending limit
-    function approve(address owner, address spender, uint256 id, uint256 amount) external override onlyAuthorized(owner) nonReentrant returns (bool) {
+    function approve(address owner, address spender, uint256 id, uint256 amount) external onlyAuthorized(owner) nonReentrant returns (bool) {
         storage_.setAllowance(owner, spender, id, amount);
         
         emit Approval(owner, spender, id, amount);
@@ -220,7 +219,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         uint256 id,
         uint256 amount,
         bytes calldata data
-    ) external override onlyAuthorized(sender) nonReentrant returns (bool) {
+    ) external onlyAuthorized(sender) nonReentrant returns (bool) {
         // Validate receiver
         if (receiver == address(0)) revert TransferToZeroAddress();
         
@@ -248,7 +247,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         uint256 id,
         uint256 amount,
         bytes calldata data
-    ) external override onlyAuthorized(operator) nonReentrant returns (bool) {
+    ) external onlyAuthorized(operator) nonReentrant returns (bool) {
         // Reuse the same checks we already implemented
         _validateTransferAddresses(sender, receiver);
         _checkSenderBalance(sender, id, amount);

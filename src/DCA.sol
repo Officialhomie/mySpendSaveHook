@@ -12,18 +12,19 @@ import {TickMath} from "lib/v4-periphery/lib/v4-core/src/libraries/TickMath.sol"
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 
 import "./SpendSaveStorage.sol";
-import "./IDCAModule.sol";
-import "./ITokenModule.sol";
-import "./ISlippageControlModule.sol";
-import "./ISavingsModule.sol";
+import "./interfaces/IDCAModule.sol";
+import "./interfaces/ITokenModule.sol";
+import "./interfaces/ISlippageControlModule.sol";
+import "./interfaces/ISavingsModule.sol";
 
 /**
  * @title DCA
  * @dev Manages dollar-cost averaging functionality
  */
-contract DCA is IDCAModule, ReentrancyGuard {
+abstract contract DCA is IDCAModule, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
     
@@ -129,7 +130,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
     }
     
     // Set references to other modules
-    function setModuleReferences(address _tokenModule, address _slippageModule, address _savingsModule) external nonReentrant onlyOwner {
+    function setModuleReferences(address _tokenModule, address _slippageModule, address _savingsModule) external override nonReentrant onlyOwner {
         tokenModule = ITokenModule(_tokenModule);
         slippageModule = ISlippageControlModule(_slippageModule);
         savingsModule = ISavingsModule(_savingsModule);
@@ -206,7 +207,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         uint256 maxPercentage,
         uint256 goalAmount,
         bool roundUpSavings,
-        bool enableDCA,
+        bool enableDCAFlag,
         SpendSaveStorage.SavingsTokenType savingsTokenType,
         address specificSavingsToken,
         address targetToken
@@ -219,7 +220,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
             maxPercentage,
             goalAmount,
             roundUpSavings,
-            enableDCA,
+            enableDCAFlag,
             savingsTokenType,
             specificSavingsToken
         );
@@ -242,7 +243,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         bool onlyImprovePrice,
         int24 minTickImprovement,
         bool dynamicSizing
-    ) external override onlyAuthorized(user) nonReentrant {
+    ) external onlyAuthorized(user) nonReentrant {
         // Get current slippage tolerance to keep it the same
         uint256 customSlippageTolerance = _getCurrentCustomSlippageTolerance(user);
         
@@ -265,7 +266,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         address user,
         address fromToken,
         SpendSaveStorage.SwapContext memory context
-    ) external override onlyAuthorized(user) nonReentrant {
+    ) external onlyAuthorized(user) nonReentrant {
         // Validate conditions for DCA queue
         if (!_shouldQueueDCA(context, fromToken)) return;
         
@@ -324,7 +325,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         PoolKey memory poolKey,
         int24 currentTick,
         uint256 customSlippageTolerance
-    ) public override onlyAuthorized(user) nonReentrant {
+    ) public onlyAuthorized(user) nonReentrant {
         // Determine swap direction
         bool zeroForOne = _isZeroForOne(fromToken, toToken);
         
@@ -532,7 +533,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
     }
     
     // Get current pool tick
-    function getCurrentTick(PoolKey memory poolKey) public override nonReentrant returns (int24) {
+    function getCurrentTick(PoolKey memory poolKey) public nonReentrant returns (int24) {
         PoolId poolId = poolKey.toId();
         
         // Get current tick from pool manager
@@ -742,7 +743,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
             TickMath.MAX_SQRT_PRICE - 1;
         
         // Prepare swap parameters
-        IPoolManager.SwapParams memory swapParams = IPoolManager.SwapParams({
+        SwapParams memory swapParams = SwapParams({
             zeroForOne: zeroForOne,
             amountSpecified: int256(amount),
             sqrtPriceLimitX96: params.sqrtPriceLimitX96
@@ -799,7 +800,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
             TickMath.MAX_SQRT_PRICE - 1;
         
         // Prepare swap parameters
-        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+        SwapParams memory params = SwapParams({
             zeroForOne: zeroForOne,
             amountSpecified: int256(amount),
             sqrtPriceLimitX96: sqrtPriceLimitX96
@@ -827,7 +828,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
     }
     
     // Helper to perform pool swap
-    function _performPoolSwap(PoolKey memory poolKey, IPoolManager.SwapParams memory params) internal returns (BalanceDelta delta) {
+    function _performPoolSwap(PoolKey memory poolKey, SwapParams memory params) internal returns (BalanceDelta delta) {
         try storage_.poolManager().swap(poolKey, params, "") returns (BalanceDelta _delta) {
             return _delta;
         } catch {

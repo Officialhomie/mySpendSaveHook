@@ -2,14 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "./SpendSaveStorage.sol";
-import "./ISlippageControlModule.sol";
+import "./interfaces/ISlippageControlModule.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title SlippageControl
  * @dev Manages slippage settings and protection for swaps
  */
-contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
+abstract contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
     // Constants
     uint256 private constant MAX_USER_SLIPPAGE = 1000; // 10%
     uint256 private constant MAX_DEFAULT_SLIPPAGE = 500; // 5%

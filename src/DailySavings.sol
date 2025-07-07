@@ -4,15 +4,15 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./SpendSaveStorage.sol";
-import "./IDailySavingsModule.sol";
-import "./ITokenModule.sol";
-import "./IYieldModule.sol";
+import "./interfaces/IDailySavingsModule.sol";
+import "./interfaces/ITokenModule.sol";
+import "./interfaces/IYieldModule.sol";
 
 /**
  * @title DailySavings
  * @dev Manages daily savings functionality with gas optimizations and better error handling
  */
-contract DailySavings is IDailySavingsModule {
+abstract contract DailySavings is IDailySavingsModule {
     using SafeERC20 for IERC20;
 
     // Cached constants to reduce gas costs

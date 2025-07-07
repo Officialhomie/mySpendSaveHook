@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./SpendSaveStorage.sol";
+import "../SpendSaveStorage.sol";
 import "./ISpendSaveModule.sol";
 
 interface IDailySavingsModule is ISpendSaveModule {
@@ -41,4 +41,12 @@ interface IDailySavingsModule is ISpendSaveModule {
         uint256 penaltyAmount,
         uint256 estimatedCompletionDate
     );
+
+    /**
+    * @notice Execute token savings for a specific user and token
+    * @param user The user address
+    * @param token The token address
+    * @return amount The amount saved
+    */
+    function executeTokenSavings(address user, address token) external returns (uint256 amount);
 }
