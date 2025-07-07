@@ -816,6 +816,18 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         isLocked = block.timestamp < _withdrawalTimelock;
     }
 
+    /**
+     * @notice Decrease savings balance for a user and token
+     * @param user The user address
+     * @param token The token address
+     * @param amount The amount to decrease
+     * @dev Only callable by authorized modules
+     */
+    function decreaseSavings(address user, address token, uint256 amount) external onlyModule {
+        if (_savings[user][token] < amount) revert InsufficientBalance();
+        _savings[user][token] -= amount;
+    }
+
     // ==================== SWAP CONTEXT MANAGEMENT ====================
 
     /**
