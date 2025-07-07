@@ -90,6 +90,18 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     
     /// @notice Emitted when pause state changes
     event PauseStateChanged(bool isPaused);
+    
+    /// @notice Emitted when savings token is successfully minted
+    event SavingsTokenMinted(address indexed user, address indexed token, uint256 indexed tokenId, uint256 amount);
+    
+    /// @notice Emitted when savings token minting fails
+    event SavingsTokenMintFailed(address indexed user, address indexed token, uint256 amount, string reason);
+    
+    /// @notice Emitted when savings token is successfully burned
+    event SavingsTokenBurned(address indexed user, address indexed token, uint256 indexed tokenId, uint256 amount);
+    
+    /// @notice Emitted when savings token burning fails
+    event SavingsTokenBurnFailed(address indexed user, address indexed token, uint256 amount, string reason);
 
     // ==================== ERRORS ====================
     
@@ -391,7 +403,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
                 uint256 feeAmount = (amounts[i] * treasuryFee) / TREASURY_FEE_DENOMINATOR;
                 uint256 netAmount = amounts[i] - feeAmount;
                 storage_.batchUpdateUserSavings(user, tokens[i], amounts[i]);
-                _mintSavingsTokenIfNeeded(user, tokens[i], netAmount);
+                _mintSavingsToken(user, tokens[i], netAmount);
                 totalNetAmount += netAmount;
                 totalFeeAmount += feeAmount;
             }
@@ -445,7 +457,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             actualAmount = amount - penalty;
         }
         storage_.decreaseSavings(user, token, amount);
-        _burnSavingsTokenIfNeeded(user, token, amount);
+        _burnSavingsToken(user, token, amount);
         IERC20(token).safeTransfer(user, actualAmount);
         emit WithdrawalProcessed(user, token, amount, actualAmount, isEarlyWithdrawal);
         return actualAmount;
@@ -721,35 +733,51 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     }
     
     /**
-     * @notice Mint ERC6909 savings tokens if token module is available
+     * @notice Helper function to mint savings token 
      * @param user The user address
      * @param token The token address
      * @param amount The amount to mint
-     * @dev Safe wrapper for token minting with error handling
+     * @dev Converts token address to tokenId before minting (ERC6909 pattern)
      */
-    function _mintSavingsTokenIfNeeded(address user, address token, uint256 amount) internal {
+    function _mintSavingsToken(address user, address token, uint256 amount) internal {
         if (address(tokenModule) != address(0) && amount > 0) {
-            try tokenModule.mintSavingsToken(user, token, amount) {
-                // Token minted successfully
-            } catch {
-                // Minting failed, but don't revert savings operation
+            // STEP 1: Convert token address to token ID
+            // This is the key fix - ERC6909 uses numeric IDs, not addresses
+            uint256 tokenId = tokenModule.getTokenId(token);
+            
+            // STEP 2: If token isn't registered yet, register it first
+            if (tokenId == 0) {
+                tokenId = tokenModule.registerToken(token);
+            }
+            
+            // STEP 3: Now mint using the correct tokenId parameter
+            try tokenModule.mintSavingsToken(user, tokenId, amount) {
+                emit SavingsTokenMinted(user, token, tokenId, amount);
+            } catch Error(string memory reason) {
+                emit SavingsTokenMintFailed(user, token, amount, reason);
             }
         }
     }
     
     /**
-     * @notice Burn ERC6909 savings tokens if token module is available
+     * @notice Helper function to burn savings token if needed  
      * @param user The user address
      * @param token The token address
      * @param amount The amount to burn
-     * @dev Safe wrapper for token burning with error handling
+     * @dev Also needs the same token address to tokenId conversion
      */
-    function _burnSavingsTokenIfNeeded(address user, address token, uint256 amount) internal {
+    function _burnSavingsToken(address user, address token, uint256 amount) internal {
         if (address(tokenModule) != address(0) && amount > 0) {
-            try tokenModule.burnSavingsToken(user, tokenModule.getTokenId(token), amount) {
-                // Token burned successfully
-            } catch {
-                // Burning failed, but don't revert withdrawal operation
+            // Convert token address to token ID (same pattern as minting)
+            uint256 tokenId = tokenModule.getTokenId(token);
+            
+            // Only burn if token is registered (tokenId != 0)
+            if (tokenId != 0) {
+                try tokenModule.burnSavingsToken(user, tokenId, amount) {
+                    emit SavingsTokenBurned(user, token, tokenId, amount);
+                } catch Error(string memory reason) {
+                    emit SavingsTokenBurnFailed(user, token, amount, reason);
+                }
             }
         }
     }
