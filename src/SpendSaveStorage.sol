@@ -901,9 +901,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @notice Set swap context for transaction processing
      * @param user The user address
      * @param context The swap context data
-     * @dev Updated to use only transient storage - no more legacy _swapContexts
+     * @dev CHANGE: external → public (to allow internal calls)
      */
-    function setSwapContext(address user, SwapContext memory context) external onlyModule {
+    function setSwapContext(address user, SwapContext memory context) public onlyModule {
         // Convert to packed format for transient storage
         _transientSwapContexts[user] = PackedSwapContext({
             pendingSaveAmount: uint128(context.pendingSaveAmount),
@@ -1211,12 +1211,13 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     // ==================== POOL KEY CREATION FUNCTIONS ====================
 
     /**
-     * @notice Create pool key for two tokens with default parameters
+     * @notice Create pool key with default parameters (2-parameter version)
      * @param token0 The first token address
      * @param token1 The second token address
      * @return key The created pool key
+     * @dev CHANGE: external → public (to allow internal calls to 5-parameter version)
      */
-    function createPoolKey(address token0, address token1) external onlyModule returns (PoolKey memory key) {
+    function createPoolKey(address token0, address token1) public onlyModule returns (PoolKey memory key) {
         return createPoolKey(token0, token1, DEFAULT_FEE_TIER, DEFAULT_TICK_SPACING, address(0));
     }
 
@@ -1336,13 +1337,14 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     // ==================== POOL MANAGEMENT FUNCTIONS ====================
     
     /**
-     * @notice Create and store a pool key
+     * @notice Create and store a pool key (5-parameter version)
      * @param token0 The first token address
      * @param token1 The second token address
      * @param fee The pool fee
      * @param tickSpacing The tick spacing
      * @param hooks The hooks contract address
      * @return key The created pool key
+     * @dev CHANGE: external → public (to allow internal calls from 2-parameter version)
      */
     function createPoolKey(
         address token0,
@@ -1350,7 +1352,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         uint24 fee,
         int24 tickSpacing,
         address hooks
-    ) external onlyModule returns (PoolKey memory key) {
+    ) public onlyModule returns (PoolKey memory key) {
         key = PoolKey({
             currency0: Currency.wrap(token0),
             currency1: Currency.wrap(token1),
