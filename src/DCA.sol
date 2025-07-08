@@ -505,7 +505,8 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
             // Check if we got any tokens
             if (receivedAmount > 0) {
                 // Process the specific token savings after swap
-                savingsModule.processSavings(user, toToken, receivedAmount);
+                SpendSaveStorage.SwapContext memory context = storage_.getSwapContext(user);
+                savingsModule.processSavings(user, toToken, receivedAmount, context);
                 emit SpecificTokenSwapProcessed(user, fromToken, toToken, amount, receivedAmount);
                 return true;
             } else {
@@ -536,16 +537,14 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         
         // Create a DCAExecution struct for easier handling
         SpendSaveStorage.DCAExecution memory dca = SpendSaveStorage.DCAExecution({
-            fromToken: fromToken,
-            toToken: toToken,
             amount: amount,
-            executionTick: executionTick,
-            deadline: deadline,
-            executed: executed,
-            customSlippageTolerance: customSlippageTolerance
+            token: toToken,
+            executionTime: deadline,
+            price: 0, // Will be set after execution
+            successful: false
         });
         
-        if (!executed && shouldExecuteDCAAtTick(user, dca, currentTick)) {
+        if (!executed && shouldExecuteDCAAtTick(user, index, currentTick)) {
             executeDCAAtIndex(user, index, poolKey, currentTick);
         }
     }
@@ -555,7 +554,7 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         PoolId poolId = poolKey.toId();
         
         // Get current tick from pool manager
-        (,int24 currentTick,,) = StateLibrary.getSlot0(storage_.poolManager(), poolId);
+        (,int24 currentTick,,) = StateLibrary.getSlot0(IPoolManager(storage_.poolManager()), poolId);
         
         // Update stored tick if changed
         _updateStoredTick(poolId, currentTick);
@@ -769,7 +768,7 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         
         // Execute the swap
         BalanceDelta delta;
-        try storage_.poolManager().swap(poolKey, swapParams, "") returns (BalanceDelta _delta) {
+        try IPoolManager(storage_.poolManager()).swap(poolKey, swapParams, "") returns (BalanceDelta _delta) {
             delta = _delta;
         } catch {
             revert SwapExecutionFailed();
@@ -847,7 +846,7 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
     
     // Helper to perform pool swap
     function _performPoolSwap(PoolKey memory poolKey, SwapParams memory params) internal returns (BalanceDelta delta) {
-        try storage_.poolManager().swap(poolKey, params, "") returns (BalanceDelta _delta) {
+        try IPoolManager(storage_.poolManager()).swap(poolKey, params, "") returns (BalanceDelta _delta) {
             return _delta;
         } catch {
             revert SwapExecutionFailed();
@@ -901,8 +900,10 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         // Update savings balances
         storage_.decreaseSavings(user, fromToken, amount);
         
-        // Calculate and transfer fee
-        uint256 finalReceivedAmount = storage_.calculateAndTransferFee(user, toToken, receivedAmount);
+        // Calculate fee and final amount
+        uint256 treasuryFee = storage_.treasuryFee();
+        uint256 feeAmount = (receivedAmount * treasuryFee) / 10000;
+        uint256 finalReceivedAmount = receivedAmount - feeAmount;
         
         // Update user's savings with final amount after fee
         storage_.increaseSavings(user, toToken, finalReceivedAmount);
@@ -953,25 +954,36 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
     // Check if a queued DCA should execute based on current tick
     function shouldExecuteDCAAtTick(
         address user,
-        SpendSaveStorage.DCAExecution memory dca,
+        uint256 index,
         int24 currentTick
     ) internal view returns (bool) {
-        if (dca.executed) return false;
+        // Get the DCA queue item data
+        (
+            address fromToken,
+            address toToken,
+            uint256 amount,
+            int24 executionTick,
+            uint256 deadline,
+            bool executed,
+            uint256 customSlippageTolerance
+        ) = storage_.getDcaQueueItem(user, index);
+        
+        if (executed) return false;
         
         // Get strategy parameters
-        DCAExecutionCriteria memory criteria = _getDCAExecutionCriteria(user, dca);
+        DCAExecutionCriteria memory criteria = _getDCAExecutionCriteria(user);
         
         // If past deadline, execute regardless of tick
-        if (criteria.tickExpiryTime > 0 && block.timestamp > dca.deadline) {
+        if (criteria.tickExpiryTime > 0 && block.timestamp > deadline) {
             return true;
         }
         
         // Determine if price has improved enough to execute
         bool priceImproved = _hasPriceImproved(
-            dca.fromToken, 
-            dca.toToken, 
+            fromToken, 
+            toToken, 
             currentTick, 
-            dca.executionTick, 
+            executionTick, 
             criteria.minTickImprovement
         );
         
@@ -993,8 +1005,7 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
     
     // Helper to get DCA execution criteria
     function _getDCAExecutionCriteria(
-        address user, 
-        SpendSaveStorage.DCAExecution memory dca
+        address user
     ) internal view returns (DCAExecutionCriteria memory criteria) {
         (,criteria.tickExpiryTime,criteria.onlyImprovePrice,criteria.minTickImprovement,,) = 
             storage_.getDcaTickStrategy(user);

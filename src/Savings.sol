@@ -573,6 +573,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
                 roundUpSavings: false,
                 enableDCA: false,
                 dcaTargetToken: address(0),
+                currentTick: 0, // Add missing currentTick field
                 savingsTokenType: SpendSaveStorage.SavingsTokenType.INPUT,
                 specificSavingsToken: address(0),
                 pendingSaveAmount: amount
