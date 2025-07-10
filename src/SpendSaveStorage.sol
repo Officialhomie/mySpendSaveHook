@@ -134,6 +134,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Next available token ID counter
     uint256 private _nextTokenId = 1;
+    
+    /// @notice Total supply tracking for each token ID
+    mapping(uint256 => uint256) private _totalSupply;
 
     // ==================== COMPREHENSIVE DATA STRUCTURES ====================
     
@@ -750,6 +753,34 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         currentId = _nextTokenId;
         _nextTokenId++;
         return currentId;
+    }
+    
+    /**
+     * @notice Get total supply for a token ID
+     * @param tokenId The token ID
+     * @return totalSupply The total supply for the token
+     */
+    function getTotalSupply(uint256 tokenId) external view returns (uint256 totalSupply) {
+        return _totalSupply[tokenId];
+    }
+    
+    /**
+     * @notice Increase total supply for a token ID (module access only)
+     * @param tokenId The token ID
+     * @param amount The amount to increase
+     */
+    function increaseTotalSupply(uint256 tokenId, uint256 amount) external onlyModule {
+        _totalSupply[tokenId] += amount;
+    }
+    
+    /**
+     * @notice Decrease total supply for a token ID (module access only)
+     * @param tokenId The token ID
+     * @param amount The amount to decrease
+     */
+    function decreaseTotalSupply(uint256 tokenId, uint256 amount) external onlyModule {
+        if (_totalSupply[tokenId] < amount) revert InsufficientBalance();
+        _totalSupply[tokenId] -= amount;
     }
 
     // ==================== SAVINGS MANAGEMENT FUNCTIONS ====================
@@ -1537,5 +1568,100 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     function getUserSavingsTokens(address user) external view returns (address[] memory) {
         return userSavingsTokens[user];
+    }
+
+    // ==================== DCA CONFIGURATION FUNCTIONS ====================
+
+    /**
+     * @notice Get user's DCA configuration
+     * @param user The user address
+     * @return enabled Whether DCA is enabled
+     * @return targetToken The target token for DCA
+     * @return minAmount Minimum amount to trigger DCA
+     * @return maxSlippage Maximum acceptable slippage
+     * @return lowerTick Lower tick bound for DCA execution
+     * @return upperTick Upper tick bound for DCA execution
+     */
+    function getUserDcaConfig(address user) 
+        external 
+        view 
+        returns (
+            bool enabled,
+            address targetToken,
+            uint256 minAmount,
+            uint256 maxSlippage,
+            int24 lowerTick,
+            int24 upperTick
+        ) 
+    {
+        // Get DCA enabled status from packed user config
+        PackedUserConfig memory config = _packedUserConfigs[user];
+        enabled = config.enableDCA == 1;
+        
+        // Get target token
+        targetToken = dcaTargetTokens[user];
+        
+        // Get tick strategy for min/max amounts and slippage
+        DCATickStrategy storage strategy = dcaTickStrategies[user];
+        minAmount = 0; // Default minimum amount
+        maxSlippage = strategy.customSlippageTolerance;
+        lowerTick = 0; // Default tick bounds
+        upperTick = 0;
+    }
+
+    /**
+     * @notice Set DCA enabled status for a user
+     * @param user The user address
+     * @param enabled Whether to enable DCA
+     */
+    function setDcaEnabled(address user, bool enabled) external onlyModule {
+        // Update packed user config
+        PackedUserConfig memory config = _packedUserConfigs[user];
+        config.enableDCA = enabled ? 1 : 0;
+        _packedUserConfigs[user] = config;
+    }
+
+    /**
+     * @notice Clear DCA queue for a user (remove all items)
+     * @param user The user address
+     */
+    function clearDcaQueue(address user) external onlyModule {
+        delete enhancedDcaQueues[user];
+        delete dcaQueues[user];
+    }
+
+    /**
+     * @notice Remove executed items from DCA queue
+     * @param user The user address
+     */
+    function removeExecutedDcaItems(address user) external onlyModule {
+        EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
+        
+        // Count non-executed items
+        uint256 nonExecutedCount = 0;
+        for (uint256 i = 0; i < queue.items.length; i++) {
+            if (!queue.items[i].executed) {
+                nonExecutedCount++;
+            }
+        }
+        
+        // Create new array with only non-executed items
+        DCAQueueItem[] memory newItems = new DCAQueueItem[](nonExecutedCount);
+        uint256 newIndex = 0;
+        
+        for (uint256 i = 0; i < queue.items.length; i++) {
+            if (!queue.items[i].executed) {
+                newItems[newIndex] = queue.items[i];
+                newIndex++;
+            }
+        }
+        
+        // Replace the items array
+        queue.items = newItems;
+        
+        // Clear the executed mapping
+        for (uint256 i = 0; i < queue.items.length; i++) {
+            delete queue.executed[i];
+        }
     }
 }

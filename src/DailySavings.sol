@@ -67,6 +67,14 @@ contract DailySavings is IDailySavingsModule {
     ITokenModule public tokenModule;
     IYieldModule public yieldModule;
     
+    // Standardized module references
+    address internal _savingStrategyModule;
+    address internal _savingsModule;
+    address internal _dcaModule;
+    address internal _slippageModule;
+    address internal _tokenModule;
+    address internal _dailySavingsModule;
+    
     // Events
     event DailySavingsConfigured(address indexed user, address indexed token, uint256 dailyAmount, uint256 goalAmount, uint256 endTime);
     event DailySavingsDisabled(address indexed user, address indexed token);
@@ -80,6 +88,7 @@ contract DailySavings is IDailySavingsModule {
     event YieldModuleNotInitialized(address indexed user, address indexed token);
     event YieldStrategyApplied(address indexed user, address indexed token, SpendSaveStorage.YieldStrategy strategy);
     event YieldStrategyFailed(address indexed user, address indexed token, string reason);
+    event ModuleReferencesSet();
     
     // Custom errors
     error AlreadyInitialized();
@@ -139,9 +148,26 @@ contract DailySavings is IDailySavingsModule {
     }
     
     // Set references to other modules
-    function setModuleReferences(address _tokenModule, address _yieldModule) external onlyOwner {
-        tokenModule = ITokenModule(_tokenModule);
-        yieldModule = IYieldModule(_yieldModule);
+    function setModuleReferences(
+        address _savingStrategy,
+        address _savings,
+        address _dca,
+        address _slippage,
+        address _token,
+        address _dailySavings
+    ) external override onlyOwner {
+        _savingStrategyModule = _savingStrategy;
+        _savingsModule = _savings;
+        _dcaModule = _dca;
+        _slippageModule = _slippage;
+        _tokenModule = _token;
+        _dailySavingsModule = _dailySavings;
+        
+        // Set the typed references for backward compatibility
+        tokenModule = ITokenModule(_token);
+        yieldModule = IYieldModule(address(0)); // Not passed in standard interface
+        
+        emit ModuleReferencesSet();
     }
     
     // Validate configuration parameters
@@ -745,7 +771,7 @@ contract DailySavings is IDailySavingsModule {
         address token
     ) public view override returns (
         bool canExecute,
-        uint256 nextExecutionTime,
+        uint256 daysPassed,
         uint256 amountToSave
     ) {
         // Get status in a gas-efficient way
@@ -753,7 +779,7 @@ contract DailySavings is IDailySavingsModule {
         
         // Early returns for common cases
         if (!status.enabled || status.goalReached || status.daysPassed == 0) {
-            return (false, status.lastExecutionTime + ONE_DAY_IN_SECONDS, 0);
+            return (false, status.daysPassed, 0);
         }
         
         // Calculate amount to save
@@ -761,16 +787,13 @@ contract DailySavings is IDailySavingsModule {
         
         // Check if we have anything to save
         if (amountToSave == 0) {
-            return (false, status.lastExecutionTime + ONE_DAY_IN_SECONDS, 0);
+            return (false, status.daysPassed, 0);
         }
         
         // Check allowance and balance
         (canExecute, ) = _checkAllowanceAndBalance(user, token, amountToSave);
         
-        // Calculate next execution time
-        nextExecutionTime = status.lastExecutionTime + ONE_DAY_IN_SECONDS;
-        
-        return (canExecute, nextExecutionTime, amountToSave);
+        return (canExecute, status.daysPassed, amountToSave);
     }
     
     // Get comprehensive savings status with all details
@@ -855,5 +878,66 @@ contract DailySavings is IDailySavingsModule {
                 // Handle error appropriately for daily savings context
             }
         }
+    }
+    
+    /**
+     * @notice Execute daily savings for a specific token
+     * @dev Simplified version for direct token execution
+     * @param user The user address
+     * @param token The token address
+     * @return amount The amount that was saved
+     */
+    function executeTokenSavings(address user, address token) 
+        external 
+        override 
+        returns (uint256 amount) 
+    {
+        // Check if daily savings is enabled for this user/token
+        (bool enabled,,,,,,) = storage_.getDailySavingsConfig(user, token);
+        if (!enabled) return 0;
+        
+        // Get daily savings configuration
+        SpendSaveStorage.DailySavingsConfigParams memory config = storage_.getDailySavingsConfigParams(user, token);
+        
+        // Check if execution is due (at least one day has passed)
+        if (block.timestamp < config.lastExecutionTime + ONE_DAY_IN_SECONDS) return 0;
+        
+        // Get user's token balance
+        uint256 balance = IERC20(token).balanceOf(user);
+        if (balance == 0) return 0;
+        
+        // Get daily amount from storage
+        uint256 dailyAmount = storage_.dailySavingsAmounts(user, token);
+        if (dailyAmount == 0) return 0;
+        
+        // Calculate amount to save (use daily amount, not percentage-based)
+        amount = dailyAmount > balance ? balance : dailyAmount;
+        
+        // Check if we have a goal and don't exceed it
+        if (config.goalAmount > 0) {
+            uint256 remaining = config.goalAmount > config.currentAmount ? 
+                config.goalAmount - config.currentAmount : 0;
+            if (amount > remaining) {
+                amount = remaining;
+            }
+        }
+        
+        if (amount == 0) return 0;
+        
+        // Check allowance and balance
+        (bool sufficientFunds, ) = _checkAllowanceAndBalance(user, token, amount);
+        if (!sufficientFunds) return 0;
+        
+        // Execute the savings using the existing infrastructure
+        uint256 savedAmount = _executeTokenSavings(user, token, amount);
+        
+        if (savedAmount > 0) {
+            // Update storage and process tokens
+            _updateSavingsState(user, token, savedAmount);
+            
+            emit DailySavingsExecuted(user, token, savedAmount, 0); // gasUsed = 0 for simplicity
+        }
+        
+        return savedAmount;
     }
 }

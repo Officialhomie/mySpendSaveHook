@@ -18,6 +18,14 @@ contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
     // Storage reference
     SpendSaveStorage public storage_;
     
+    // Standardized module references
+    address internal _savingStrategyModule;
+    address internal _savingsModule;
+    address internal _dcaModule;
+    address internal _slippageModule;
+    address internal _tokenModule;
+    address internal _dailySavingsModule;
+    
     // Events
     event SlippageToleranceSet(address indexed user, uint256 basisPoints);
     event TokenSlippageToleranceSet(address indexed user, address indexed token, uint256 basisPoints);
@@ -25,6 +33,7 @@ contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
     event DefaultSlippageToleranceSet(uint256 basisPoints);
     event SlippageExceeded(address indexed user, address indexed fromToken, address indexed toToken, uint256 fromAmount, uint256 actualToAmount, uint256 expectedMinimum);
     event ModuleInitialized(address indexed storage_);
+    event ModuleReferencesSet();
     
     // Custom errors
     error SlippageToleranceTooHigh(uint256 provided, uint256 max);
@@ -33,6 +42,7 @@ contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
     error AlreadyInitialized();
     error UnauthorizedCaller();
     error OnlyUserOrHook();
+    error Unauthorized();
     
     // Constructor is empty since module will be initialized via initialize()
     constructor() {}
@@ -63,6 +73,29 @@ contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
         if (address(storage_) != address(0)) revert AlreadyInitialized();
         storage_ = _storage;
         emit ModuleInitialized(address(_storage));
+    }
+    
+    // Set references to other modules
+    function setModuleReferences(
+        address _savingStrategy,
+        address _savings,
+        address _dca,
+        address _slippage,
+        address _token,
+        address _dailySavings
+    ) external override {
+        if (msg.sender != storage_.spendSaveHook() && msg.sender != storage_.owner()) {
+            revert Unauthorized();
+        }
+        
+        _savingStrategyModule = _savingStrategy;
+        _savingsModule = _savings;
+        _dcaModule = _dca;
+        _slippageModule = _slippage;
+        _tokenModule = _token;
+        _dailySavingsModule = _dailySavings;
+        
+        emit ModuleReferencesSet();
     }
     
     // Function for users to set their preferred slippage tolerance

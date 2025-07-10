@@ -53,10 +53,10 @@ contract DeploySpendSave is Script {
     // ==================== NETWORK CONFIGURATION ====================
     
     /// @notice Base Mainnet PoolManager address
-    address constant POOL_MANAGER_BASE = 0x498581ff718922c3f8e6a244956af099b2652b2b;
+    address constant POOL_MANAGER_BASE = 0x498581fF718922c3f8e6A244956aF099B2652b2b;
     
     /// @notice Base Sepolia Testnet PoolManager address 
-    address constant POOL_MANAGER_BASE_SEPOLIA = 0x05E73354cFDd6745C338b50BcFDfA3AA6fA03408;
+    address constant POOL_MANAGER_BASE_SEPOLIA = 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408;
     
     /// @notice Supported chain IDs for deployment
     uint256 constant CHAIN_ID_BASE = 8453;

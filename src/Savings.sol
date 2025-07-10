@@ -58,6 +58,14 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     
     /// @notice Emergency pause state
     bool public paused;
+    
+    // Standardized module references
+    address internal _savingStrategyModule;
+    address internal _savingsModule;
+    address internal _dcaModule;
+    address internal _slippageModule;
+    address internal _tokenModule;
+    address internal _dailySavingsModule;
 
     // ==================== EVENTS ====================
     
@@ -196,21 +204,29 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @param _savingStrategyModule Address of the saving strategy module
      * @param _savingsModule Address of the savings module (self-reference)
      * @param _dcaModule Address of the DCA module
-     * @param _slippageModule Address of the slippage control module (unused here)
+     * @param _slippageModule Address of the slippage control module
      * @param _tokenModule Address of the token module
-     * @param _dailySavingsModule Address of the daily savings module (unused here)
+     * @param _dailySavingsModule Address of the daily savings module
      * @dev Only owner can set module references to maintain security
      */
     function setModuleReferences(
         address _savingStrategyModule,
-        address _savingsModule, // Self-reference, can be ignored
+        address _savingsModule,
         address _dcaModule,
-        address _slippageModule, // Not used in Savings module
+        address _slippageModule,
         address _tokenModule,
-        address _dailySavingsModule // Not used in Savings module
+        address _dailySavingsModule
     ) external override nonReentrant {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         
+        _savingStrategyModule = _savingStrategyModule;
+        _savingsModule = _savingsModule;
+        _dcaModule = _dcaModule;
+        _slippageModule = _slippageModule;
+        _tokenModule = _tokenModule;
+        _dailySavingsModule = _dailySavingsModule;
+        
+        // Set the typed references for backward compatibility
         if (_savingStrategyModule != address(0)) {
             savingStrategyModule = ISavingStrategyModule(_savingStrategyModule);
         }
@@ -221,7 +237,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             tokenModule = ITokenModule(_tokenModule);
         }
         
-        emit ModuleReferencesSet(_tokenModule, _dcaModule, _savingStrategyModule);
+        emit ModuleReferencesSet();
     }
 
     // ==================== OPTIMIZED CORE SAVINGS FUNCTIONS ====================

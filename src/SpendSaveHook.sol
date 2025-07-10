@@ -58,6 +58,10 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     bytes32 private constant TOKEN_MODULE = keccak256("TOKEN");
     bytes32 private constant DAILY_MODULE = keccak256("DAILY");
 
+    // ==================== STATE VARIABLES ====================
+    
+    bool private modulesInitialized;
+
     // ==================== STORAGE VARIABLES ====================
     
     /// @notice Immutable reference to storage contract
@@ -174,6 +178,19 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         storage_ = _storage;
     }
 
+    // ==================== MODIFIERS ====================
+    
+    /**
+     * @notice Modifier to restrict access to owner only
+     * @dev Uses storage contract's owner for access control
+     */
+    modifier onlyOwner() {
+        if (msg.sender != storage_.owner()) {
+            revert UnauthorizedAccess(msg.sender);
+        }
+        _;
+    }
+
     // ==================== HOOK PERMISSIONS ====================
     
     /**
@@ -200,6 +217,84 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         });
     }
 
+    /**
+    * @notice Initialize all module references in storage
+    * @dev Called once after deployment to set up module registry
+    * @param savingStrategy Address of SavingStrategy module
+    * @param savings Address of Savings module
+    * @param dca Address of DCA module
+    * @param slippageControl Address of SlippageControl module
+    * @param token Address of Token module
+    * @param dailySavings Address of DailySavings module
+    */
+    function initializeModules(
+        address savingStrategy,
+        address savings,
+        address dca,
+        address slippageControl,
+        address token,
+        address dailySavings
+    ) external onlyOwner {
+        require(!modulesInitialized, "Already initialized");
+        
+        // Register modules in storage
+        storage_.registerModule(STRATEGY_MODULE, savingStrategy);
+        storage_.registerModule(SAVINGS_MODULE, savings);
+        storage_.registerModule(DCA_MODULE, dca);
+        storage_.registerModule(SLIPPAGE_MODULE, slippageControl);
+        storage_.registerModule(TOKEN_MODULE, token);
+        storage_.registerModule(DAILY_MODULE, dailySavings);
+        
+        // Initialize each module with storage reference
+        ISavingStrategyModule(savingStrategy).initialize(storage_);
+        ISavingsModule(savings).initialize(storage_);
+        IDCAModule(dca).initialize(storage_);
+        ISlippageControlModule(slippageControl).initialize(storage_);
+        ITokenModule(token).initialize(storage_);
+        IDailySavingsModule(dailySavings).initialize(storage_);
+        
+        // Set cross-module references
+        _initializeModuleReferences(
+            savingStrategy,
+            savings,
+            dca,
+            slippageControl,
+            token,
+            dailySavings
+        );
+        
+        modulesInitialized = true;
+        emit ModulesInitialized();
+    }
+
+    function _initializeModuleReferences(
+        address savingStrategy,
+        address savings,
+        address dca,
+        address slippageControl,
+        address token,
+        address dailySavings
+    ) private {
+        // Each module needs references to other modules for cross-communication
+        ISavingStrategyModule(savingStrategy).setModuleReferences(
+            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        );
+        ISavingsModule(savings).setModuleReferences(
+            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        );
+        IDCAModule(dca).setModuleReferences(
+            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        );
+        ISlippageControlModule(slippageControl).setModuleReferences(
+            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        );
+        ITokenModule(token).setModuleReferences(
+            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        );
+        IDailySavingsModule(dailySavings).setModuleReferences(
+            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        );
+    }
     // ==================== OPTIMIZED HOOK FUNCTIONS ====================
     
     /**

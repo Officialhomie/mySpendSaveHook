@@ -16,7 +16,13 @@ contract Token is ITokenModule, ReentrancyGuard {
     // ERC6909 interface constants
     bytes4 constant private _ERC6909_RECEIVED = 0x05e3242b; // bytes4(keccak256("onERC6909Received(address,address,uint256,uint256,bytes)"))
     
-    address public savingsModule;
+    // Standardized module references
+    address internal _savingStrategyModule;
+    address internal _savingsModule;
+    address internal _dcaModule;
+    address internal _slippageModule;
+    address internal _tokenModule;
+    address internal _dailySavingsModule;
 
 
     // Events (same as in ERC6909)
@@ -26,6 +32,13 @@ contract Token is ITokenModule, ReentrancyGuard {
     event SavingsTokenMinted(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
     event SavingsTokenBurned(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
     event TreasuryFeeCollected(address indexed user, address token, uint256 amount);
+    
+    // Interface-compliant events
+    event TokenRegistered(address indexed token, uint256 indexed tokenId);
+    event TokenMinted(address indexed user, uint256 indexed tokenId, uint256 amount);
+    event TokenBurned(address indexed user, uint256 indexed tokenId, uint256 amount);
+    event BatchOperationCompleted(address indexed user, uint256 count);
+    event ModuleReferencesSet();
     
     // Custom errors
     error InvalidTokenAddress();
@@ -39,6 +52,8 @@ contract Token is ITokenModule, ReentrancyGuard {
     error NonERC6909ReceiverImplementerNoReason();
     error AlreadyInitialized();
     error UnauthorizedCaller();
+    error InvalidAmount();
+    error InvalidBatchLength();
     
     // Constructor is empty since module will be initialized via initialize()
     constructor() {}
@@ -47,7 +62,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         if (msg.sender != user && 
             msg.sender != address(storage_) && 
             msg.sender != storage_.spendSaveHook() &&
-            msg.sender != savingsModule) {  // Add this line
+            msg.sender != _savingsModule) {  // Add this line
             revert UnauthorizedCaller();
         }
         _;
@@ -60,9 +75,26 @@ contract Token is ITokenModule, ReentrancyGuard {
         emit ModuleInitialized(address(_storage));
     }
 
-    function setModuleReferences(address _savingsModule) external {
-        if (msg.sender != storage_.owner()) revert UnauthorizedCaller();
-        savingsModule = _savingsModule;
+    function setModuleReferences(
+        address _savingStrategy,
+        address _savings,
+        address _dca,
+        address _slippage,
+        address _token,
+        address _dailySavings
+    ) external override {
+        if (msg.sender != storage_.spendSaveHook() && msg.sender != storage_.owner()) {
+            revert UnauthorizedCaller();
+        }
+        
+        _savingStrategyModule = _savingStrategy;
+        _savingsModule = _savings;
+        _dcaModule = _dca;
+        _slippageModule = _slippage;
+        _tokenModule = _token;
+        _dailySavingsModule = _dailySavings;
+        
+        emit ModuleReferencesSet();
     }
     
     // Register a new token and assign it an ID for ERC-6909
@@ -86,51 +118,171 @@ contract Token is ITokenModule, ReentrancyGuard {
         return newId;
     }
     
-    // Mint ERC-6909 tokens to represent savings
-    function mintSavingsToken(address user, address token, uint256 amount) external onlyAuthorized(user) {
-        uint256 tokenId = _getOrRegisterTokenId(token);
+    /**
+     * @notice Batch register multiple tokens
+     * @param tokens Array of token addresses
+     * @return tokenIds Array of assigned token IDs
+     */
+    function batchRegisterTokens(
+        address[] calldata tokens
+    ) external override returns (uint256[] memory tokenIds) {
+        tokenIds = new uint256[](tokens.length);
         
-        // Just mint tokens directly to user with the full amount
-        _mintDirectly(user, tokenId, token, amount);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            tokenIds[i] = registerToken(tokens[i]);
+        }
+        
+        emit BatchOperationCompleted(msg.sender, tokens.length);
     }
-
-    // Helper to mint tokens directly without fee calculation
-    function _mintDirectly(address user, uint256 tokenId, address token, uint256 amount) internal {
-        // Update user's balance directly without fee calculation
+    
+    // Mint ERC-6909 tokens to represent savings
+    function mintSavingsToken(address user, uint256 tokenId, uint256 amount) external override onlyAuthorized(user) {
+        if (amount == 0) revert InvalidAmount();
+        
+        // Verify token is registered
+        address token = storage_.idToToken(tokenId);
+        if (token == address(0)) revert TokenNotRegistered(token);
+        
+        // Mint tokens directly to user
         storage_.increaseBalance(user, tokenId, amount);
+        storage_.increaseTotalSupply(tokenId, amount);
         
         // Emit events
         emit Transfer(address(0), user, tokenId, amount);
         emit SavingsTokenMinted(user, token, tokenId, amount);
-    }
-
-    // Helper to get or register token ID
-    function _getOrRegisterTokenId(address token) internal returns (uint256) {
-        uint256 tokenId = storage_.tokenToId(token);
-        if (tokenId == 0) {
-            tokenId = registerToken(token);
-        }
-        return tokenId;
+        emit TokenMinted(user, tokenId, amount);
     }
     
-    // Burn ERC-6909 tokens when withdrawing
-    function burnSavingsToken(address user, address token, uint256 amount) external onlyAuthorized(user) nonReentrant {
-        uint256 tokenId = storage_.tokenToId(token);
-        if (tokenId == 0) revert TokenNotRegistered(token);
+    /**
+     * @notice Batch mint savings tokens
+     * @dev Gas-efficient batch operation
+     * @param user The user address
+     * @param tokenIds Array of token IDs
+     * @param amounts Array of amounts to mint
+     */
+    function batchMintSavingsTokens(
+        address user,
+        uint256[] calldata tokenIds,
+        uint256[] calldata amounts
+    ) external override onlyAuthorized(user) {
+        if (tokenIds.length != amounts.length) revert InvalidBatchLength();
+        
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (amounts[i] > 0) {
+                // Verify token is registered
+                address token = storage_.idToToken(tokenIds[i]);
+                if (token == address(0)) revert TokenNotRegistered(token);
+                
+                // Mint tokens
+                storage_.increaseBalance(user, tokenIds[i], amounts[i]);
+                storage_.increaseTotalSupply(tokenIds[i], amounts[i]);
+                
+                // Emit events
+                emit Transfer(address(0), user, tokenIds[i], amounts[i]);
+                emit SavingsTokenMinted(user, token, tokenIds[i], amounts[i]);
+                emit TokenMinted(user, tokenIds[i], amounts[i]);
+            }
+        }
+        
+        emit BatchOperationCompleted(user, tokenIds.length);
+    }
+    
+    /**
+     * @notice Burn savings tokens from a user
+     * @dev Called when user withdraws savings
+     * @param user The user address
+     * @param tokenId The ERC6909 token ID
+     * @param amount The amount to burn
+     */
+    function burnSavingsToken(address user, uint256 tokenId, uint256 amount) external override onlyAuthorized(user) nonReentrant {
+        if (amount == 0) revert InvalidAmount();
+        
+        // Verify token is registered
+        address token = storage_.idToToken(tokenId);
+        if (token == address(0)) revert TokenNotRegistered(token);
         
         uint256 currentBalance = storage_.getBalance(user, tokenId);
         if (currentBalance < amount) {
             revert InsufficientBalance(user, tokenId, amount, currentBalance);
         }
+        
         storage_.decreaseBalance(user, tokenId, amount);
+        storage_.decreaseTotalSupply(tokenId, amount);
         
         emit Transfer(user, address(0), tokenId, amount);
         emit SavingsTokenBurned(user, token, tokenId, amount);
+        emit TokenBurned(user, tokenId, amount);
     }
     
+    /**
+     * @notice Batch burn savings tokens
+     * @dev Gas-efficient batch operation
+     * @param user The user address
+     * @param tokenIds Array of token IDs
+     * @param amounts Array of amounts to burn
+     */
+    function batchBurnSavingsTokens(
+        address user,
+        uint256[] calldata tokenIds,
+        uint256[] calldata amounts
+    ) external override onlyAuthorized(user) nonReentrant {
+        if (tokenIds.length != amounts.length) revert InvalidBatchLength();
+        
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (amounts[i] > 0) {
+                // Verify token is registered
+                address token = storage_.idToToken(tokenIds[i]);
+                if (token == address(0)) revert TokenNotRegistered(token);
+                
+                // Check balance
+                uint256 currentBalance = storage_.getBalance(user, tokenIds[i]);
+                if (currentBalance < amounts[i]) {
+                    revert InsufficientBalance(user, tokenIds[i], amounts[i], currentBalance);
+                }
+                
+                // Burn tokens
+                storage_.decreaseBalance(user, tokenIds[i], amounts[i]);
+                storage_.decreaseTotalSupply(tokenIds[i], amounts[i]);
+                
+                // Emit events
+                emit Transfer(user, address(0), tokenIds[i], amounts[i]);
+                emit SavingsTokenBurned(user, token, tokenIds[i], amounts[i]);
+                emit TokenBurned(user, tokenIds[i], amounts[i]);
+            }
+        }
+        
+        emit BatchOperationCompleted(user, tokenIds.length);
+    }
+
     // ERC6909: Get balance of tokens for an owner
     function balanceOf(address owner, uint256 id) external view override returns (uint256) {
         return storage_.getBalance(owner, id);
+    }
+    
+    /**
+     * @notice Get user's balances for multiple savings tokens
+     * @param user The user address
+     * @param tokenIds Array of token IDs
+     * @return balances Array of balances
+     */
+    function balanceOfBatch(
+        address user,
+        uint256[] calldata tokenIds
+    ) external view override returns (uint256[] memory balances) {
+        balances = new uint256[](tokenIds.length);
+        
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            balances[i] = storage_.getBalance(user, tokenIds[i]);
+        }
+    }
+    
+    /**
+     * @notice Get total supply for a savings token
+     * @param tokenId The ERC6909 token ID
+     * @return totalSupply The total supply
+     */
+    function totalSupply(uint256 tokenId) external view override returns (uint256 totalSupply) {
+        return storage_.getTotalSupply(tokenId);
     }
     
     // ERC6909: Get allowance for a spender
@@ -151,6 +303,41 @@ contract Token is ITokenModule, ReentrancyGuard {
         storage_.increaseBalance(receiver, id, amount);
         
         emit Transfer(sender, receiver, id, amount);
+        return true;
+    }
+    
+    /**
+     * @notice Batch transfer multiple tokens
+     * @param from The sender address
+     * @param to The recipient address
+     * @param tokenIds Array of token IDs
+     * @param amounts Array of amounts
+     * @return success Whether all transfers succeeded
+     */
+    function batchTransfer(
+        address from,
+        address to,
+        uint256[] calldata tokenIds,
+        uint256[] calldata amounts
+    ) external override onlyAuthorized(from) nonReentrant returns (bool success) {
+        if (tokenIds.length != amounts.length) revert InvalidBatchLength();
+        if (to == address(0)) revert TransferToZeroAddress();
+        
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (amounts[i] > 0) {
+                uint256 senderBalance = storage_.getBalance(from, tokenIds[i]);
+                if (senderBalance < amounts[i]) {
+                    revert InsufficientBalance(from, tokenIds[i], amounts[i], senderBalance);
+                }
+                
+                storage_.decreaseBalance(from, tokenIds[i], amounts[i]);
+                storage_.increaseBalance(to, tokenIds[i], amounts[i]);
+                
+                emit Transfer(from, to, tokenIds[i], amounts[i]);
+            }
+        }
+        
+        emit BatchOperationCompleted(from, tokenIds.length);
         return true;
     }
     
@@ -306,6 +493,15 @@ contract Token is ITokenModule, ReentrancyGuard {
     // Function to query token address by token ID
     function getTokenAddress(uint256 id) external view override returns (address) {
         return storage_.idToToken(id);
+    }
+    
+    /**
+     * @notice Check if a token is registered
+     * @param token The token address
+     * @return isRegistered Whether the token is registered
+     */
+    function isTokenRegistered(address token) external view override returns (bool) {
+        return storage_.tokenToId(token) != 0;
     }
     
     // Helper to check if an address is a contract

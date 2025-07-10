@@ -48,6 +48,14 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     
     /// @notice Reference to the savings module for cross-module operations
     ISavingsModule public savingsModule;
+    
+    // Standardized module references
+    address internal _savingStrategyModule;
+    address internal _savingsModule;
+    address internal _dcaModule;
+    address internal _slippageModule;
+    address internal _tokenModule;
+    address internal _dailySavingsModule;
 
     // ==================== COMPREHENSIVE EVENT SYSTEM ====================
     
@@ -72,7 +80,7 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     /// @notice Emitted when module references are configured
     event ModuleReferencesSet(address indexed savingsModule);
     
-    /// @notice Emitted when swap preparation is completed
+    /// @notice Emitted when swap prepared is completed
     event SwapPrepared(address indexed user, uint256 currentSavePercentage, SpendSaveStorage.SavingsTokenType tokenType);
     
     /// @notice Emitted when specific savings token is set
@@ -237,21 +245,37 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     
     /**
      * @notice Set references to other modules for cross-module operations (interface-compliant)
+     * @param _savingStrategyModule Address of the saving strategy module (self-reference)
      * @param _savingsModule Address of the savings module
+     * @param _dcaModule Address of the DCA module
+     * @param _slippageModule Address of the slippage control module
+     * @param _tokenModule Address of the token module
+     * @param _dailySavingsModule Address of the daily savings module
      * @dev Only owner can set module references to maintain security
      */
     function setModuleReferences(
-        address, // _savingStrategyModule (self, ignore)
+        address _savingStrategyModule,
         address _savingsModule,
-        address, // _dcaModule (ignore)
-        address, // _slippageModule (ignore)
-        address, // _tokenModule (ignore)
-        address  // _dailySavingsModule (ignore)
+        address _dcaModule,
+        address _slippageModule,
+        address _tokenModule,
+        address _dailySavingsModule
     ) external override nonReentrant {
         if (msg.sender != storage_.owner()) revert OnlyOwner();
-        if (_savingsModule == address(0)) revert InvalidModule();
-        savingsModule = ISavingsModule(_savingsModule);
-        emit ModuleReferencesSet(_savingsModule);
+        
+        _savingStrategyModule = _savingStrategyModule;
+        _savingsModule = _savingsModule;
+        _dcaModule = _dcaModule;
+        _slippageModule = _slippageModule;
+        _tokenModule = _tokenModule;
+        _dailySavingsModule = _dailySavingsModule;
+        
+        // Set the typed reference for backward compatibility
+        if (_savingsModule != address(0)) {
+            savingsModule = ISavingsModule(_savingsModule);
+        }
+        
+        emit ModuleReferencesSet();
     }
 
     // ==================== CORE STRATEGY MANAGEMENT FUNCTIONS ====================
