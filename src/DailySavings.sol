@@ -612,7 +612,13 @@ abstract contract DailySavings is IDailySavingsModule {
         WithdrawalContext memory context
     ) internal {
         // Burn tokens first to enforce CEI pattern
-        tokenModule.burnSavingsToken(user, token, amount);
+        uint256 tokenId = tokenModule.getTokenId(token);
+
+        if (tokenId == 0) {
+            revert TokenNotRegistered(token);
+        }
+        
+        tokenModule.burnSavingsToken(user, tokenId, amount);
         
         // Update saved amount in storage
         _updateConfigAfterWithdrawal(user, token, amount, context.currentAmount);
@@ -638,6 +644,8 @@ abstract contract DailySavings is IDailySavingsModule {
         // Create parameter struct
         SpendSaveStorage.DailySavingsConfigParams memory params = SpendSaveStorage.DailySavingsConfigParams({
             enabled: enabled,
+            lastExecutionTime: block.timestamp, // or retrieve the correct value if needed
+            startTime: block.timestamp, // set appropriately if you have this info, else 0
             goalAmount: goalAmount,
             currentAmount: newAmount,
             penaltyBps: penaltyBps,
