@@ -24,7 +24,7 @@ import "./interfaces/ISavingsModule.sol";
  * @title DCA
  * @dev Manages dollar-cost averaging functionality
  */
-abstract contract DCA is IDCAModule, ReentrancyGuard {
+contract DCA is IDCAModule, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
     

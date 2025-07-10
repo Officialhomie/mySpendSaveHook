@@ -12,7 +12,7 @@ import "./interfaces/IYieldModule.sol";
  * @title DailySavings
  * @dev Manages daily savings functionality with gas optimizations and better error handling
  */
-abstract contract DailySavings is IDailySavingsModule {
+contract DailySavings is IDailySavingsModule {
     using SafeERC20 for IERC20;
 
     // Cached constants to reduce gas costs

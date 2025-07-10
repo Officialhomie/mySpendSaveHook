@@ -9,7 +9,7 @@ import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-con
  * @title SlippageControl
  * @dev Manages slippage settings and protection for swaps
  */
-abstract contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
+contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
     // Constants
     uint256 private constant MAX_USER_SLIPPAGE = 1000; // 10%
     uint256 private constant MAX_DEFAULT_SLIPPAGE = 500; // 5%

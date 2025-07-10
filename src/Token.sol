@@ -9,7 +9,7 @@ import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-con
  * @title Token
  * @dev Implements ERC6909 token standard for representing savings
  */
-abstract contract Token is ITokenModule, ReentrancyGuard {
+contract Token is ITokenModule, ReentrancyGuard {
     // Storage reference
     SpendSaveStorage public storage_;
     

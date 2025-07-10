@@ -27,7 +27,7 @@ import "./interfaces/ISavingsModule.sol";
  * 
  * @author SpendSave Protocol Team
  */
-abstract contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
+contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     using SafeERC20 for IERC20;
     
     // ==================== CONSTANTS ====================
@@ -236,14 +236,20 @@ abstract contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     }
     
     /**
-     * @notice Set references to other modules for cross-module operations
+     * @notice Set references to other modules for cross-module operations (interface-compliant)
      * @param _savingsModule Address of the savings module
      * @dev Only owner can set module references to maintain security
      */
-    function setModuleReferences(address _savingsModule) external nonReentrant {
+    function setModuleReferences(
+        address, // _savingStrategyModule (self, ignore)
+        address _savingsModule,
+        address, // _dcaModule (ignore)
+        address, // _slippageModule (ignore)
+        address, // _tokenModule (ignore)
+        address  // _dailySavingsModule (ignore)
+    ) external override nonReentrant {
         if (msg.sender != storage_.owner()) revert OnlyOwner();
         if (_savingsModule == address(0)) revert InvalidModule();
-        
         savingsModule = ISavingsModule(_savingsModule);
         emit ModuleReferencesSet(_savingsModule);
     }
