@@ -198,7 +198,15 @@ abstract contract DailySavings is IDailySavingsModule {
     
     // Helper to validate savings are enabled
     function _validateSavingsEnabled(address user, address token) internal view {
-        (bool enabled, , , , , , ) = storage_.getDailySavingsConfig(user, token);
+        SpendSaveStorage.DailySavingsConfig memory config = storage_.getDailySavingsConfig(user);
+        bool tokenConfigured = false;
+        for (uint i = 0; i < config.tokens.length; i++) {
+            if (config.tokens[i] == token) {
+                tokenConfigured = true;
+                break;
+            }
+        }
+        bool enabled = config.isActive && tokenConfigured;
         if(!enabled) revert NoSavingsConfigured();
     }
     

@@ -909,8 +909,21 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         storage_.increaseSavings(user, toToken, finalReceivedAmount);
         
         // Update ERC-6909 token balances
-        tokenModule.burnSavingsToken(user, fromToken, amount);
-        tokenModule.mintSavingsToken(user, toToken, finalReceivedAmount);
+        // Convert token addresses to token IDs first
+        uint256 fromTokenId = tokenModule.getTokenId(fromToken);
+        uint256 toTokenId = tokenModule.getTokenId(toToken);
+
+        // If tokens aren't registered yet, register them
+        if (fromTokenId == 0) {
+            fromTokenId = tokenModule.registerToken(fromToken);
+        }
+        if (toTokenId == 0) {
+            toTokenId = tokenModule.registerToken(toToken);
+        }
+
+        // Now call with correct tokenId parameters
+        tokenModule.burnSavingsToken(user, fromTokenId, amount);
+        tokenModule.mintSavingsToken(user, toTokenId, finalReceivedAmount);
 
         // Transfer tokens to user
         _transferTokensToUser(user, toToken, finalReceivedAmount);
@@ -1101,6 +1114,48 @@ abstract contract DCA is IDCAModule, ReentrancyGuard {
         
         // Apply multiplier to base amount
         return baseAmount + (baseAmount * multiplier) / 100;
+    }
+    
+    // ==================== INTERNAL HELPER FUNCTIONS FOR DCA ====================
+    /**
+     * @notice Helper function to burn savings token for DCA
+     * @param user The user address
+     * @param token The token address
+     * @param amount The amount to burn
+     * @dev Converts token address to tokenId before burning (ERC6909 pattern)
+     */
+    function _burnSavingsTokenForDCA(address user, address token, uint256 amount) internal {
+        if (address(tokenModule) != address(0) && amount > 0) {
+            uint256 tokenId = tokenModule.getTokenId(token);
+            if (tokenId != 0) {
+                try tokenModule.burnSavingsToken(user, tokenId, amount) {
+                    // Success - could emit event here
+                } catch {
+                    // Handle error appropriately for DCA context
+                }
+            }
+        }
+    }
+
+    /**
+     * @notice Helper function to mint savings token for DCA
+     * @param user The user address
+     * @param token The token address
+     * @param amount The amount to mint
+     * @dev Converts token address to tokenId before minting (ERC6909 pattern)
+     */
+    function _mintSavingsTokenForDCA(address user, address token, uint256 amount) internal {
+        if (address(tokenModule) != address(0) && amount > 0) {
+            uint256 tokenId = tokenModule.getTokenId(token);
+            if (tokenId == 0) {
+                tokenId = tokenModule.registerToken(token);
+            }
+            try tokenModule.mintSavingsToken(user, tokenId, amount) {
+                // Success - could emit event here
+            } catch {
+                // Handle error appropriately for DCA context
+            }
+        }
     }
     
 }

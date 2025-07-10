@@ -1432,4 +1432,19 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function getWithdrawalTimelock(address user) external view returns (uint256) {
         return withdrawalTimelock[user];
     }
+
+    // ==================== USER SAVINGS TOKEN TRACKING ====================
+    mapping(address => address[]) private userSavingsTokens;
+    mapping(address => mapping(address => bool)) private userHasToken;
+
+    function addUserSavingsToken(address user, address token) external onlyModule {
+        if (!userHasToken[user][token]) {
+            userSavingsTokens[user].push(token);
+            userHasToken[user][token] = true;
+        }
+    }
+
+    function getUserSavingsTokens(address user) external view returns (address[] memory) {
+        return userSavingsTokens[user];
+    }
 }
