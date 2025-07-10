@@ -100,6 +100,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     /// @notice Daily savings configuration parameters per user per token  
     mapping(address => mapping(address => DailySavingsConfigParams)) public dailySavingsConfigParams;
+
+    /// @notice Daily savings yield strategies per user per token
+    mapping(address => mapping(address => YieldStrategy)) public dailySavingsYieldStrategies;
     
     /// @notice Transient storage for swap contexts (EIP-1153 compatible)
     mapping(address => PackedSwapContext) private _transientSwapContexts;
@@ -134,12 +137,6 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     // ==================== COMPREHENSIVE DATA STRUCTURES ====================
     
-    // LEGACY - Removed:
-    // mapping(address => SavingStrategy) public userSavingStrategies;
-    // mapping(address => SwapContext) private _swapContexts;
-    // mapping(address => DCAQueue) public dcaQueues;
-    // mapping(address => mapping(uint256 => DCAExecution)) public dcaExecutions;
-    // mapping(address => DailySavingsConfig) public dailySavingsConfigs;
     
     /// @notice User slippage tolerance settings
     mapping(address => uint256) public userSlippageTolerance;
@@ -156,6 +153,8 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Daily savings configuration per user
     mapping(address => DailySavingsConfig) public dailySavingsConfigs;
+
+    
     
     /// @notice Daily execution records
     mapping(address => mapping(address => DailySavingsExecution)) public dailyExecutions;
@@ -206,11 +205,13 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     /// @notice Daily savings configuration parameters
     struct DailySavingsConfigParams {
-        bool enabled;             // Configuration enabled status
-        uint256 goalAmount;       // Target goal amount
-        uint256 currentAmount;    // Current accumulated amount
-        uint256 penaltyBps;       // Penalty in basis points
-        uint256 endTime;          // End time for the savings period
+        bool enabled;                 // Configuration enabled status
+        uint256 lastExecutionTime;    // Last execution timestamp - ADDED
+        uint256 startTime;            // Start time for the savings period - ADDED
+        uint256 goalAmount;           // Target goal amount
+        uint256 currentAmount;        // Current accumulated amount
+        uint256 penaltyBps;           // Penalty in basis points
+        uint256 endTime;              // End time for the savings period
     }
     
     /// @notice Token information structure
@@ -345,6 +346,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Emitted when pool tick is updated
     event PoolTickUpdated(PoolId indexed poolId, int24 tick);
+
+    /// @notice Emitted when daily savings yield strategy is updated
+    event DailySavingsYieldStrategyUpdated(address indexed user, address indexed token, YieldStrategy strategy);
 
     // ==================== ERRORS ====================
     
@@ -1332,6 +1336,93 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function getDailySavingsConfig(address user) external view returns (DailySavingsConfig memory config) {
         return dailySavingsConfigs[user];
+    }
+
+    /**
+     * @notice Get daily savings configuration parameters
+     * @param user The user address
+     * @param token The token address
+     * @return enabled Configuration enabled status
+     * @return lastExecutionTime Last execution timestamp
+     * @return startTime Start time for the savings period
+     * @return goalAmount Target goal amount
+     * @return currentAmount Current accumulated amount
+     * @return penaltyBps Penalty in basis points
+     * @return endTime End time for the savings period
+     */
+    function getDailySavingsConfig(address user, address token) external view returns (
+        bool enabled,
+        uint256 lastExecutionTime,
+        uint256 startTime,
+        uint256 goalAmount,
+        uint256 currentAmount,
+        uint256 penaltyBps,
+        uint256 endTime
+    ) {
+        DailySavingsConfigParams memory params = dailySavingsConfigParams[user][token];
+        return (
+            params.enabled,
+            params.lastExecutionTime,
+            params.startTime,
+            params.goalAmount,
+            params.currentAmount,
+            params.penaltyBps,
+            params.endTime
+        );
+    }
+
+    /// @notice Emitted when daily savings execution is updated
+    event DailySavingsExecutionUpdated(
+        address indexed user,
+        address indexed token,
+        uint256 amount,
+        uint256 newCurrentAmount,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Update daily savings execution tracking
+     * @param user The user address
+     * @param token The token address  
+     * @param amount The amount that was saved in this execution
+     * @dev Updates both currentAmount and lastExecutionTime for accurate tracking
+     */
+    function updateDailySavingsExecution(
+        address user, 
+        address token, 
+        uint256 amount
+    ) external onlyModule {
+        // Get reference to storage (not memory copy)
+        DailySavingsConfigParams storage params = dailySavingsConfigParams[user][token];
+        // Update the current accumulated amount
+        params.currentAmount += amount;
+        // Update last execution time to current timestamp
+        params.lastExecutionTime = block.timestamp;
+        // Emit event for tracking
+        emit DailySavingsExecutionUpdated(user, token, amount, params.currentAmount, block.timestamp);
+    }
+
+    // ==================== DAILY SAVINGS YIELD STRATEGY FUNCTIONS ====================
+
+    /**
+     * @notice Get daily savings yield strategy for user and token
+     * @param user The user address
+     * @param token The token address
+     * @return strategy The configured yield strategy
+     */
+    function getDailySavingsYieldStrategy(address user, address token) external view returns (YieldStrategy) {
+        return dailySavingsYieldStrategies[user][token];
+    }
+
+    /**
+     * @notice Set daily savings yield strategy for user and token
+     * @param user The user address
+     * @param token The token address
+     * @param strategy The yield strategy to set
+     */
+    function setDailySavingsYieldStrategy(address user, address token, YieldStrategy strategy) external onlyModule {
+        dailySavingsYieldStrategies[user][token] = strategy;
+        emit DailySavingsYieldStrategyUpdated(user, token, strategy);
     }
 
     // ==================== POOL MANAGEMENT FUNCTIONS ====================

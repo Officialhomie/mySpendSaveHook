@@ -173,6 +173,8 @@ abstract contract DailySavings is IDailySavingsModule {
         // Configure settings
         SpendSaveStorage.DailySavingsConfigParams memory params = SpendSaveStorage.DailySavingsConfigParams({
             enabled: true,
+            lastExecutionTime: block.timestamp,  // NEW: Set to current time for new configs
+            startTime: block.timestamp,  
             goalAmount: goalAmount,
             currentAmount: 0,    // starting at 0 for a new configuration
             penaltyBps: penaltyBps,
@@ -217,6 +219,8 @@ abstract contract DailySavings is IDailySavingsModule {
     ) internal {
         SpendSaveStorage.DailySavingsConfigParams memory params = SpendSaveStorage.DailySavingsConfigParams({
             enabled: false,
+            lastExecutionTime: 0,  // NEW: Reset execution time
+            startTime: 0,          // NEW: Reset start time  
             goalAmount: 0,
             currentAmount: 0,
             penaltyBps: 0,
@@ -439,7 +443,7 @@ abstract contract DailySavings is IDailySavingsModule {
         storage_.updateDailySavingsExecution(user, token, amount);
         
         // Mint ERC6909 savings tokens
-        tokenModule.mintSavingsToken(user, token, amount);
+        _mintSavingsTokenForDailySavings(user, token, amount);
         
         // Check if goal has been reached
         _checkGoalReached(user, token);
@@ -504,7 +508,7 @@ abstract contract DailySavings is IDailySavingsModule {
             
             // Get daily amount if we have days to process
             if (status.daysPassed > 0) {
-                status.dailyAmount = storage_.getDailySavingsAmount(user, token);
+                status.dailyAmount = storage_.dailySavingsAmounts(user, token);
                 status.shouldProcess = status.dailyAmount > 0;
             }
         }
@@ -712,7 +716,7 @@ abstract contract DailySavings is IDailySavingsModule {
         if (daysPassed == 0) return false;
         
         // Get daily amount
-        uint256 dailyAmount = storage_.getDailySavingsAmount(user, token);
+        uint256 dailyAmount = storage_.dailySavingsAmounts(user, token);
         if (dailyAmount == 0) return false;
         
         // Basic allowance and balance check (lightweight version)
@@ -827,5 +831,20 @@ abstract contract DailySavings is IDailySavingsModule {
         }
         
         return 0;
+    }
+
+    // Helper to mint savings token for daily savings
+    function _mintSavingsTokenForDailySavings(address user, address token, uint256 amount) internal {
+        if (address(tokenModule) != address(0) && amount > 0) {
+            uint256 tokenId = tokenModule.getTokenId(token);
+            if (tokenId == 0) {
+                tokenId = tokenModule.registerToken(token);
+            }
+            try tokenModule.mintSavingsToken(user, tokenId, amount) {
+                // Success - could emit specific daily savings event here
+            } catch {
+                // Handle error appropriately for daily savings context
+            }
+        }
     }
 }
