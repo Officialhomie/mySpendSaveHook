@@ -95,6 +95,7 @@ abstract contract DailySavings is IDailySavingsModule {
     error NoSavingsConfigured();
     error InsufficientSavings(address token, uint256 required, uint256 available);
     error InsufficientGas(uint256 available, uint256 required);
+    error TokenNotRegistered(address token);
     
     // Security guard
     bool private _reentrancyGuard;
@@ -617,7 +618,7 @@ abstract contract DailySavings is IDailySavingsModule {
         if (tokenId == 0) {
             revert TokenNotRegistered(token);
         }
-        
+
         tokenModule.burnSavingsToken(user, tokenId, amount);
         
         // Update saved amount in storage
