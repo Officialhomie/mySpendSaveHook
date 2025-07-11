@@ -445,7 +445,14 @@ contract DeploySpendSave is Script {
      */
     function _setModuleReferences() internal {
         // Set references for SavingStrategy module
-        savingStrategyModule.setModuleReferences(address(savingsModule));
+        savingStrategyModule.setModuleReferences(
+            address(savingStrategyModule),  // self-reference
+            address(savingsModule),         // savings module
+            address(dcaModule),            // DCA module
+            address(slippageControlModule), // slippage control module
+            address(tokenModule),          // token module
+            address(dailySavingsModule)    // daily savings module
+        );        
         
         // Set references for Savings module
         savingsModule.setModuleReferences(

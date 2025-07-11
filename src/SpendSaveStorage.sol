@@ -195,6 +195,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     /// @notice Pool ticks for price tracking
     mapping(PoolId => int24) private _poolTicks;
 
+    // Add mapping for last DCA execution tick per user and pool
+    mapping(address => mapping(bytes32 => int24)) private _lastDcaExecutionTick;
+
     // ==================== ENUMS AND STRUCTS ====================
     
     /// @notice Token types for savings strategy
@@ -1694,5 +1697,10 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         for (uint256 i = 0; i < queue.items.length; i++) {
             delete queue.executed[i];
         }
+    }
+
+    /// @notice Get the last DCA execution tick for a user and pool
+    function getLastDcaExecutionTick(address user, bytes32 poolId) external view returns (int24) {
+        return _lastDcaExecutionTick[user][poolId];
     }
 }

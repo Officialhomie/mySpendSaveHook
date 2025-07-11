@@ -669,7 +669,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         }
         
         // Get last execution tick
-        int24 lastExecutionTick = storage_.getLastDcaExecutionTick(user, poolKey.toId());
+        int24 lastExecutionTick = storage_.getLastDcaExecutionTick(user, PoolId.unwrap(poolKey.toId()));
         
         // Calculate tick movement
         int24 tickMovement = currentTick - lastExecutionTick;
