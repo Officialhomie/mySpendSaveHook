@@ -201,43 +201,43 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     
     /**
      * @notice Set references to other modules for cross-module operations
-     * @param _savingStrategyModule Address of the saving strategy module
-     * @param _savingsModule Address of the savings module (self-reference)
-     * @param _dcaModule Address of the DCA module
-     * @param _slippageModule Address of the slippage control module
-     * @param _tokenModule Address of the token module
-     * @param _dailySavingsModule Address of the daily savings module
+     * @param newSavingStrategyModule Address of the saving strategy module
+     * @param newSavingsModule Address of the savings module (self-reference)
+     * @param newDcaModule Address of the DCA module
+     * @param slippageModule Address of the slippage control module
+     * @param newTokenModule Address of the token module
+     * @param dailySavingsModule Address of the daily savings module
      * @dev Only owner can set module references to maintain security
      */
     function setModuleReferences(
-        address savingStrategyModule,
-        address savingsModule,
-        address dcaModule,
+        address newSavingStrategyModule,
+        address newSavingsModule,
+        address newDcaModule,
         address slippageModule,
-        address tokenModule,
+        address newTokenModule,
         address dailySavingsModule
     ) external override nonReentrant {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         
-        _savingStrategyModule = savingStrategyModule;
-        _savingsModule = savingsModule;
-        _dcaModule = dcaModule;
+        _savingStrategyModule = newSavingStrategyModule;
+        _savingsModule = newSavingsModule;
+        _dcaModule = newDcaModule;
         _slippageModule = slippageModule;
-        _tokenModule = tokenModule;
+        _tokenModule = newTokenModule;
         _dailySavingsModule = dailySavingsModule;
         
         // Set the typed references for backward compatibility
-        if (savingStrategyModule != address(0)) {
-            savingStrategyModule = ISavingStrategyModule(savingStrategyModule);
+        if (newSavingStrategyModule != address(0)) {
+            savingStrategyModule = ISavingStrategyModule(newSavingStrategyModule);
         }
-        if (dcaModule != address(0)) {
-            dcaModule = IDCAModule(dcaModule);
+        if (newDcaModule != address(0)) {
+            dcaModule = IDCAModule(newDcaModule);
         }
-        if (tokenModule != address(0)) {
-            tokenModule = ITokenModule(tokenModule);
+        if (newTokenModule != address(0)) {
+            tokenModule = ITokenModule(newTokenModule);
         }
         
-        emit ModuleReferencesSet(savingStrategyModule, dcaModule, tokenModule);
+        emit ModuleReferencesSet(address(tokenModule), address(dcaModule), address(savingStrategyModule));
     }
 
     // ==================== OPTIMIZED CORE SAVINGS FUNCTIONS ====================

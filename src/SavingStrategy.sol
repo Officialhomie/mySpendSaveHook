@@ -245,17 +245,17 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
     
     /**
      * @notice Set references to other modules for cross-module operations (interface-compliant)
-     * @param _savingStrategyModule Address of the saving strategy module (self-reference)
-     * @param _savingsModule Address of the savings module
-     * @param _dcaModule Address of the DCA module
-     * @param _slippageModule Address of the slippage control module
-     * @param _tokenModule Address of the token module
-     * @param _dailySavingsModule Address of the daily savings module
+     * @param savingStrategyModule Address of the saving strategy module (self-reference)
+     * @param newSavingsModule Address of the savings module
+     * @param dcaModule Address of the DCA module
+     * @param slippageModule Address of the slippage control module
+     * @param tokenModule Address of the token module
+     * @param dailySavingsModule Address of the daily savings module
      * @dev Only owner can set module references to maintain security
      */
     function setModuleReferences(
         address savingStrategyModule,
-        address savingsModule,
+        address newSavingsModule,
         address dcaModule,
         address slippageModule,
         address tokenModule,
@@ -264,18 +264,18 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
         if (msg.sender != storage_.owner()) revert OnlyOwner();
         
         _savingStrategyModule = savingStrategyModule;
-        _savingsModule = savingsModule;
+        _savingsModule = newSavingsModule;
         _dcaModule = dcaModule;
         _slippageModule = slippageModule;
         _tokenModule = tokenModule;
         _dailySavingsModule = dailySavingsModule;
         
         // Set the typed reference for backward compatibility
-        if (savingsModule != address(0)) {
-            savingsModule = ISavingsModule(savingsModule);
+        if (newSavingsModule != address(0)) {
+            savingsModule = ISavingsModule(newSavingsModule);
         }
         
-        emit ModuleReferencesSet(savingsModule);
+        emit ModuleReferencesSet(address(savingsModule));
     }
 
     // ==================== CORE STRATEGY MANAGEMENT FUNCTIONS ====================

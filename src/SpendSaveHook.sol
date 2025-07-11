@@ -220,12 +220,12 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     /**
     * @notice Initialize all module references in storage
     * @dev Called once after deployment to set up module registry
-    * @param savingStrategy Address of SavingStrategy module
-    * @param savings Address of Savings module
-    * @param dca Address of DCA module
-    * @param slippageControl Address of SlippageControl module
-    * @param token Address of Token module
-    * @param dailySavings Address of DailySavings module
+    * @param _savingStrategy Address of SavingStrategy module
+    * @param _savings Address of Savings module
+    * @param _dca Address of DCA module
+    * @param _slippageControl Address of SlippageControl module
+    * @param _token Address of Token module
+    * @param _dailySavings Address of DailySavings module
     */
     function initializeModules(
         address _savingStrategy,

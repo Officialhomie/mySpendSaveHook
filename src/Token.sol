@@ -273,7 +273,7 @@ contract Token is ITokenModule, ReentrancyGuard {
     }
     
     // Only keep one totalSupply function implementation
-    function totalSupply(uint256 tokenId) external view override returns (uint256 totalSupply) {
+    function totalSupply(uint256 tokenId) external view override returns (uint256) {
         return storage_.getTotalSupply(tokenId);
     }
     
