@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../SpendSaveStorage.sol";
+import {SpendSaveStorage} from "../SpendSaveStorage.sol";
 
 /**
  * @title ISpendSaveModule

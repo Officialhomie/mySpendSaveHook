@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./ISpendSaveModule.sol";
+import {ISpendSaveModule} from "./ISpendSaveModule.sol";
 
 /**
  * @title ITokenModule

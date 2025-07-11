@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../SpendSaveStorage.sol";
-import "./ISpendSaveModule.sol";
+import {SpendSaveStorage} from "../SpendSaveStorage.sol";
+import {ISpendSaveModule} from "./ISpendSaveModule.sol";
 
 // Slippage Control Module Interface
 interface ISlippageControlModule is ISpendSaveModule {
