@@ -343,7 +343,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         PoolKey calldata key,
         SwapParams calldata params,
         bytes calldata hookData
-    ) external view returns (bytes4, BeforeSwapDelta, uint24) {
+    ) external returns (bytes4, BeforeSwapDelta, uint24) {
         // Extract actual user from sender or hook data
         address user = _extractUser(sender, hookData);
         
@@ -577,7 +577,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     ) internal pure returns (address outputToken, uint256 amount) {
         // Determine output token and amount based on swap direction
         if (params.zeroForOne) {
-            token = Currency.unwrap(key.currency1);
+            outputToken = Currency.unwrap(key.currency1);
             int256 outputAmount = delta.amount1();
             if (outputAmount > 0) {
                 amount = _calculateSavingsInMemory(
@@ -587,7 +587,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
                 );
             }
         } else {
-            token = Currency.unwrap(key.currency0);
+            outputToken = Currency.unwrap(key.currency0);
             int256 outputAmount = delta.amount0();
             if (outputAmount > 0) {
                 amount = _calculateSavingsInMemory(
