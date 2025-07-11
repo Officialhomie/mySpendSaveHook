@@ -13,13 +13,13 @@ import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-con
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 
-import "./SpendSaveStorage.sol";
-import "./interfaces/ISavingStrategyModule.sol";
-import "./interfaces/ISavingsModule.sol";
-import "./interfaces/IDCAModule.sol";
-import "./interfaces/ITokenModule.sol";
-import "./interfaces/ISlippageControlModule.sol";
-import "./interfaces/IDailySavingsModule.sol";
+import {ISavingStrategyModule} from "./interfaces/ISavingStrategyModule.sol";
+import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
+import {IDCAModule} from "./interfaces/IDCAModule.sol";
+import {ISlippageControlModule} from "./interfaces/ISlippageControlModule.sol";
+import {ITokenModule} from "./interfaces/ITokenModule.sol";
+import {IDailySavingsModule} from "./interfaces/IDailySavingsModule.sol";
+import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 
 /**
  * @title SpendSaveHook - Optimized Uniswap v4 Hook for Automated Savings

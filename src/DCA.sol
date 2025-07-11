@@ -14,11 +14,11 @@ import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibr
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 
-import "./SpendSaveStorage.sol";
-import "./interfaces/IDCAModule.sol";
-import "./interfaces/ITokenModule.sol";
-import "./interfaces/ISlippageControlModule.sol";
-import "./interfaces/ISavingsModule.sol";
+import {SpendSaveStorage} from "./SpendSaveStorage.sol";
+import {IDCAModule} from "./interfaces/IDCAModule.sol";
+import {ITokenModule} from "./interfaces/ITokenModule.sol";
+import {ISlippageControlModule} from "./interfaces/ISlippageControlModule.sol";
+import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
 
 /**
  * @title DCA

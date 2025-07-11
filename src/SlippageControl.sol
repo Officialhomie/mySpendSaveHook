@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./SpendSaveStorage.sol";
-import "./interfaces/ISlippageControlModule.sol";
+import {SpendSaveStorage} from "./SpendSaveStorage.sol";
+import {ISlippageControlModule} from "./interfaces/ISlippageControlModule.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /**

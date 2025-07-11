@@ -5,11 +5,11 @@ import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/co
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import "./SpendSaveStorage.sol";
-import "./interfaces/ISavingsModule.sol";
-import "./interfaces/ITokenModule.sol";
-import "./interfaces/IDCAModule.sol";
-import "./interfaces/ISavingStrategyModule.sol";
+import {SpendSaveStorage} from "./SpendSaveStorage.sol";
+import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
+import {ITokenModule} from "./interfaces/ITokenModule.sol";
+import {IDCAModule} from "./interfaces/IDCAModule.sol";
+import {ISavingStrategyModule} from "./interfaces/ISavingStrategyModule.sol";
 
 /**
  * @title Savings - Gas-Optimized Savings Module
