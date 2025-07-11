@@ -1092,6 +1092,37 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         emit DCATickStrategySet(user, tickDelta, tickExpiryTime, onlyImprovePrice);
     }
 
+    /**
+     * @notice Set DCA tick strategy with simple bounds (interface-compatible)
+     * @param user The user address
+     * @param lowerTick Lower tick bound for DCA execution
+     * @param upperTick Upper tick bound for DCA execution
+     */
+    function setDcaTickStrategy(
+        address user,
+        int24 lowerTick,
+        int24 upperTick
+    ) external onlyModule {
+        // Convert bounds to delta-based strategy
+        int24 tickDelta = upperTick - lowerTick;
+        uint256 tickExpiryTime = 1 days; // Default expiry
+        bool onlyImprovePrice = true; // Default to only improve
+        int24 minTickImprovement = 0; // No minimum improvement
+        bool dynamicSizing = false; // Default to fixed sizing
+        uint256 customSlippageTolerance = 0; // Use default slippage
+        
+        dcaTickStrategies[user] = DCATickStrategy({
+            tickDelta: tickDelta,
+            tickExpiryTime: tickExpiryTime,
+            onlyImprovePrice: onlyImprovePrice,
+            minTickImprovement: minTickImprovement,
+            dynamicSizing: dynamicSizing,
+            customSlippageTolerance: customSlippageTolerance
+        });
+        
+        emit DCATickStrategySet(user, tickDelta, tickExpiryTime, onlyImprovePrice);
+    }
+
     // ==================== DCA TARGET TOKEN FUNCTIONS ====================
 
     /**

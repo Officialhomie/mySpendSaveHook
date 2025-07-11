@@ -77,23 +77,23 @@ contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
     
     // Set references to other modules
     function setModuleReferences(
-        address _savingStrategy,
-        address _savings,
-        address _dca,
-        address _slippage,
-        address _token,
-        address _dailySavings
+        address savingStrategy,
+        address savings,
+        address dca,
+        address slippage,
+        address token,
+        address dailySavings
     ) external override {
         if (msg.sender != storage_.spendSaveHook() && msg.sender != storage_.owner()) {
             revert Unauthorized();
         }
         
-        _savingStrategyModule = _savingStrategy;
-        _savingsModule = _savings;
-        _dcaModule = _dca;
-        _slippageModule = _slippage;
-        _tokenModule = _token;
-        _dailySavingsModule = _dailySavings;
+        _savingStrategyModule = savingStrategy;
+        _savingsModule = savings;
+        _dcaModule = dca;
+        _slippageModule = slippage;
+        _tokenModule = token;
+        _dailySavingsModule = dailySavings;
         
         emit ModuleReferencesSet();
     }

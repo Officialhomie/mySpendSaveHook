@@ -210,34 +210,34 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @dev Only owner can set module references to maintain security
      */
     function setModuleReferences(
-        address _savingStrategyModule,
-        address _savingsModule,
-        address _dcaModule,
-        address _slippageModule,
-        address _tokenModule,
-        address _dailySavingsModule
+        address savingStrategyModule,
+        address savingsModule,
+        address dcaModule,
+        address slippageModule,
+        address tokenModule,
+        address dailySavingsModule
     ) external override nonReentrant {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         
-        _savingStrategyModule = _savingStrategyModule;
-        _savingsModule = _savingsModule;
-        _dcaModule = _dcaModule;
-        _slippageModule = _slippageModule;
-        _tokenModule = _tokenModule;
-        _dailySavingsModule = _dailySavingsModule;
+        _savingStrategyModule = savingStrategyModule;
+        _savingsModule = savingsModule;
+        _dcaModule = dcaModule;
+        _slippageModule = slippageModule;
+        _tokenModule = tokenModule;
+        _dailySavingsModule = dailySavingsModule;
         
         // Set the typed references for backward compatibility
-        if (_savingStrategyModule != address(0)) {
-            savingStrategyModule = ISavingStrategyModule(_savingStrategyModule);
+        if (savingStrategyModule != address(0)) {
+            savingStrategyModule = ISavingStrategyModule(savingStrategyModule);
         }
-        if (_dcaModule != address(0)) {
-            dcaModule = IDCAModule(_dcaModule);
+        if (dcaModule != address(0)) {
+            dcaModule = IDCAModule(dcaModule);
         }
-        if (_tokenModule != address(0)) {
-            tokenModule = ITokenModule(_tokenModule);
+        if (tokenModule != address(0)) {
+            tokenModule = ITokenModule(tokenModule);
         }
         
-        emit ModuleReferencesSet();
+        emit ModuleReferencesSet(savingStrategyModule, dcaModule, tokenModule);
     }
 
     // ==================== OPTIMIZED CORE SAVINGS FUNCTIONS ====================

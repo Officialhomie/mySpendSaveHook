@@ -149,22 +149,22 @@ contract DailySavings is IDailySavingsModule {
     
     // Set references to other modules
     function setModuleReferences(
-        address _savingStrategy,
-        address _savings,
-        address _dca,
-        address _slippage,
-        address _token,
-        address _dailySavings
+        address savingStrategy,
+        address savings,
+        address dca,
+        address slippage,
+        address token,
+        address dailySavings
     ) external override onlyOwner {
-        _savingStrategyModule = _savingStrategy;
-        _savingsModule = _savings;
-        _dcaModule = _dca;
-        _slippageModule = _slippage;
-        _tokenModule = _token;
-        _dailySavingsModule = _dailySavings;
+        _savingStrategyModule = savingStrategy;
+        _savingsModule = savings;
+        _dcaModule = dca;
+        _slippageModule = slippage;
+        _tokenModule = token;
+        _dailySavingsModule = dailySavings;
         
         // Set the typed references for backward compatibility
-        tokenModule = ITokenModule(_token);
+        tokenModule = ITokenModule(token);
         yieldModule = IYieldModule(address(0)); // Not passed in standard interface
         
         emit ModuleReferencesSet();

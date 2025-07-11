@@ -254,28 +254,28 @@ contract SavingStrategy is ISavingStrategyModule, ReentrancyGuard {
      * @dev Only owner can set module references to maintain security
      */
     function setModuleReferences(
-        address _savingStrategyModule,
-        address _savingsModule,
-        address _dcaModule,
-        address _slippageModule,
-        address _tokenModule,
-        address _dailySavingsModule
+        address savingStrategyModule,
+        address savingsModule,
+        address dcaModule,
+        address slippageModule,
+        address tokenModule,
+        address dailySavingsModule
     ) external override nonReentrant {
         if (msg.sender != storage_.owner()) revert OnlyOwner();
         
-        _savingStrategyModule = _savingStrategyModule;
-        _savingsModule = _savingsModule;
-        _dcaModule = _dcaModule;
-        _slippageModule = _slippageModule;
-        _tokenModule = _tokenModule;
-        _dailySavingsModule = _dailySavingsModule;
+        _savingStrategyModule = savingStrategyModule;
+        _savingsModule = savingsModule;
+        _dcaModule = dcaModule;
+        _slippageModule = slippageModule;
+        _tokenModule = tokenModule;
+        _dailySavingsModule = dailySavingsModule;
         
         // Set the typed reference for backward compatibility
-        if (_savingsModule != address(0)) {
-            savingsModule = ISavingsModule(_savingsModule);
+        if (savingsModule != address(0)) {
+            savingsModule = ISavingsModule(savingsModule);
         }
         
-        emit ModuleReferencesSet();
+        emit ModuleReferencesSet(savingsModule);
     }
 
     // ==================== CORE STRATEGY MANAGEMENT FUNCTIONS ====================

@@ -57,6 +57,9 @@ contract DCA is IDCAModule, ReentrancyGuard {
     ISlippageControlModule public slippageModule;
     ISavingsModule public savingsModule;
     
+    // Pool manager reference for tick operations
+    IPoolManager public poolManager;
+    
     // Standardized module references
     address internal _savingStrategyModule;
     address internal _savingsModule;
@@ -104,6 +107,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
     error OnlyOwner();
     error UnauthorizedCaller();
     error TokenTransferFailed();
+    error InvalidTickBounds();
     
     // Constructor is empty since module will be initialized via initialize()
     constructor() {}
@@ -159,7 +163,10 @@ contract DCA is IDCAModule, ReentrancyGuard {
         slippageModule = ISlippageControlModule(_slippage);
         savingsModule = ISavingsModule(_savings);
         
-        emit ModuleReferencesSet();
+        // Set pool manager reference from storage
+        poolManager = IPoolManager(storage_.poolManager());
+        
+        emit ModuleReferencesSet(_tokenModule, _slippageModule, _savingsModule);
     }
     
     // Helper function to get current strategy parameters
@@ -272,27 +279,20 @@ contract DCA is IDCAModule, ReentrancyGuard {
     // Set DCA tick strategy
     function setDCATickStrategy(
         address user,
-        int24 tickDelta,
-        uint256 tickExpiryTime,
-        bool onlyImprovePrice,
-        int24 minTickImprovement,
-        bool dynamicSizing
-    ) external onlyAuthorized(user) nonReentrant {
-        // Get current slippage tolerance to keep it the same
-        uint256 customSlippageTolerance = _getCurrentCustomSlippageTolerance(user);
+        int24 lowerTick,
+        int24 upperTick
+    ) external override onlyAuthorized(user) nonReentrant {
+        // Validate tick bounds
+        if (lowerTick >= upperTick) revert InvalidTickBounds();
         
-        // Update the strategy
+        // Update the strategy in storage
         storage_.setDcaTickStrategy(
             user,
-            tickDelta,
-            tickExpiryTime,
-            onlyImprovePrice,
-            minTickImprovement,
-            dynamicSizing,
-            customSlippageTolerance
+            lowerTick,
+            upperTick
         );
         
-        emit DCATickStrategySet(user, tickDelta, tickExpiryTime, onlyImprovePrice);
+        emit TickStrategySet(user, lowerTick, upperTick);
     }
     
     // Queue DCA from a savings token generated in a swap
@@ -311,7 +311,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         // Create the pool key and queue the DCA execution
         PoolKey memory poolKey = storage_.createPoolKey(fromToken, context.dcaTargetToken);
         
-        queueDCAExecution(
+        _queueDCAExecutionInternal(
             user,
             fromToken,
             context.dcaTargetToken,
@@ -350,8 +350,46 @@ contract DCA is IDCAModule, ReentrancyGuard {
         return (executionTick, deadline);
     }
 
-    // Queue DCA for execution at optimal tick
+    /**
+     * @notice Queue tokens for DCA execution
+     * @dev Optimized for gas efficiency in swap path
+     * @param user The user address
+     * @param fromToken The token to convert from
+     * @param toToken The token to convert to
+     * @param amount The amount to queue
+     */
     function queueDCAExecution(
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 amount
+    ) external override onlyAuthorized(user) nonReentrant {
+        // Create pool key for the token pair
+        PoolKey memory poolKey = PoolKey({
+            currency0: Currency.wrap(fromToken < toToken ? fromToken : toToken),
+            currency1: Currency.wrap(fromToken < toToken ? toToken : fromToken),
+            fee: DEFAULT_FEE_TIER,
+            hooks: IHooks(address(0)),
+            tickSpacing: DEFAULT_TICK_SPACING
+        });
+        
+        // Get current tick from pool manager using StateLibrary
+        (,int24 currentTick,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
+        
+        // Call the internal implementation with default slippage
+        _queueDCAExecutionInternal(
+            user,
+            fromToken,
+            toToken,
+            amount,
+            poolKey,
+            currentTick,
+            0 // Use default slippage
+        );
+    }
+    
+    // Internal implementation for queueDCAExecution with full parameters
+    function _queueDCAExecutionInternal(
         address user,
         address fromToken,
         address toToken,
@@ -359,7 +397,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
         PoolKey memory poolKey,
         int24 currentTick,
         uint256 customSlippageTolerance
-    ) public onlyAuthorized(user) nonReentrant {
+    ) internal {
         // Determine swap direction
         bool zeroForOne = _isZeroForOne(fromToken, toToken);
         
@@ -549,8 +587,112 @@ contract DCA is IDCAModule, ReentrancyGuard {
     }
 
     /**
-     * @notice Calculate optimal DCA amount based on market conditions
-     * @dev Production algorithm considering gas costs and slippage
+     * @notice Get user's DCA configuration
+     * @param user The user address
+     * @return config The DCA configuration
+     */
+    function getDCAConfig(address user) external view override returns (DCAConfig memory config) {
+        (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage, int24 lowerTick, int24 upperTick) = 
+            storage_.getUserDcaConfig(user);
+        
+        config = DCAConfig({
+            enabled: enabled,
+            targetToken: targetToken,
+            minAmount: minAmount,
+            maxSlippage: maxSlippage,
+            lowerTick: lowerTick,
+            upperTick: upperTick
+        });
+    }
+    
+    /**
+     * @notice Get pending DCA queue for a user
+     * @param user The user address
+     * @return tokens Array of from tokens
+     * @return amounts Array of amounts
+     * @return targets Array of target tokens
+     */
+    function getPendingDCA(address user) external view override returns (
+        address[] memory tokens,
+        uint256[] memory amounts,
+        address[] memory targets
+    ) {
+        uint256 queueLength = storage_.getDcaQueueLength(user);
+        tokens = new address[](queueLength);
+        amounts = new uint256[](queueLength);
+        targets = new address[](queueLength);
+        
+        uint256 pendingCount = 0;
+        for (uint256 i = 0; i < queueLength; i++) {
+            (address fromToken, address toToken, uint256 amount, , uint256 deadline, bool executed, ) = 
+                storage_.getDcaQueueItem(user, i);
+            
+            if (!executed && block.timestamp <= deadline) {
+                tokens[pendingCount] = fromToken;
+                amounts[pendingCount] = amount;
+                targets[pendingCount] = toToken;
+                pendingCount++;
+            }
+        }
+        
+        // Resize arrays to actual pending count
+        if (pendingCount < queueLength) {
+            assembly {
+                mstore(tokens, pendingCount)
+                mstore(amounts, pendingCount)
+                mstore(targets, pendingCount)
+            }
+        }
+    }
+    
+    /**
+     * @notice Check if DCA should execute based on current tick
+     * @param user The user address
+     * @param poolKey The pool key to check
+     * @return shouldExecute Whether DCA should execute
+     * @return currentTick The current pool tick
+     */
+    function shouldExecuteDCA(
+        address user,
+        PoolKey calldata poolKey
+    ) external view override returns (bool shouldExecute, int24 currentTick) {
+        // Get current tick from pool manager
+        (,currentTick,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
+        
+        // Get user's tick strategy
+        (int24 tickDelta, uint256 tickExpiryTime, bool onlyImprovePrice, int24 minTickImprovement, , ) = 
+            storage_.getDcaTickStrategy(user);
+        
+        // Check if tick strategy is still valid
+        if (tickExpiryTime > 0 && block.timestamp > tickExpiryTime) {
+            return (false, currentTick);
+        }
+        
+        // Get last execution tick
+        int24 lastExecutionTick = storage_.getLastDcaExecutionTick(user, poolKey.toId());
+        
+        // Calculate tick movement
+        int24 tickMovement = currentTick - lastExecutionTick;
+        
+        // Check if tick movement meets criteria
+        if (tickMovement >= tickDelta) {
+            if (onlyImprovePrice) {
+                shouldExecute = tickMovement >= minTickImprovement;
+            } else {
+                shouldExecute = true;
+            }
+        }
+        
+        return (shouldExecute, currentTick);
+    }
+    
+    /**
+     * @notice Calculate optimal DCA execution amount
+     * @param user The user address
+     * @param fromToken The source token
+     * @param toToken The target token
+     * @param availableAmount Amount available for DCA
+     * @return optimalAmount The optimal amount to execute
      */
     function calculateOptimalDCAAmount(
         address user,
@@ -558,22 +700,83 @@ contract DCA is IDCAModule, ReentrancyGuard {
         address toToken,
         uint256 availableAmount
     ) external view override returns (uint256 optimalAmount) {
-        // Get user's DCA configuration
-        (,, uint256 minAmount, uint256 maxSlippage,,) = storage_.getUserDcaConfig(user);
-
-        // Base calculation: use full amount if above minimum
-        if (availableAmount < minAmount) return 0;
-
-        // Advanced: Calculate based on pool liquidity and expected slippage
-        // This would integrate with pool state for optimal sizing
-        uint256 maxWithoutSlippage = _calculateMaxAmountForSlippage(
-            fromToken,
-            toToken,
-            maxSlippage
-        );
-
-        optimalAmount = availableAmount > maxWithoutSlippage ? 
-            maxWithoutSlippage : availableAmount;
+        // Get user's DCA config
+        (bool enabled, , uint256 minAmount, , , ) = storage_.getUserDcaConfig(user);
+        
+        if (!enabled) return 0;
+        
+        // Get user's savings balance
+        uint256 savingsBalance = storage_.savings(user, fromToken);
+        
+        // Calculate optimal amount based on available savings and minimum amount
+        if (savingsBalance >= minAmount) {
+            optimalAmount = savingsBalance > availableAmount ? availableAmount : savingsBalance;
+        }
+        
+        return optimalAmount;
+    }
+    
+    /**
+     * @notice Process DCA after savings
+     * @dev Called by savings module when DCA is enabled
+     * @param user The user address
+     * @param savedToken The token that was saved
+     * @param savedAmount The amount that was saved
+     * @param context The swap context
+     * @return queued Whether tokens were queued for DCA
+     */
+    function processDCAFromSavings(
+        address user,
+        address savedToken,
+        uint256 savedAmount,
+        SpendSaveStorage.SwapContext memory context
+    ) external override returns (bool queued) {
+        // Check if DCA is enabled and target token is set
+        if (!context.enableDCA || context.dcaTargetToken == address(0)) {
+            return false;
+        }
+        
+        // Don't queue if saved token is the same as target token
+        if (savedToken == context.dcaTargetToken) {
+            return false;
+        }
+        
+        // Get user's DCA config
+        (bool enabled, , uint256 minAmount, , , ) = storage_.getUserDcaConfig(user);
+        
+        if (!enabled || savedAmount < minAmount) {
+            return false;
+        }
+        
+        // Queue the DCA execution
+        try this.queueDCAExecution(
+            user,
+            savedToken,
+            context.dcaTargetToken,
+            savedAmount
+        ) {
+            queued = true;
+        } catch {
+            queued = false;
+        }
+        
+        return queued;
+    }
+    
+    /**
+     * @notice Get DCA execution history
+     * @param user The user address
+     * @param limit Maximum number of records to return
+     * @return history Array of DCA executions
+     */
+    function getDCAHistory(
+        address user,
+        uint256 limit
+    ) external view override returns (DCAExecution[] memory history) {
+        // This would require tracking DCA execution history in storage
+        // For now, return empty array as a placeholder
+        // TODO: Implement DCA history tracking in storage contract
+        history = new DCAExecution[](0);
     }
 
     /**

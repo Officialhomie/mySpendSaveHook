@@ -228,71 +228,78 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
     * @param dailySavings Address of DailySavings module
     */
     function initializeModules(
-        address savingStrategy,
-        address savings,
-        address dca,
-        address slippageControl,
-        address token,
-        address dailySavings
+        address _savingStrategy,
+        address _savings,
+        address _dca,
+        address _slippageControl,
+        address _token,
+        address _dailySavings
     ) external onlyOwner {
         require(!modulesInitialized, "Already initialized");
         
         // Register modules in storage
-        storage_.registerModule(STRATEGY_MODULE, savingStrategy);
-        storage_.registerModule(SAVINGS_MODULE, savings);
-        storage_.registerModule(DCA_MODULE, dca);
-        storage_.registerModule(SLIPPAGE_MODULE, slippageControl);
-        storage_.registerModule(TOKEN_MODULE, token);
-        storage_.registerModule(DAILY_MODULE, dailySavings);
+        storage_.registerModule(STRATEGY_MODULE, _savingStrategy);
+        storage_.registerModule(SAVINGS_MODULE, _savings);
+        storage_.registerModule(DCA_MODULE, _dca);
+        storage_.registerModule(SLIPPAGE_MODULE, _slippageControl);
+        storage_.registerModule(TOKEN_MODULE, _token);
+        storage_.registerModule(DAILY_MODULE, _dailySavings);
         
         // Initialize each module with storage reference
-        ISavingStrategyModule(savingStrategy).initialize(storage_);
-        ISavingsModule(savings).initialize(storage_);
-        IDCAModule(dca).initialize(storage_);
-        ISlippageControlModule(slippageControl).initialize(storage_);
-        ITokenModule(token).initialize(storage_);
-        IDailySavingsModule(dailySavings).initialize(storage_);
+        ISavingStrategyModule(_savingStrategy).initialize(storage_);
+        ISavingsModule(_savings).initialize(storage_);
+        IDCAModule(_dca).initialize(storage_);
+        ISlippageControlModule(_slippageControl).initialize(storage_);
+        ITokenModule(_token).initialize(storage_);
+        IDailySavingsModule(_dailySavings).initialize(storage_);
         
         // Set cross-module references
         _initializeModuleReferences(
-            savingStrategy,
-            savings,
-            dca,
-            slippageControl,
-            token,
-            dailySavings
+            _savingStrategy,
+            _savings,
+            _dca,
+            _slippageControl,
+            _token,
+            _dailySavings
         );
         
         modulesInitialized = true;
-        emit ModulesInitialized();
+        emit ModulesInitialized(
+            _savingStrategy,
+            _savings,
+            _dca,
+            _slippageControl,
+            _token,
+            _dailySavings
+        );
     }
 
     function _initializeModuleReferences(
-        address savingStrategy,
-        address savings,
-        address dca,
-        address slippageControl,
-        address token,
-        address dailySavings
+        address _savingStrategy,
+        address _savings,
+        address _dca,
+        address _slippageControl,
+        address _token,
+        address _dailySavings
     ) private {
         // Each module needs references to other modules for cross-communication
-        ISavingStrategyModule(savingStrategy).setModuleReferences(
-            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        ISavingStrategyModule(_savingStrategy).setModuleReferences(
+            _savingStrategy, _savings, _dca, _slippageControl, _token, _dailySavings
         );
-        ISavingsModule(savings).setModuleReferences(
-            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        ISavingsModule(_savings).setModuleReferences(
+            _savingStrategy, _savings, _dca, _slippageControl, _token, _dailySavings
         );
-        IDCAModule(dca).setModuleReferences(
-            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        IDCAModule(_dca).setModuleReferences(
+            _savingStrategy, _savings, _dca, _slippageControl, _token, _dailySavings
         );
-        ISlippageControlModule(slippageControl).setModuleReferences(
-            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        ISlippageControlModule(_slippageControl).setModuleReferences(
+            _savingStrategy, _savings, _dca, _slippageControl, _token, _dailySavings
         );
-        ITokenModule(token).setModuleReferences(
-            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        ITokenModule(_token).setModuleReferences(
+            _savingStrategy, _savings, _dca, _slippageControl, _token, _dailySavings
         );
-        IDailySavingsModule(dailySavings).setModuleReferences(
-            savingStrategy, savings, dca, slippageControl, token, dailySavings
+        IDailySavingsModule(_dailySavings).setModuleReferences(
+            _savingStrategy, _savings, _dca, _slippageControl, _token, _dailySavings
         );
     }
     // ==================== OPTIMIZED HOOK FUNCTIONS ====================

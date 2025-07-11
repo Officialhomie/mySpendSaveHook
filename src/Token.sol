@@ -34,10 +34,6 @@ contract Token is ITokenModule, ReentrancyGuard {
     event TreasuryFeeCollected(address indexed user, address token, uint256 amount);
     
     // Interface-compliant events
-    event TokenRegistered(address indexed token, uint256 indexed tokenId);
-    event TokenMinted(address indexed user, uint256 indexed tokenId, uint256 amount);
-    event TokenBurned(address indexed user, uint256 indexed tokenId, uint256 amount);
-    event BatchOperationCompleted(address indexed user, uint256 count);
     event ModuleReferencesSet();
     
     // Custom errors
@@ -76,23 +72,23 @@ contract Token is ITokenModule, ReentrancyGuard {
     }
 
     function setModuleReferences(
-        address _savingStrategy,
-        address _savings,
-        address _dca,
-        address _slippage,
-        address _token,
-        address _dailySavings
+        address savingStrategy,
+        address savings,
+        address dca,
+        address slippage,
+        address token,
+        address dailySavings
     ) external override {
         if (msg.sender != storage_.spendSaveHook() && msg.sender != storage_.owner()) {
             revert UnauthorizedCaller();
         }
         
-        _savingStrategyModule = _savingStrategy;
-        _savingsModule = _savings;
-        _dcaModule = _dca;
-        _slippageModule = _slippage;
-        _tokenModule = _token;
-        _dailySavingsModule = _dailySavings;
+        _savingStrategyModule = savingStrategy;
+        _savingsModule = savings;
+        _dcaModule = dca;
+        _slippageModule = slippage;
+        _tokenModule = token;
+        _dailySavingsModule = dailySavings;
         
         emit ModuleReferencesSet();
     }
@@ -276,11 +272,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         }
     }
     
-    /**
-     * @notice Get total supply for a savings token
-     * @param tokenId The ERC6909 token ID
-     * @return totalSupply The total supply
-     */
+    // Only keep one totalSupply function implementation
     function totalSupply(uint256 tokenId) external view override returns (uint256 totalSupply) {
         return storage_.getTotalSupply(tokenId);
     }
@@ -391,11 +383,60 @@ contract Token is ITokenModule, ReentrancyGuard {
         emit Transfer(sender, receiver, id, amount);
     }
     
-    // ERC6909: Approve spending limit
-    function approve(address owner, address spender, uint256 id, uint256 amount) external onlyAuthorized(owner) nonReentrant returns (bool) {
-        storage_.setAllowance(owner, spender, id, amount);
+    /**
+     * @notice Approve spending of savings tokens
+     * @param spender The spender address
+     * @param tokenId The ERC6909 token ID
+     * @param amount The approval amount
+     * @return success Whether the approval succeeded
+     */
+    function approve(
+        address spender,
+        uint256 tokenId,
+        uint256 amount
+    ) external override returns (bool success) {
+        if (spender == address(0)) revert TransferToZeroAddress();
         
-        emit Approval(owner, spender, id, amount);
+        // Set approval in storage
+        storage_.setAllowance(msg.sender, spender, tokenId, amount);
+        
+        emit Approval(msg.sender, spender, tokenId, amount);
+        return true;
+    }
+    
+    /**
+     * @notice Transfer from approved address
+     * @param from The token owner
+     * @param to The recipient
+     * @param tokenId The ERC6909 token ID
+     * @param amount The amount to transfer
+     * @return success Whether the transfer succeeded
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amount
+    ) external override nonReentrant returns (bool success) {
+        if (to == address(0)) revert TransferToZeroAddress();
+        if (from == address(0)) revert TransferFromZeroAddress();
+        
+        // Check allowance
+        uint256 currentAllowance = storage_.getAllowance(from, msg.sender, tokenId);
+        if (currentAllowance < amount) revert InsufficientAllowance(from, msg.sender, tokenId, amount, currentAllowance);
+        
+        // Check balance
+        uint256 fromBalance = storage_.getBalance(from, tokenId);
+        if (fromBalance < amount) revert InsufficientBalance(from, tokenId, amount, fromBalance);
+        
+        // Update balances
+        storage_.decreaseBalance(from, tokenId, amount);
+        storage_.increaseBalance(to, tokenId, amount);
+        
+        // Update allowance
+        storage_.setAllowance(from, msg.sender, tokenId, currentAllowance - amount);
+        
+        emit Transfer(from, to, tokenId, amount);
         return true;
     }
     
