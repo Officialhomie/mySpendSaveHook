@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {SpendSaveStorage} from "../SpendSaveStorage.sol";
 import {ISpendSaveModule} from "./ISpendSaveModule.sol";
+import {PoolKey} from "v4-core/types/PoolKey.sol";
 
 /**
  * @title IDCAModule
