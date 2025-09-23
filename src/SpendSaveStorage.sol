@@ -1700,8 +1700,8 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         }
     }
 
-    /// @notice Get the last DCA execution tick for a user and pool
-    function getLastDcaExecutionTick(address user, bytes32 poolId) external view returns (int24) {
-        return _lastDcaExecutionTick[user][poolId];
-    }
+    // ==================== LEGACY/COMPATIBILITY STORAGE ====================
+    // Add all legacy mappings, structs, and functions from the previous contract here,
+    // except those superseded by the new ultra-packed logic above.
+    // ... existing code ...
 }
