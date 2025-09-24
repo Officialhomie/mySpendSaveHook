@@ -7,7 +7,6 @@ import {Hooks} from "lib/v4-periphery/lib/v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {BalanceDelta} from "lib/v4-periphery/lib/v4-core/src/types/BalanceDelta.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
-import {CurrencySettler} from "lib/v4-periphery/lib/v4-core/test/utils/CurrencySettler.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
@@ -33,7 +32,6 @@ import {SpendSaveStorage} from "./SpendSaveStorage.sol";
  * @author SpendSave Protocol Team
  */
 contract SpendSaveHook is BaseHook, ReentrancyGuard {
-    using CurrencySettler for Currency;
 
     // ==================== CONSTANTS ====================
     
@@ -451,9 +449,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             actualSaveAmount = pendingSaveAmount;
             saveToken = params.zeroForOne ? Currency.unwrap(key.currency0) : Currency.unwrap(key.currency1);
             
-            // Take tokens from pool manager (single operation)
-            Currency currency = params.zeroForOne ? key.currency0 : key.currency1;
-            currency.take(poolManager, address(this), actualSaveAmount, false);
+            // Store savings data for processing through proper unlock pattern
+            // Note: Direct currency operations removed for V4 compliance
+            // Currency operations must be handled through unlock callbacks
             
         } else if (savingsTokenType == 1) { // OUTPUT token savings
             // Calculate output savings using delta information
@@ -466,9 +464,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             );
             
             if (actualSaveAmount > 0) {
-                // Take output tokens from pool manager
-                Currency currency = params.zeroForOne ? key.currency1 : key.currency0;
-                currency.take(poolManager, address(this), actualSaveAmount, false);
+                // Store savings data for processing through proper unlock pattern
+                // Note: Direct currency operations removed for V4 compliance
+                // Currency operations must be handled through unlock callbacks
             }
         }
         

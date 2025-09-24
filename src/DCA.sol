@@ -13,6 +13,8 @@ import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
+import {IUnlockCallback} from "lib/v4-periphery/lib/v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {CurrencyDelta} from "lib/v4-periphery/lib/v4-core/src/libraries/CurrencyDelta.sol";
 
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {IDCAModule} from "./interfaces/IDCAModule.sol";
@@ -24,7 +26,7 @@ import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
  * @title DCA
  * @dev Manages dollar-cost averaging functionality
  */
-contract DCA is IDCAModule, ReentrancyGuard {
+contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
     
@@ -47,6 +49,17 @@ contract DCA is IDCAModule, ReentrancyGuard {
     struct TickMovement {
         int24 delta;
         bool isPositive;
+    }
+    
+    /// @notice Data structure for unlock callback communication
+    struct SwapCallbackData {
+        PoolKey poolKey;
+        SwapParams params;
+        address user;
+        address fromToken;
+        address toToken;
+        uint256 amount;
+        bool isExecuteDCA;
     }
 
     // Storage reference
@@ -1018,7 +1031,7 @@ contract DCA is IDCAModule, ReentrancyGuard {
 
         // Execute the swap
         SwapExecutionResult memory result = _executePoolSwap(
-            poolKey, params, zeroForOne, amount
+            poolKey, params, zeroForOne, amount, user, fromToken, toToken
         );
         
         // Check if swap succeeded
@@ -1077,7 +1090,10 @@ contract DCA is IDCAModule, ReentrancyGuard {
         PoolKey memory poolKey,
         SwapExecutionParams memory params,
         bool zeroForOne,
-        uint256 amount
+        uint256 amount,
+        address user,
+        address fromToken,
+        address toToken
     ) internal returns (SwapExecutionResult memory) {
         // Set price limit to ensure reasonable execution
         params.sqrtPriceLimitX96 = zeroForOne ? 
@@ -1091,10 +1107,22 @@ contract DCA is IDCAModule, ReentrancyGuard {
             sqrtPriceLimitX96: params.sqrtPriceLimitX96
         });
         
-        // Execute the swap
+        // Execute the swap using V4 unlock pattern
+        // Note: This requires access to user, fromToken, toToken from parent function
+        // The function signature will need to be updated to include these parameters
+        SwapCallbackData memory callbackData = SwapCallbackData({
+            poolKey: poolKey,
+            params: swapParams,
+            user: user,
+            fromToken: fromToken,
+            toToken: toToken,
+            amount: amount,
+            isExecuteDCA: true
+        });
+        
         BalanceDelta delta;
-        try IPoolManager(storage_.poolManager()).swap(poolKey, swapParams, "") returns (BalanceDelta _delta) {
-            delta = _delta;
+        try IPoolManager(storage_.poolManager()).unlock(abi.encode(callbackData)) returns (bytes memory result) {
+            delta = abi.decode(result, (BalanceDelta));
         } catch {
             revert SwapExecutionFailed();
         }
@@ -1157,8 +1185,23 @@ contract DCA is IDCAModule, ReentrancyGuard {
             customSlippageTolerance
         );
         
-        // Execute swap
-        BalanceDelta delta = _performPoolSwap(poolKey, params);
+        // Execute swap using V4 unlock pattern
+        SwapCallbackData memory callbackData = SwapCallbackData({
+            poolKey: poolKey,
+            params: params,
+            user: user,
+            fromToken: fromToken,
+            toToken: toToken,
+            amount: amount,
+            isExecuteDCA: false
+        });
+        
+        BalanceDelta delta;
+        try IPoolManager(storage_.poolManager()).unlock(abi.encode(callbackData)) returns (bytes memory result) {
+            delta = abi.decode(result, (BalanceDelta));
+        } catch {
+            revert SwapExecutionFailed();
+        }
         
         // Calculate received amount based on the swap delta
         receivedAmount = _calculateReceivedAmount(delta, zeroForOne);
@@ -1169,14 +1212,6 @@ contract DCA is IDCAModule, ReentrancyGuard {
         return receivedAmount;
     }
     
-    // Helper to perform pool swap
-    function _performPoolSwap(PoolKey memory poolKey, SwapParams memory params) internal returns (BalanceDelta delta) {
-        try IPoolManager(storage_.poolManager()).swap(poolKey, params, "") returns (BalanceDelta _delta) {
-            return _delta;
-        } catch {
-            revert SwapExecutionFailed();
-        }
-    }
     
     // Helper to calculate received amount
     function _calculateReceivedAmount(BalanceDelta delta, bool zeroForOne) internal pure returns (uint256) {
@@ -1480,6 +1515,142 @@ contract DCA is IDCAModule, ReentrancyGuard {
             } catch {
                 // Handle error appropriately for DCA context
             }
+        }
+    }
+    
+    // ==================== V4 UNLOCK CALLBACK IMPLEMENTATION ====================
+    
+    /**
+     * @notice Critical V4 compliance function - handles all swap operations through flash accounting
+     * @param data Encoded SwapCallbackData containing swap parameters
+     * @return result Encoded BalanceDelta from the swap operation
+     * @dev This function is called by PoolManager during unlock and must handle currency settlement
+     */
+    function unlockCallback(bytes calldata data) external override returns (bytes memory result) {
+        // Verify caller is the pool manager
+        require(msg.sender == address(storage_.poolManager()), "DCA: unauthorized callback");
+        
+        // Validate data is not empty
+        require(data.length > 0, "DCA: empty callback data");
+        
+        // Decode the callback data with error handling
+        SwapCallbackData memory callbackData;
+        try this.decodeSwapCallbackData(data) returns (SwapCallbackData memory decoded) {
+            callbackData = decoded;
+        } catch {
+            revert("DCA: invalid callback data");
+        }
+        
+        // Validate callback data
+        require(callbackData.user != address(0), "DCA: invalid user address");
+        require(callbackData.amount > 0, "DCA: zero swap amount");
+        require(callbackData.fromToken != address(0), "DCA: invalid from token");
+        require(callbackData.toToken != address(0), "DCA: invalid to token");
+        require(callbackData.fromToken != callbackData.toToken, "DCA: identical tokens");
+        
+        // Perform the swap through pool manager with error handling
+        BalanceDelta delta;
+        try IPoolManager(storage_.poolManager()).swap(
+            callbackData.poolKey,
+            callbackData.params,
+            ""
+        ) returns (BalanceDelta _delta) {
+            delta = _delta;
+        } catch (bytes memory reason) {
+            // Enhanced error reporting
+            if (reason.length == 0) {
+                revert("DCA: swap execution failed");
+            } else {
+                assembly {
+                    revert(add(32, reason), mload(reason))
+                }
+            }
+        }
+        
+        // Validate delta is not zero (indicates successful swap)
+        require(delta.amount0() != 0 || delta.amount1() != 0, "DCA: zero delta returned");
+        
+        // Handle currency settlement with enhanced error handling
+        _handleCurrencySettlement(callbackData, delta);
+        
+        return abi.encode(delta);
+    }
+    
+    /**
+     * @notice Helper function to decode callback data safely
+     * @param data The encoded callback data
+     * @return decoded The decoded SwapCallbackData
+     */
+    function decodeSwapCallbackData(bytes calldata data) external pure returns (SwapCallbackData memory decoded) {
+        decoded = abi.decode(data, (SwapCallbackData));
+    }
+    
+    /**
+     * @notice Handles currency settlement after swap execution
+     * @param callbackData The original swap parameters
+     * @param delta The balance delta from the swap
+     */
+    function _handleCurrencySettlement(SwapCallbackData memory callbackData, BalanceDelta delta) internal {
+        Currency currency0 = callbackData.poolKey.currency0;
+        Currency currency1 = callbackData.poolKey.currency1;
+        IPoolManager pm = IPoolManager(storage_.poolManager());
+        
+        // Handle input currency settlement (what we owe)
+        if (delta.amount0() < 0) {
+            uint256 amount0Owed = uint256(uint128(-delta.amount0()));
+            address token0 = Currency.unwrap(currency0);
+            
+            // Validate user has sufficient balance
+            require(IERC20(token0).balanceOf(callbackData.user) >= amount0Owed, 
+                "DCA: insufficient token0 balance");
+            require(IERC20(token0).allowance(callbackData.user, address(this)) >= amount0Owed,
+                "DCA: insufficient token0 allowance");
+            
+            // Transfer tokens from user to pool manager
+            IERC20(token0).safeTransferFrom(
+                callbackData.user, 
+                address(pm), 
+                amount0Owed
+            );
+            
+            // Settle currency with pool manager
+            pm.settle();
+        }
+        
+        if (delta.amount1() < 0) {
+            uint256 amount1Owed = uint256(uint128(-delta.amount1()));
+            address token1 = Currency.unwrap(currency1);
+            
+            // Validate user has sufficient balance
+            require(IERC20(token1).balanceOf(callbackData.user) >= amount1Owed,
+                "DCA: insufficient token1 balance");
+            require(IERC20(token1).allowance(callbackData.user, address(this)) >= amount1Owed,
+                "DCA: insufficient token1 allowance");
+            
+            // Transfer tokens from user to pool manager
+            IERC20(token1).safeTransferFrom(
+                callbackData.user, 
+                address(pm), 
+                amount1Owed
+            );
+            
+            // Settle currency with pool manager
+            pm.settle();
+        }
+        
+        // Handle output currency taking (what we receive)
+        if (delta.amount0() > 0) {
+            uint256 amount0Received = uint256(uint128(delta.amount0()));
+            
+            // Take currency0 tokens from pool manager
+            pm.take(currency0, address(this), amount0Received);
+        }
+        
+        if (delta.amount1() > 0) {
+            uint256 amount1Received = uint256(uint128(delta.amount1()));
+            
+            // Take currency1 tokens from pool manager
+            pm.take(currency1, address(this), amount1Received);
         }
     }
     
