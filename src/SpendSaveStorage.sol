@@ -1605,6 +1605,26 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         return userSavingsTokens[user];
     }
 
+    /**
+     * @notice Get last DCA execution tick for a user and pool
+     * @param user The user address
+     * @param poolId The pool ID as bytes32
+     * @return tick The last execution tick
+     */
+    function getLastDcaExecutionTick(address user, bytes32 poolId) external view returns (int24 tick) {
+        return _lastDcaExecutionTick[user][poolId];
+    }
+
+    /**
+     * @notice Set last DCA execution tick for a user and pool
+     * @param user The user address
+     * @param poolId The pool ID as bytes32
+     * @param tick The execution tick to store
+     */
+    function setLastDcaExecutionTick(address user, bytes32 poolId, int24 tick) external onlyModule {
+        _lastDcaExecutionTick[user][poolId] = tick;
+    }
+
     // ==================== DCA CONFIGURATION FUNCTIONS ====================
 
     /**
