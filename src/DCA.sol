@@ -786,10 +786,22 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         address user,
         uint256 limit
     ) external view override returns (DCAExecution[] memory history) {
-        // This would require tracking DCA execution history in storage
-        // For now, return empty array as a placeholder
-        // TODO: Implement DCA history tracking in storage contract
-        history = new DCAExecution[](0);
+        // Get DCA execution history from storage contract and convert types
+        SpendSaveStorage.DCAExecution[] memory storageHistory = storage_.getDcaExecutionHistory(user, limit);
+        
+        // Convert from storage type to interface type
+        history = new DCAExecution[](storageHistory.length);
+        for (uint256 i = 0; i < storageHistory.length; i++) {
+            history[i] = DCAExecution({
+                fromToken: address(0), // Not tracked in storage, would need enhancement
+                toToken: storageHistory[i].token,
+                amount: storageHistory[i].amount,
+                timestamp: storageHistory[i].executionTime,
+                executedPrice: storageHistory[i].price
+            });
+        }
+        
+        return history;
     }
 
     /**
@@ -821,7 +833,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         uint256 amount,
         uint256 maxSlippage
     ) internal returns (uint256 amountOut, uint256 executedPrice) {
-        PoolKey memory poolKey = storage_.createPoolKey(fromToken, toToken);
+        PoolKey memory poolKey = storage_.getPoolKey(fromToken, toToken);
         bool zeroForOne = fromToken < toToken;
         
         amountOut = executeDCASwap(
@@ -843,21 +855,110 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @notice Calculate maximum amount for slippage tolerance
      * @param fromToken The source token
      * @param toToken The target token
-     * @param maxSlippage The maximum slippage tolerance
+     * @param maxSlippage The maximum slippage tolerance (in basis points, e.g., 300 = 3%)
      * @return maxAmount The maximum amount that can be swapped without exceeding slippage
      */
     function _calculateMaxAmountForSlippage(
         address fromToken,
         address toToken,
         uint256 maxSlippage
-    ) internal view returns (uint256) {
-        // Placeholder: In production, query pool state and simulate swap for slippage
-        // For now, return a large number (no limit)
-        // This would typically involve:
-        // 1. Getting pool liquidity
-        // 2. Calculating price impact
-        // 3. Determining max amount before slippage exceeds tolerance
-        return type(uint256).max;
+    ) internal returns (uint256) {
+        if (maxSlippage == 0) return 0;
+        
+        // Create pool key for the token pair
+        PoolKey memory poolKey = storage_.getPoolKey(fromToken, toToken);
+        PoolId poolId = poolKey.toId();
+        
+        // Get pool state using StateLibrary
+        (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = 
+            StateLibrary.getSlot0(poolManager, poolId);
+            
+        // If pool doesn't exist or has no price, return conservative limit
+        if (sqrtPriceX96 == 0) {
+            return 1000 * 10**18; // 1000 tokens max as fallback
+        }
+        
+        // Get pool liquidity at current tick
+        uint128 liquidity = StateLibrary.getLiquidity(poolManager, poolId);
+        
+        // If no liquidity, return minimal amount
+        if (liquidity == 0) {
+            return 100 * 10**18; // 100 tokens max for empty pools
+        }
+        
+        // Determine swap direction
+        bool zeroForOne = fromToken < toToken;
+        
+        // Calculate maximum amount based on pool liquidity and slippage tolerance
+        // Use a fraction of available liquidity to prevent excessive price impact
+        uint256 maxLiquidityFraction = uint256(liquidity) / 10; // Use 10% of pool liquidity
+        
+        // Calculate price-based limits using tick spacing
+        uint256 tickBasedLimit = _calculateTickBasedLimit(
+            sqrtPriceX96,
+            tick,
+            maxSlippage,
+            zeroForOne
+        );
+        
+        // Return the minimum of liquidity-based and price-based limits
+        uint256 liquidityLimit = maxLiquidityFraction;
+        uint256 finalLimit = liquidityLimit < tickBasedLimit ? liquidityLimit : tickBasedLimit;
+        
+        // Ensure minimum viable amount (prevent zero amounts)
+        uint256 minAmount = 1 * 10**18; // 1 token minimum
+        return finalLimit > minAmount ? finalLimit : minAmount;
+    }
+    
+    /**
+     * @notice Calculate tick-based slippage limit
+     * @param sqrtPriceX96 Current pool price
+     * @param currentTick Current pool tick
+     * @param maxSlippage Maximum allowed slippage in basis points
+     * @param zeroForOne Swap direction
+     * @return limit Maximum amount based on tick movement
+     */
+    function _calculateTickBasedLimit(
+        uint160 sqrtPriceX96,
+        int24 currentTick,
+        uint256 maxSlippage,
+        bool zeroForOne
+    ) internal pure returns (uint256) {
+        // Convert slippage from basis points to tick movement
+        // Each tick represents ~0.01% price change
+        int24 maxTickMovement = int24(uint24(maxSlippage / 10)); // Convert bps to ticks
+        
+        if (maxTickMovement == 0) {
+            maxTickMovement = 1; // Minimum 1 tick movement
+        }
+        
+        // Calculate target tick based on direction and slippage tolerance
+        int24 targetTick = zeroForOne ? 
+            currentTick - maxTickMovement : 
+            currentTick + maxTickMovement;
+            
+        // Ensure target tick is within valid bounds
+        int24 MIN_TICK = -887272;
+        int24 MAX_TICK = 887272;
+        
+        if (targetTick < MIN_TICK) targetTick = MIN_TICK;
+        if (targetTick > MAX_TICK) targetTick = MAX_TICK;
+        
+        // Convert back to amount estimate
+        // This is a simplified calculation - in production you'd want more precise math
+        uint256 tickDistance = uint256(uint24(maxTickMovement));
+        
+        // Scale based on current price and tick distance
+        uint256 baseAmount = (uint256(sqrtPriceX96) * tickDistance) / (1 << 96);
+        
+        // Apply reasonable bounds (1 to 10,000 tokens)
+        uint256 minLimit = 1 * 10**18;
+        uint256 maxLimit = 10000 * 10**18;
+        
+        if (baseAmount < minLimit) return minLimit;
+        if (baseAmount > maxLimit) return maxLimit;
+        
+        return baseAmount;
     }
     
     // Helper to process a single queue item
@@ -1059,9 +1160,35 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         // Process the results
         _processSwapResults(user, fromToken, toToken, amount, result.receivedAmount);
         
+        // Record DCA execution in history
+        uint256 executionPrice = (result.receivedAmount * 1e18) / amount; // Calculate price ratio
+        _recordDCAExecution(user, fromToken, toToken, amount, result.receivedAmount, executionPrice);
+        
         emit DCAExecuted(user, fromToken, toToken, amount, result.receivedAmount);
         
         return result.receivedAmount;
+    }
+
+    /**
+     * @notice Record DCA execution in history
+     */
+    function _recordDCAExecution(
+        address user,
+        address fromToken,
+        address toToken,
+        uint256 amount,
+        uint256 receivedAmount,
+        uint256 executionPrice
+    ) internal {
+        SpendSaveStorage.DCAExecution memory execution = SpendSaveStorage.DCAExecution({
+            amount: amount,
+            token: toToken,
+            executionTime: block.timestamp,
+            price: executionPrice,
+            successful: true
+        });
+        
+        storage_.addDcaExecution(user, execution);
     }
 
     function _prepareSwapExecution(
