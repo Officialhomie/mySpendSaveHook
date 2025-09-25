@@ -635,9 +635,40 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address[] memory tokens,
         uint256[] memory amounts
     ) {
-        // This function is intentionally kept simple
-        // Production implementations should use event indexing for efficiency
-        revert("Use event indexing or subgraph for gas efficiency");
+        // Get user's savings tokens from storage contract
+        address[] memory userTokens = storage_.getUserSavingsTokens(user);
+        
+        if (userTokens.length == 0) {
+            return (new address[](0), new uint256[](0));
+        }
+        
+        // Initialize return arrays
+        tokens = new address[](userTokens.length);
+        amounts = new uint256[](userTokens.length);
+        
+        // Populate arrays with actual savings data
+        uint256 validTokenCount = 0;
+        for (uint256 i = 0; i < userTokens.length; i++) {
+            address token = userTokens[i];
+            uint256 balance = storage_.savings(user, token);
+            
+            // Only include tokens with positive balances
+            if (balance > 0) {
+                tokens[validTokenCount] = token;
+                amounts[validTokenCount] = balance;
+                validTokenCount++;
+            }
+        }
+        
+        // Resize arrays to actual count of tokens with balances
+        if (validTokenCount < userTokens.length) {
+            assembly {
+                mstore(tokens, validTokenCount)
+                mstore(amounts, validTokenCount)
+            }
+        }
+        
+        return (tokens, amounts);
     }
     
     /**

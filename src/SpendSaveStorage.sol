@@ -5,6 +5,8 @@ import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {ITokenModule} from "./interfaces/ITokenModule.sol";
 import {ERC6909} from "lib/v4-periphery/lib/v4-core/lib/solmate/src/tokens/ERC6909.sol";
@@ -22,6 +24,7 @@ import {PoolId} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
  * @author SpendSave Protocol Team
  */
 contract SpendSaveStorage is ERC6909, ReentrancyGuard {
+    using SafeERC20 for IERC20;
 
     // ==================== CONSTANTS ====================
     
@@ -198,6 +201,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     // Add mapping for last DCA execution tick per user and pool
     mapping(address => mapping(bytes32 => int24)) private _lastDcaExecutionTick;
+    
+    /// @notice DCA execution history tracking
+    mapping(address => DCAExecution[]) private _dcaExecutionHistory;
 
     // ==================== ENUMS AND STRUCTS ====================
     
@@ -350,6 +356,12 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Emitted when DCA order is executed
     event DCAExecuted(address indexed user, uint256 indexed index);
+    
+    /// @notice Emitted when tokens are released for LP operations
+    event TokensReleasedForLP(address indexed token, uint256 amount, address indexed recipient);
+    
+    /// @notice Emitted when intermediary tokens are updated
+    event IntermediaryTokensUpdated(address[] tokens);
     
     /// @notice Emitted when pool tick is updated
     event PoolTickUpdated(PoolId indexed poolId, int24 tick);
@@ -631,7 +643,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return moduleAddress The module contract address
      * @dev Gas-efficient lookup for module addresses
      */
-    function getModule(bytes32 moduleId) external view returns (address moduleAddress) {
+    function getModule(bytes32 moduleId) public view returns (address moduleAddress) {
         moduleAddress = moduleRegistry[moduleId];
         if (moduleAddress == address(0)) revert ModuleNotFound();
     }
@@ -1291,6 +1303,22 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         return createPoolKey(token0, token1, DEFAULT_FEE_TIER, DEFAULT_TICK_SPACING, address(0));
     }
 
+    /**
+     * @notice Create PoolKey struct without storing it (view function for price queries)
+     * @param token0 First token address
+     * @param token1 Second token address
+     * @return key PoolKey struct
+     */
+    function getPoolKey(address token0, address token1) public pure returns (PoolKey memory key) {
+        return PoolKey({
+            currency0: Currency.wrap(token0),
+            currency1: Currency.wrap(token1),
+            fee: DEFAULT_FEE_TIER,
+            tickSpacing: DEFAULT_TICK_SPACING,
+            hooks: IHooks(address(0))
+        });
+    }
+
     // ==================== HELPER FUNCTIONS FOR BACKWARDS COMPATIBILITY ====================
 
     /**
@@ -1605,6 +1633,120 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         return userSavingsTokens[user];
     }
 
+
+    // ==================== INTERMEDIARY TOKENS CONFIGURATION ====================
+    address[] private intermediaryTokens;
+
+    /**
+     * @notice Get configured intermediary tokens for routing
+     * @return tokens Array of intermediary token addresses
+     */
+    function getIntermediaryTokens() external view returns (address[] memory tokens) {
+        return intermediaryTokens;
+    }
+
+    /**
+     * @notice Set intermediary tokens for routing (owner only)
+     * @param tokens Array of token addresses to use as intermediaries
+     */
+    function setIntermediaryTokens(address[] calldata tokens) external onlyOwner {
+        intermediaryTokens = tokens;
+        emit IntermediaryTokensUpdated(tokens);
+    }
+
+    /**
+     * @notice Check if an address is an authorized module
+     * @param moduleAddress The address to check
+     * @return authorized Whether the address is an authorized module
+     */
+    function isAuthorizedModule(address moduleAddress) external view returns (bool authorized) {
+        return authorizedModules[moduleAddress];
+    }
+
+    /**
+     * @notice Get last DCA execution tick for a user and pool
+     * @param user The user address
+     * @param poolId The pool ID as bytes32
+     * @return tick The last execution tick
+     */
+    function getLastDcaExecutionTick(address user, bytes32 poolId) external view returns (int24 tick) {
+        return _lastDcaExecutionTick[user][poolId];
+    }
+
+    /**
+     * @notice Set last DCA execution tick for a user and pool
+     * @param user The user address
+     * @param poolId The pool ID as bytes32
+     * @param tick The execution tick to store
+     */
+    function setLastDcaExecutionTick(address user, bytes32 poolId, int24 tick) external onlyModule {
+        _lastDcaExecutionTick[user][poolId] = tick;
+    }
+
+    /**
+     * @notice Add DCA execution to history
+     * @param user The user address
+     * @param execution The DCA execution record
+     */
+    function addDcaExecution(address user, DCAExecution memory execution) external onlyModule {
+        _dcaExecutionHistory[user].push(execution);
+    }
+
+    /**
+     * @notice Get DCA execution history for a user
+     * @param user The user address
+     * @param limit Maximum number of records to return (0 = no limit)
+     * @return history Array of DCA execution records
+     */
+    function getDcaExecutionHistory(address user, uint256 limit) external view returns (DCAExecution[] memory history) {
+        DCAExecution[] storage userHistory = _dcaExecutionHistory[user];
+        uint256 totalCount = userHistory.length;
+        
+        if (totalCount == 0) {
+            return new DCAExecution[](0);
+        }
+        
+        uint256 returnCount = limit == 0 || limit > totalCount ? totalCount : limit;
+        history = new DCAExecution[](returnCount);
+        
+        // Return most recent executions first
+        for (uint256 i = 0; i < returnCount; i++) {
+            history[i] = userHistory[totalCount - 1 - i];
+        }
+        
+        return history;
+    }
+
+    /**
+     * @notice Get DCA execution history count for a user
+     * @param user The user address
+     * @return count Total number of DCA executions
+     */
+    function getDcaExecutionCount(address user) external view returns (uint256 count) {
+        return _dcaExecutionHistory[user].length;
+    }
+
+    /**
+     * @notice Release tokens for authorized LP operations
+     * @param token Token address to release
+     * @param amount Amount to release
+     * @param recipient Recipient address (should be LiquidityManager)
+     */
+    function releaseTokensForLP(address token, uint256 amount, address recipient) external onlyModule {
+        require(token != address(0), "Invalid token address");
+        require(amount > 0, "Invalid amount");
+        require(recipient != address(0), "Invalid recipient");
+        
+        // Ensure we have sufficient balance
+        uint256 contractBalance = IERC20(token).balanceOf(address(this));
+        require(contractBalance >= amount, "Insufficient contract balance");
+        
+        // Transfer tokens to the liquidity manager
+        IERC20(token).safeTransfer(recipient, amount);
+        
+        emit TokensReleasedForLP(token, amount, recipient);
+    }
+
     // ==================== DCA CONFIGURATION FUNCTIONS ====================
 
     /**
@@ -1700,8 +1842,34 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         }
     }
 
-    /// @notice Get the last DCA execution tick for a user and pool
-    function getLastDcaExecutionTick(address user, bytes32 poolId) external view returns (int24) {
-        return _lastDcaExecutionTick[user][poolId];
+    // ==================== MODULE ACCESSOR FUNCTIONS ====================
+    
+    /**
+     * @notice Get DCA module address
+     * @return dcaAddress The DCA module address
+     */
+    function dcaModule() external view returns (address dcaAddress) {
+        return getModule(keccak256("DCA"));
     }
+    
+    /**
+     * @notice Get savings module address  
+     * @return savingsAddress The savings module address
+     */
+    function savingsModule() external view returns (address savingsAddress) {
+        return getModule(keccak256("SAVINGS"));
+    }
+    
+    /**
+     * @notice Get savings strategy module address
+     * @return strategyAddress The savings strategy module address
+     */
+    function savingStrategyModule() external view returns (address strategyAddress) {
+        return getModule(keccak256("SAVING_STRATEGY"));
+    }
+
+    // ==================== LEGACY/COMPATIBILITY STORAGE ====================
+    // Add all legacy mappings, structs, and functions from the previous contract here,
+    // except those superseded by the new ultra-packed logic above.
+    // ... existing code ...
 }

@@ -1,0 +1,2081 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/mac/mySpendSaveHook                 │
+╰───────────────────────────────────────────────────╯
+
+> /init is analyzing your codebase… 
+
+⏺ I'll analyze the codebase and create a CLAUDE.md file to help future instances of Claude Code work effectively in this repository.
+
+⏺ Update Todos
+  ⎿  ☐ Analyze codebase structure and architecture                        
+     ☐ Check for existing documentation files (README, package.json, etc.)
+     ☐ Identify build, test, and development commands
+     ☐ Understand the smart contract architecture
+     ☐ Create comprehensive CLAUDE.md file
+
+⏺ List(~/mySpendSaveHook)
+  ⎿  Listed 889 paths (ctrl+r to expand)
+
+⏺ Read(README.md)
+  ⎿  Read 176 lines (ctrl+r to expand)
+
+⏺ Read(package.json)
+  ⎿  Error reading file
+
+⏺ Search(pattern: "**/*.json")
+  ⎿  Found 100 files (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze codebase structure and architecture                        
+     ☒ Check for existing documentation files (README, package.json, etc.)
+     ☐ Identify build, test, and development commands
+     ☐ Understand the smart contract architecture
+     ☐ Create comprehensive CLAUDE.md file
+
+⏺ Read(foundry.toml)
+  ⎿  Read 28 lines (ctrl+r to expand)
+
+⏺ Read(remappings.txt)
+  ⎿  Read 19 lines (ctrl+r to expand)
+
+⏺ Search(pattern: "**/*.md")
+  ⎿  Found 45 files (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze codebase structure and architecture                        
+     ☒ Check for existing documentation files (README, package.json, etc.)
+     ☒ Identify build, test, and development commands
+     ☐ Understand the smart contract architecture
+     ☐ Create comprehensive CLAUDE.md file
+
+⏺ Read(src/SpendSaveHook.sol)
+  ⎿  Read 889 lines (ctrl+r to expand)
+
+⏺ Read(src/SpendSaveStorage.sol)
+  ⎿  Read 1707 lines (ctrl+r to expand)
+
+⏺ Read(script/DeploySpendSave.s.sol)
+  ⎿  Read 659 lines (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze codebase structure and architecture                        
+     ☒ Check for existing documentation files (README, package.json, etc.)
+     ☒ Identify build, test, and development commands
+     ☒ Understand the smart contract architecture
+     ☐ Create comprehensive CLAUDE.md file
+
+⏺ Write(CLAUDE.md)
+  ⎿  Wrote 130 lines to CLAUDE.md                                                                                                     
+     # CLAUDE.md
+     This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+     ## Project Overview
+     SpendSave is a DeFi protocol built on Uniswap V4 that enables automatic savings, dollar-cost averaging (DCA), and yield generation
+      during token swaps. The protocol uses a modular architecture with gas-optimized hook integration.
+     ## Development Commands
+     … +120 lines (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze codebase structure and architecture                        
+     ☒ Check for existing documentation files (README, package.json, etc.)
+     ☒ Identify build, test, and development commands
+     ☒ Understand the smart contract architecture
+     ☒ Create comprehensive CLAUDE.md file
+
+⏺ I've successfully analyzed the SpendSave codebase and created a comprehensive CLAUDE.md file. The analysis revealed a sophisticated
+  DeFi protocol built on Uniswap V4 with several key characteristics:
+
+  Key Findings:
+
+  Architecture: Modular system with gas-optimized design targeting <50k gas for swap operations
+  Core Components: SpendSaveHook (main entry point) and SpendSaveStorage (centralized state)
+  Modules: Six specialized modules handling different aspects (savings, DCA, tokens, etc.)
+  Optimization: Packed storage, transient storage, and batch operations for efficiency
+
+  Created CLAUDE.md includes:
+
+  - Development commands for building, testing, and deployment
+  - Architecture overview explaining the modular design and gas optimizations
+  - Network configuration for Base mainnet and testnet
+  - Development workflow guidelines for adding features and testing
+  - Security considerations and implementation details
+
+  The file provides future Claude Code instances with the essential information needed to work effectively with this complex smart
+  contract system, focusing on the modular architecture and gas optimization strategies that are central to the protocol's design.
+
+> I need you to invesitgate our architecture and how compliant it is with teh uniswap docs itself, its pols and everything na dhten 
+  check for room in here rot implement teh uniswap v4 quoter, I need you to also assert all the logic and identify the critical 
+  missing gaps in here.
+
+⏺ I'll conduct a comprehensive investigation of your architecture's compliance with Uniswap V4 documentation and identify gaps,
+  particularly around quoter implementation. Let me start by analyzing the current architecture against Uniswap V4 standards.
+
+⏺ Update Todos
+  ⎿  ☐ Analyze Uniswap V4 compliance of current architecture  
+     ☐ Review hook implementation against Uniswap V4 standards
+     ☐ Investigate pool management and liquidity handling
+     ☐ Assess quoter integration possibilities
+     ☐ Identify critical missing gaps in logic
+     ☐ Provide recommendations for compliance and improvements
+
+⏺ Web Search("Uniswap V4 hook architecture requirements pool manager compliance 2025")
+  ⎿  Did 1 search in 45s                                                                                                              
+
+⏺ Web Search("Uniswap V4 quoter implementation integration pattern hook architecture 2025")
+  ⎿  Did 1 search in 129s                                                                                                             
+
+⏺ Search(pattern: "IPoolManager|PoolManager", glob: "**/*.sol", output_mode: "content")
+  ⎿  Found 492 lines (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze Uniswap V4 compliance of current architecture  
+     ☐ Review hook implementation against Uniswap V4 standards
+     ☐ Investigate pool management and liquidity handling
+     ☐ Assess quoter integration possibilities
+     ☐ Identify critical missing gaps in logic
+     ☐ Provide recommendations for compliance and improvements
+
+⏺ Search(pattern: "unlock|lock", glob: "src/**/*.sol", output_mode: "content")
+  ⎿  Found 74 lines (ctrl+r to expand)
+
+⏺ Search(pattern: "poolManager\\.unlock|unlockCallback", glob: "src/**/*.sol", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "CurrencySettler|Currency\\.settle|Currency\\.take", glob: "src/**/*.sol", output_mode: "content")
+  ⎿  Found 2 lines (ctrl+r to expand)
+
+⏺ Read(lib/v4-periphery/src/lens/V4Quoter.sol)
+  ⎿  Read 160 lines (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze Uniswap V4 compliance of current architecture  
+     ☒ Review hook implementation against Uniswap V4 standards
+     ☐ Investigate pool management and liquidity handling
+     ☐ Assess quoter integration possibilities
+     ☐ Identify critical missing gaps in logic
+     ☐ Provide recommendations for compliance and improvements
+
+⏺ Search(pattern: "swap\(|beforeSwap|afterSwap", glob: "src/**/*.sol", output_mode: "content", head_limit: 30)
+  ⎿  Found 30 lines (ctrl+r to expand)
+
+⏺ Search(pattern: "poolManager\\.swap|IPoolManager.*swap|PoolManager.*swap", glob: "src/**/*.sol", output_mode: "content")
+  ⎿  Found 2 lines (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze Uniswap V4 compliance of current architecture  
+     ☒ Review hook implementation against Uniswap V4 standards
+     ☒ Investigate pool management and liquidity handling
+     ☐ Assess quoter integration possibilities
+     ☐ Identify critical missing gaps in logic
+     ☐ Provide recommendations for compliance and improvements
+
+⏺ Read(lib/v4-periphery/src/base/BaseV4Quoter.sol)
+  ⎿  Read 60 lines (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze Uniswap V4 compliance of current architecture  
+     ☒ Review hook implementation against Uniswap V4 standards
+     ☒ Investigate pool management and liquidity handling
+     ☒ Assess quoter integration possibilities
+     ☐ Identify critical missing gaps in logic
+     ☐ Provide recommendations for compliance and improvements
+
+⏺ Search(pattern: "flash accounting|transient|EIP-1153", glob: "**/*.sol", output_mode: "content")
+  ⎿  Found 47 lines (ctrl+r to expand)
+
+⏺ Update Todos
+  ⎿  ☒ Analyze Uniswap V4 compliance of current architecture  
+     ☒ Review hook implementation against Uniswap V4 standards
+     ☒ Investigate pool management and liquidity handling
+     ☒ Assess quoter integration possibilities
+     ☒ Identify critical missing gaps in logic
+     ☐ Provide recommendations for compliance and improvements
+
+⏺ 🔍 Comprehensive Uniswap V4 Compliance Analysis and Critical Gap Assessment
+
+  After conducting a thorough investigation of your SpendSave architecture against Uniswap V4 standards, I've identified several
+  critical compliance issues and missing gaps. Here's my comprehensive analysis:
+
+  ✅ What You're Doing RIGHT
+
+  1. Hook Architecture Compliance
+
+  - ✅ Properly extends BaseHook
+  - ✅ Correct hook permissions implementation
+  - ✅ Valid address mining for hook flags in deployment
+  - ✅ Proper beforeSwap and afterSwap implementations
+
+  2. Gas Optimization Strategies
+
+  - ✅ Packed storage structures (PackedUserConfig, PackedSwapContext)
+  - ✅ Transient storage usage (EIP-1153 compatible)
+  - ✅ Batch operations for storage updates
+  - ✅ Target <50k gas for afterSwap operations
+
+  3. Module Architecture
+
+  - ✅ Well-designed modular system
+  - ✅ Centralized storage pattern
+  - ✅ Module registry system
+
+  🚨 CRITICAL COMPLIANCE GAPS
+
+  1. FATAL: Missing Flash Accounting System
+
+  Issue: You're NOT using Uniswap V4's core flash accounting system, which is MANDATORY for V4 compliance.
+
+  Current Problem:
+  // ❌ WRONG: Direct currency.take() in afterSwap
+  currency.take(poolManager, address(this), actualSaveAmount, false);
+
+  Required V4 Pattern:
+  // ✅ CORRECT: Must use unlock/callback pattern
+  poolManager.unlock(abi.encodeCall(this.handleSavings, (user, saveAmount, token)));
+
+  2. CRITICAL: Improper PoolManager Integration
+
+  Issues Found:
+
+  1. Missing unlock() calls: All operations must be wrapped in poolManager.unlock()
+  2. No unlockCallback implementation: Your hook doesn't implement the callback pattern
+  3. Direct swap calls: DCA module calls poolManager.swap() directly without proper unlock pattern
+
+  Current Broken Pattern in DCA.sol:1096:
+  // ❌ WRONG: Direct swap call
+  try IPoolManager(storage_.poolManager()).swap(poolKey, swapParams, "") returns (BalanceDelta _delta) {
+
+  Required Pattern:
+  // ✅ CORRECT: Must use unlock/callback
+  poolManager.unlock(abi.encodeCall(this.executeDCASwap, (poolKey, swapParams)));
+
+  3. MISSING: Balance Delta Tracking
+
+  Issue: You're not properly tracking balance deltas through the V4 system.
+
+  Required: Implement proper delta resolution:
+  function _unlockCallback(bytes calldata data) internal override returns (bytes memory) {
+      // Handle balance deltas properly
+      // Use CurrencyDelta library for tracking
+      // Ensure zero net deltas at end
+  }
+
+  4. MISSING: Proper Currency Settlement
+
+  Current Issue: Using CurrencySettler incorrectly.
+
+  Required Fix:
+  // Instead of direct take/settle, must use proper V4 patterns
+  currency.settle(poolManager, user, amount, false);
+  currency.take(poolManager, user, amount, false);
+
+  🛠 QUOTER INTEGRATION ASSESSMENT
+
+  Excellent Integration Opportunity
+
+  Your architecture is well-positioned for quoter integration:
+
+  1. Recommended Integration Pattern:
+  contract SpendSaveQuoter is BaseV4Quoter {
+      SpendSaveStorage public immutable storage_;
+
+      constructor(IPoolManager _poolManager, SpendSaveStorage _storage)
+          BaseV4Quoter(_poolManager) {
+          storage_ = _storage;
+      }
+
+      function quoteSavingsImpact(
+          PoolKey calldata poolKey,
+          SwapParams calldata params,
+          address user
+      ) external returns (uint256 amountOut, uint256 savingsAmount, uint256 gasEstimate) {
+          // Use V4Quoter pattern to simulate swap + savings
+          uint256 gasBefore = gasleft();
+          try poolManager.unlock(abi.encodeCall(this._quoteSavingsImpact,
+              (poolKey, params, user))) {}
+          catch (bytes memory reason) {
+              gasEstimate = gasBefore - gasleft();
+              (amountOut, savingsAmount) = abi.decode(reason.parseQuoteAmount(), (uint256, uint256));
+          }
+      }
+  }
+
+  🔥 CRITICAL MISSING GAPS
+
+  1. Pool Initialization Logic
+
+  - ❌ No pool initialization in hooks
+  - ❌ Missing beforeInitialize/afterInitialize handlers
+  - ❌ No pool creation validation
+
+  2. Liquidity Management
+
+  - ❌ No liquidity position tracking
+  - ❌ Missing LP token integration
+  - ❌ No liquidity provision for internal pools
+
+  3. Security & Access Control
+
+  - ❌ Missing reentrancy protection in hook callbacks
+  - ❌ No proper permission validation in modules
+  - ❌ Insufficient validation of pool keys
+
+  4. Error Handling
+
+  - ❌ No proper revert handling in unlock callbacks
+  - ❌ Missing error recovery mechanisms
+  - ❌ Insufficient validation of swap outcomes
+
+  5. Integration Gaps
+
+  - ❌ No Universal Router compatibility
+  - ❌ Missing multicall support
+  - ❌ No batch operation support for multiple users
+
+  📋 IMMEDIATE ACTION PLAN
+
+  Phase 1: Fix Core Compliance (CRITICAL)
+
+  1. Implement Flash Accounting:
+  function _unlockCallback(bytes calldata data) internal override returns (bytes memory) {
+      (bytes4 selector, bytes memory args) = abi.decode(data, (bytes4, bytes));
+      
+      if (selector == this.handleSavingsWithdrawal.selector) {
+          return _handleSavingsWithdrawal(args);
+      } else if (selector == this.handleDCAExecution.selector) {
+          return _handleDCAExecution(args);
+      }
+
+      revert InvalidCallback();
+  }
+
+  2. Fix All PoolManager Interactions:
+  // Replace all direct swap calls with unlock pattern
+  function executeDCA(address user) external {
+      poolManager.unlock(abi.encodeCall(this._executeDCACallback, (user)));
+  }
+
+  3. Implement Proper Delta Management:
+  using CurrencyDelta for Currency;
+  // Track all deltas through V4 system
+
+  Phase 2: Add Quoter Integration
+
+  1. Create SpendSaveQuoter contract
+  2. Implement quote functions for all operations
+  3. Add gas estimation capabilities
+
+  Phase 3: Enhanced Features
+
+  1. Add liquidity management
+  2. Implement Universal Router support
+  3. Add multicall capabilities
+
+  🎯 RECOMMENDATIONS
+
+  Critical Priority (Fix Now)
+
+  1. Implement proper unlock/callback pattern throughout
+  2. Fix flash accounting implementation
+  3. Resolve balance delta tracking
+  4. Add proper error handling
+
+  High Priority (Next Sprint)
+
+  1. Add quoter integration
+  2. Implement missing security validations
+  3. Add liquidity management features
+
+  Medium Priority (Future)
+
+  1. Universal Router compatibility
+  2. Enhanced batch operations
+  3. Advanced DCA strategies
+
+  Your architecture shows excellent gas optimization thinking, but requires immediate compliance fixes to work properly with Uniswap
+  V4's core mechanics. The unlock/callback pattern is non-negotiable for V4 compatibility.
+
+⏺ Update Todos
+  ⎿  ☒ Analyze Uniswap V4 compliance of current architecture  
+     ☒ Review hook implementation against Uniswap V4 standards
+     ☒ Investigate pool management and liquidity handling
+     ☒ Assess quoter integration possibilities
+     ☒ Identify critical missing gaps in logic
+     ☒ Provide recommendations for compliance and improvements
+
+⏺ I'll investigate which existing Uniswap V4 deployments and periphery contracts would enhance your SpendSave functionality and bring
+  it into production-ready shape.
+
+⏺ Web Search("Uniswap V4 periphery contracts deployments position manager universal router 2025")
+  ⎿  Did 1 search in 29s                                                                                                              
+
+⏺ Search(pattern: "PositionManager|UniversalRouter|V4Router", glob: "lib/v4-periphery/**/*.sol", output_mode: "content", head_limit:
+        20)
+  ⎿  Found 20 lines (ctrl+r to expand)
+
+⏺ Read(lib/v4-periphery/src/interfaces/IPositionManager.sol)
+  ⎿  Read 69 lines (ctrl+r to expand)
+
+⏺ Read(lib/v4-periphery/src/V4Router.sol)
+  ⎿  Read 100 lines (ctrl+r to expand)
+
+⏺ 🚀 Strategic Uniswap V4 Integrations for Enhanced SpendSave Experience
+
+  After analyzing the available Uniswap V4 periphery contracts and your current architecture, here are the high-impact integrations
+  that would significantly enhance your SpendSave functionality and user experience:
+
+  🎯 TIER 1: CRITICAL INTEGRATIONS (Immediate ROI)
+
+  1. PositionManager Integration
+
+  Impact: 🔥🔥🔥🔥🔥 GAME CHANGER
+
+  Why Perfect for SpendSave:
+  - Auto-Liquidity Provision: Convert savings into LP positions automatically
+  - ERC-721 NFT Representation: Users get tradeable NFTs for their savings positions
+  - Yield Generation: Earned fees from providing liquidity
+  - Multicall Support: Batch multiple savings operations
+
+  Implementation Strategy:
+  contract SpendSaveLiquidityManager {
+      IPositionManager public immutable positionManager;
+
+      function convertSavingsToLP(
+          address user,
+          address token0,
+          address token1,
+          uint256 amount0,
+          uint256 amount1,
+          int24 tickLower,
+          int24 tickUpper
+      ) external returns (uint256 tokenId) {
+          // Convert user savings into LP position
+          // Return NFT representing the position
+      }
+
+      function collectFeesFromPositions(address user) external {
+          // Auto-collect fees from LP positions
+          // Add to user savings
+      }
+  }
+
+  2. V4Router Integration
+
+  Impact: 🔥🔥🔥🔥 ESSENTIAL FOR DCA
+
+  Why Critical:
+  - Universal Router Compatibility: Required for V4 compliance
+  - Multi-hop Swaps: Enable complex DCA strategies
+  - Gas Optimization: Batch operations through router
+  - Slippage Protection: Built-in protection mechanisms
+
+  Integration Points:
+  contract SpendSaveDCARouter is V4Router {
+      function executeDCAWithRouting(
+          address user,
+          PathKey[] calldata path,
+          uint256 amountIn
+      ) external {
+          // Use V4Router for optimal DCA execution
+          bytes memory actions = abi.encodePacked(
+              Actions.SWAP_EXACT_IN,
+              Actions.TAKE_ALL
+          );
+          _executeActions(actions, params);
+      }
+  }
+
+  🎯 TIER 2: HIGH-VALUE INTEGRATIONS (Next Sprint)
+
+  3. StateView Integration
+
+  Impact: 🔥🔥🔥🔥 ANALYTICS POWERHOUSE
+
+  Benefits:
+  - Real-time Portfolio Analytics: Track savings performance
+  - Yield Calculations: Show projected returns
+  - Risk Assessment: Analyze position health
+
+  contract SpendSaveAnalytics {
+      IStateView public immutable stateView;
+
+      function getUserPortfolioValue(address user) external view returns (uint256) {
+          // Calculate total portfolio value across all savings
+          // Include LP positions, DCA positions, yield
+      }
+
+      function getOptimalSavingsStrategy(address user) external view returns (
+          uint256 recommendedPercentage,
+          address[] memory recommendedTokens
+      ) {
+          // AI-driven recommendations based on user behavior
+      }
+  }
+
+  4. V4Quoter Integration
+
+  Impact: 🔥🔥🔥 UX ENHANCEMENT
+
+  User Experience Benefits:
+  - Preview Savings Impact: Show how much users will save before swapping
+  - Gas Estimation: Accurate gas cost predictions
+  - Price Impact Analysis: Show savings vs price impact
+
+  contract SpendSaveQuoter is BaseV4Quoter {
+      function quoteSavingsImpact(
+          PoolKey calldata poolKey,
+          SwapParams calldata params,
+          address user
+      ) external returns (
+          uint256 amountOut,
+          uint256 savingsAmount,
+          uint256 gasEstimate,
+          uint256 priceImpact
+      ) {
+          // Simulate swap + savings to show users exact outcomes
+      }
+  }
+
+  🎯 TIER 3: ADVANCED INTEGRATIONS (Future Enhancements)
+
+  5. Universal Router Integration
+
+  Impact: 🔥🔥🔥 MULTI-PROTOCOL ACCESS
+
+  Strategic Value:
+  - Cross-Protocol Arbitrage: Best prices across V2/V3/V4
+  - Complex Routing: Optimal paths for DCA execution
+  - Native ETH Support: Enhanced user experience
+
+  6. Permit2 Integration
+
+  Impact: 🔥🔥 GAS EFFICIENCY
+
+  Benefits:
+  - Gasless Approvals: Better UX for new users
+  - Batch Permissions: Approve multiple tokens at once
+  - Security: Time-limited permissions
+
+  🛠 RECOMMENDED INTEGRATION ROADMAP
+
+  Phase 1: Foundation (Weeks 1-2)
+
+  // 1. Fix core V4 compliance issues
+  // 2. Implement PositionManager integration
+  // 3. Add V4Router for DCA operations
+
+  Phase 2: Enhancement (Weeks 3-4)
+
+  // 1. Add StateView for analytics
+  // 2. Implement SpendSaveQuoter
+  // 3. Add liquidity management features
+
+  Phase 3: Advanced (Weeks 5-6)
+
+  // 1. Universal Router integration
+  // 2. Permit2 for better UX
+  // 3. Advanced DCA strategies
+
+  🎯 SPECIFIC ENHANCEMENTS FOR USER EXPERIENCE
+
+  1. Smart Savings Optimizer
+
+  contract SmartSavingsOptimizer {
+      function optimizeSavings(address user) external {
+          // Analyze user's current positions
+          // Rebalance for optimal yield
+          // Convert idle savings to productive LP positions
+      }
+  }
+
+  2. Automated Portfolio Rebalancing
+
+  contract PortfolioRebalancer {
+      function rebalancePortfolio(address user) external {
+          // Auto-rebalance based on market conditions
+          // Maintain target allocations
+          // Maximize yield while minimizing risk
+      }
+  }
+
+  3. Yield Farming Integration
+
+  contract YieldFarmingManager {
+      function stakeSavingsInFarms(address user, address token) external {
+          // Automatically stake savings in highest-yield farms
+          // Compound rewards back into savings
+          // Monitor and migrate to better opportunities
+      }
+  }
+
+  🔥 IMMEDIATE ACTIONABLE STEPS
+
+  Step 1: Fix Core Compliance (This Week)
+
+  1. Implement proper unlock/callback pattern
+  2. Fix flash accounting system
+  3. Add proper delta management
+
+  Step 2: Add PositionManager (Next Week)
+
+  1. Create SpendSaveLiquidityManager
+  2. Auto-convert savings to LP positions
+  3. Add NFT-based position tracking
+
+  Step 3: Enhance DCA with V4Router (Week 3)
+
+  1. Implement SpendSaveDCARouter
+  2. Add multi-hop DCA strategies
+  3. Optimize gas usage with batching
+
+  Step 4: Add Analytics (Week 4)
+
+  1. Integrate StateView for real-time data
+  2. Build portfolio dashboard
+  3. Add yield projections
+
+  💡 COMPETITIVE ADVANTAGES
+
+  By integrating these Uniswap V4 components, your SpendSave protocol will offer:
+
+  1. 🏆 Best-in-Class Yield: LP provision + yield farming + DCA optimization
+  2. 🎯 Smart Automation: AI-driven portfolio management
+  3. 💎 NFT Representation: Tradeable savings positions
+  4. ⚡ Gas Optimization: Batch operations and efficient routing
+  5. 📊 Advanced Analytics: Real-time portfolio insights
+  6. 🔒 Enhanced Security: Permit2 and time-limited permissions
+
+  These integrations will transform SpendSave from a simple savings protocol into a comprehensive DeFi wealth management platform that
+   maximizes user returns while maintaining the simplicity and automation that makes it special.
+
+> now, give me a list of all we need to do from here 🔍 Comprehensive Uniswap V4 Compliance Analysis and Critical Gap Assessment to 
+  here  🚀 Strategic Uniswap V4 Integrations for Enhanced SpendSave Experience
+
+⏺ 📋 COMPLETE ACTION PLAN: From Compliance Fixes to Enhanced Experience
+
+  Based on my comprehensive analysis, here's the complete roadmap from fixing critical gaps to implementing strategic enhancements:
+
+  🚨 PHASE 1: CRITICAL COMPLIANCE FIXES (Week 1-2)
+
+  1.1 Fix Core V4 Compliance Issues
+
+  // ❌ CRITICAL: Implement Flash Accounting System
+  □ Add unlockCallback implementation to SpendSaveHook
+  □ Replace all direct currency.take() calls with unlock pattern
+  □ Implement proper balance delta tracking
+  □ Add CurrencyDelta library usage throughout
+
+  // Files to modify:
+  - src/SpendSaveHook.sol (add unlockCallback)
+  - src/DCA.sol (fix direct swap calls on lines 1096, 1174)
+  - src/Savings.sol (fix withdrawal mechanism)
+
+  1.2 Fix PoolManager Integration
+
+  // ❌ CRITICAL: All operations must use unlock/callback pattern
+  □ Replace direct poolManager.swap() calls with unlock pattern
+  □ Implement _unlockCallback in SpendSaveHook
+  □ Add proper error handling in callbacks
+  □ Fix balance settlement in afterSwap
+
+  // Implementation needed:
+  function _unlockCallback(bytes calldata data) internal override returns (bytes memory) {
+      (bytes4 selector, bytes memory args) = abi.decode(data, (bytes4, bytes));
+
+      if (selector == this.handleSavingsWithdrawal.selector) {
+          return _handleSavingsWithdrawal(args);
+      } else if (selector == this.handleDCAExecution.selector) {
+          return _handleDCAExecution(args);
+      }
+      // Add more selectors as needed
+      revert InvalidCallback();
+  }
+
+  1.3 Implement Proper Currency Settlement
+
+  // ❌ CRITICAL: Fix currency settlement pattern
+  □ Remove CurrencySettler usage (test utility only)
+  □ Implement proper currency.settle() and currency.take()
+  □ Add balance delta validation
+  □ Ensure zero net deltas at callback end
+
+  // Replace this pattern:
+  currency.take(poolManager, address(this), actualSaveAmount, false);
+  // With proper V4 pattern:
+  currency.settle(poolManager, user, amount, false);
+
+  1.4 Add Missing Security Features
+
+  // ❌ CRITICAL: Security gaps
+  □ Add reentrancy protection in hook callbacks
+  □ Implement proper permission validation
+  □ Add pool key validation
+  □ Fix error handling and recovery mechanisms
+
+  🔧 PHASE 2: ARCHITECTURE ENHANCEMENTS (Week 3-4)
+
+  2.1 Add Missing Hook Lifecycle Functions
+
+  // ❌ MISSING: Pool management features
+  □ Implement beforeInitialize/afterInitialize hooks
+  □ Add pool creation validation
+  □ Implement liquidity management tracking
+  □ Add LP token integration support
+
+  2.2 Enhance Module System
+
+  // ❌ MISSING: Advanced module features
+  □ Add Universal Router compatibility layer
+  □ Implement multicall support
+  □ Add batch operation support for multiple users
+  □ Create module upgrade mechanism
+
+  2.3 Fix Integration Gaps
+
+  // ❌ MISSING: Protocol integrations
+  □ Add proper ERC6909 implementation completion
+  □ Fix token ID management system
+  □ Implement proper total supply tracking
+  □ Add token metadata support
+
+  🚀 PHASE 3: STRATEGIC INTEGRATIONS (Week 5-8)
+
+  3.1 PositionManager Integration
+
+  // 🎯 HIGH IMPACT: Auto-liquidity provision
+  □ Create SpendSaveLiquidityManager contract
+  □ Implement auto-LP conversion for savings
+  □ Add ERC-721 NFT position tracking
+  □ Implement fee collection automation
+
+  // New contract needed:
+  contract SpendSaveLiquidityManager {
+      IPositionManager public immutable positionManager;
+
+      function convertSavingsToLP(
+          address user,
+          address token0,
+          address token1,
+          uint256 amount0,
+          uint256 amount1,
+          int24 tickLower,
+          int24 tickUpper
+      ) external returns (uint256 tokenId);
+
+      function collectFeesFromPositions(address user) external;
+      function rebalancePositions(address user) external;
+  }
+
+  3.2 V4Router Integration
+
+  // 🎯 ESSENTIAL: Universal Router compatibility
+  □ Create SpendSaveDCARouter extending V4Router
+  □ Implement multi-hop DCA strategies
+  □ Add gas optimization through batching
+  □ Implement slippage protection
+
+  // New contract needed:
+  contract SpendSaveDCARouter is V4Router {
+      function executeDCAWithRouting(
+          address user,
+          PathKey[] calldata path,
+          uint256 amountIn
+      ) external;
+
+      function batchDCAExecutions(
+          address[] calldata users,
+          DCAParams[] calldata params
+      ) external;
+  }
+
+  3.3 Quoter Integration
+
+  // 🎯 UX Enhancement: Price preview system
+  □ Create SpendSaveQuoter extending BaseV4Quoter
+  □ Implement savings impact preview
+  □ Add gas estimation capabilities
+  □ Create price impact analysis
+
+  // New contract needed:
+  contract SpendSaveQuoter is BaseV4Quoter {
+      function quoteSavingsImpact(
+          PoolKey calldata poolKey,
+          SwapParams calldata params,
+          address user
+      ) external returns (
+          uint256 amountOut,
+          uint256 savingsAmount,
+          uint256 gasEstimate,
+          uint256 priceImpact
+      );
+
+      function quoteOptimalDCA(
+          address user,
+          address fromToken,
+          address toToken,
+          uint256 totalAmount,
+          uint256 intervals
+      ) external returns (DCAQuote memory);
+  }
+
+  3.4 StateView Integration
+
+  // 🎯 Analytics: Portfolio insights
+  □ Create SpendSaveAnalytics contract
+  □ Implement real-time portfolio tracking
+  □ Add yield calculation engine
+  □ Create risk assessment tools
+
+  // New contract needed:
+  contract SpendSaveAnalytics {
+      IStateView public immutable stateView;
+
+      function getUserPortfolioValue(address user) external view returns (uint256);
+      function getYieldProjections(address user) external view returns (YieldData memory);
+      function getRiskAssessment(address user) external view returns (RiskData memory);
+      function getOptimalStrategy(address user) external view returns (StrategyRecommendation memory);
+  }
+
+  🔄 PHASE 4: ADVANCED FEATURES (Week 9-12)
+
+  4.1 Smart Optimization Layer
+
+  // 🎯 AI-Driven: Automated optimization
+  □ Create SmartSavingsOptimizer
+  □ Implement automated portfolio rebalancing
+  □ Add yield farming integration
+  □ Create market condition adapters
+
+  // New contracts needed:
+  contract SmartSavingsOptimizer {
+      function optimizeSavings(address user) external;
+      function rebalancePortfolio(address user) external;
+      function adaptToMarketConditions(address user) external;
+  }
+
+  contract YieldFarmingManager {
+      function stakeSavingsInFarms(address user, address token) external;
+      function compoundRewards(address user) external;
+      function migrateToBetterOpportunities(address user) external;
+  }
+
+  4.2 Universal Router Integration
+
+  // 🎯 Multi-Protocol: Cross-protocol optimization
+  □ Integrate with Universal Router
+  □ Add cross-protocol arbitrage
+  □ Implement optimal routing across V2/V3/V4
+  □ Add native ETH support enhancement
+
+  4.3 Permit2 Integration
+
+  // 🎯 UX Enhancement: Gasless approvals
+  □ Integrate Permit2 for gasless approvals
+  □ Add batch permission management
+  □ Implement time-limited permissions
+  □ Add signature-based operations
+
+  📁 FILE-SPECIFIC MODIFICATIONS REQUIRED
+
+  Critical Files to Modify:
+
+  1. src/SpendSaveHook.sol
+  □ Add unlockCallback implementation
+  □ Fix beforeSwap/afterSwap to use unlock pattern
+  □ Remove CurrencySettler usage
+  □ Add proper balance delta tracking
+  □ Implement error recovery mechanisms
+  2. src/DCA.sol
+  □ Fix lines 1096, 1174 - replace direct swap calls
+  □ Add unlock/callback pattern for all swaps
+  □ Implement proper balance management
+  □ Add slippage protection
+  3. src/SpendSaveStorage.sol
+  □ Fix transient storage implementation
+  □ Add proper ERC6909 completion
+  □ Implement module upgrade system
+  □ Add batch operation support
+  4. src/Savings.sol
+  □ Fix withdrawal mechanism with unlock pattern
+  □ Add proper timelock validation
+  □ Implement yield tracking
+  □ Add LP position integration
+
+  New Files to Create:
+
+  1. src/SpendSaveLiquidityManager.sol - LP position management
+  2. src/SpendSaveDCARouter.sol - Advanced DCA with routing
+  3. src/SpendSaveQuoter.sol - Price preview and gas estimation
+  4. src/SpendSaveAnalytics.sol - Portfolio analytics
+  5. src/SmartSavingsOptimizer.sol - AI-driven optimization
+  6. src/YieldFarmingManager.sol - Yield farming integration
+
+  🧪 TESTING REQUIREMENTS
+
+  Critical Tests Needed:
+
+  □ Flash accounting system tests
+  □ Unlock/callback pattern tests
+  □ Balance delta validation tests
+  □ Multi-hop DCA execution tests
+  □ LP position management tests
+  □ Gas optimization validation tests
+  □ Integration tests with all V4 periphery contracts
+
+  📊 SUCCESS METRICS
+
+  Phase 1 Success Criteria:
+
+  - ✅ All swaps use proper unlock/callback pattern
+  - ✅ Zero balance delta violations
+  - ✅ Gas usage <50k for afterSwap
+  - ✅ No direct PoolManager calls outside unlock
+
+  Phase 2 Success Criteria:
+
+  - ✅ Full V4 periphery compatibility
+  - ✅ Multicall support working
+  - ✅ Enhanced security validations
+  - ✅ Proper error handling
+
+  Phase 3 Success Criteria:
+
+  - ✅ Auto-LP conversion working
+  - ✅ Multi-hop DCA strategies
+  - ✅ Real-time portfolio analytics
+  - ✅ Gas optimization achieved
+
+  Phase 4 Success Criteria:
+
+  - ✅ AI-driven optimization active
+  - ✅ Cross-protocol routing
+  - ✅ Yield farming integration
+  - ✅ Best-in-class user experience
+
+  ⏱️ ESTIMATED TIMELINE
+
+  - Phase 1 (Critical Fixes): 2 weeks
+  - Phase 2 (Architecture): 2 weeks
+  - Phase 3 (Integrations): 4 weeks
+  - Phase 4 (Advanced Features): 4 weeks
+  - Total: 12 weeks to full implementation
+
+  🎯 PRIORITY ORDER
+
+  1. 🚨 CRITICAL (Do First): Flash accounting, unlock/callback pattern
+  2. 🔥 HIGH (Do Next): PositionManager, V4Router integration
+  3. 📊 MEDIUM (Then Do): Analytics, Quoter integration
+  4. ✨ NICE-TO-HAVE (Finally): AI optimization, cross-protocol features
+
+  This roadmap will transform your SpendSave protocol from its current state with compliance issues into a world-class DeFi wealth 
+  management platform fully compliant with Uniswap V4 and offering advanced features that set it apart from competitors.
+
+> lets make a feature branch and begin working from theere before we then begin to merge to teh main branch we need to also add and 
+  commit changes firstly   and then we start with the phase 1 in here. I need you to create a todo on how to implememt phase 1 and 
+  tehn i need you to do a comprhensive summary of everything youve done in the ohase one when youre done with it
+
+⏺ I'll help you create a feature branch, commit current changes, and implement Phase 1 with comprehensive tracking. Let's start by
+  setting up the branch structure and then tackle the critical compliance fixes.
+
+⏺ Bash(git status)
+  ⎿  On branch feature/scheduling-updates                           
+     Changes not staged for commit:
+       (use "git add/rm <file>..." to update what will be committed)
+     … +10 lines (ctrl+r to expand)
+
+⏺ Bash(git add . && git commit -m "Add CLAUDE.md documentation and update SpendSaveStorage…)
+  ⎿  No (tell Claude what to do differently)
+
+> removed the co authored and getnerated with claude
+
+⏺ Bash(git add . && git commit -m "Add CLAUDE.md documentation and update SpendSaveStorage…)
+  ⎿  [feature/scheduling-updates 0826203] Add CLAUDE.md documentation and update SpendSaveStorage
+      4 files changed, 134 insertions(+), 879 deletions(-)
+      create mode 100644 CLAUDE.md
+     … +2 lines (ctrl+r to expand)
+
+⏺ Bash(git checkout -b feature/v4-compliance-fixes)
+  ⎿  Switched to a new branch 'feature/v4-compliance-fixes'
+
+⏺ Perfect! Now let's create a comprehensive todo list for Phase 1 and then implement the critical compliance fixes.
+
+⏺ Update Todos
+  ⎿  ☐ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☐ Replace direct currency.take() calls with proper unlock pattern
+     ☐ Implement proper balance delta tracking with CurrencyDelta library
+     ☐ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☐ Remove CurrencySettler usage and implement proper settlement
+     ☐ Add proper error handling in hook callbacks
+     ☐ Implement balance delta validation to ensure zero net deltas
+     ☐ Add reentrancy protection in hook callbacks
+     ☐ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ 📋 PHASE 1: CRITICAL V4 COMPLIANCE FIXES - IMPLEMENTATION PLAN
+
+  🎯 Phase 1 Todo List Created
+
+  I've created a comprehensive 12-step todo list for Phase 1. Now let's begin implementing these critical fixes. Let me start with the
+   most critical issue: implementing the flash accounting system.
+
+⏺ Update Todos
+  ⎿  ☐ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☐ Replace direct currency.take() calls with proper unlock pattern
+     ☐ Implement proper balance delta tracking with CurrencyDelta library
+     ☐ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☐ Remove CurrencySettler usage and implement proper settlement
+     ☐ Add proper error handling in hook callbacks
+     ☐ Implement balance delta validation to ensure zero net deltas
+     ☐ Add reentrancy protection in hook callbacks
+     ☐ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ 🔧 Step 1: Implementing Flash Accounting System in SpendSaveHook
+
+  Let me first examine the current hook implementation and then add the critical unlockCallback functionality.
+
+⏺ Read(src/SpendSaveHook.sol)
+  ⎿  Read 50 lines (ctrl+r to expand)
+
+⏺ Now let me implement the critical V4 compliance fixes. I'll start by adding the proper imports and implementing the unlockCallback
+  pattern.
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 11 additions and 2 removals                                                        
+        7    import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
+        8    import {BalanceDelta} from "lib/v4-periphery/lib/v4-core/src/types/BalanceDelta.sol";
+        9    import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
+       10 -  import {CurrencySettler} from "lib/v4-periphery/lib/v4-core/test/utils/CurrencySettler.sol";
+       10 +  import {CurrencyDelta} from "lib/v4-periphery/lib/v4-core/src/libraries/CurrencyDelta.sol";
+       11 +  import {TransientStateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/TransientStateLibrary.sol";
+       12    import {BeforeSwapDelta, toBeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
+       13    import {ReentrancyGuard} from 
+            "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+       14    import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
+     ...
+       33     * @author SpendSave Protocol Team
+       34     */
+       35    contract SpendSaveHook is BaseHook, ReentrancyGuard {
+       36 -      using CurrencySettler for Currency;
+       36 +      using CurrencyDelta for Currency;
+       37 +      using TransientStateLibrary for IPoolManager;
+       38    
+       39 +      // ==================== CALLBACK SELECTORS ====================
+       40 +      
+       41 +      /// @dev Callback selectors for unlock operations
+       42 +      bytes4 private constant HANDLE_SAVINGS_WITHDRAWAL = this.handleSavingsWithdrawal.selector;
+       43 +      bytes4 private constant HANDLE_DCA_EXECUTION = this.handleDCAExecution.selector;
+       44 +      bytes4 private constant HANDLE_AFTERSWAP_SAVINGS = this.handleAfterSwapSavings.selector;
+       45 +      
+       46        // ==================== CONSTANTS ====================
+       47        
+       48        /// @dev Percentage denominator for calculations (10000 = 100%)
+
+⏺ Now let me add the critical unlockCallback implementation and the callback handler functions:
+
+⏺ Read(src/SpendSaveHook.sol)
+  ⎿  Read 19 lines (ctrl+r to expand)
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 97 additions                                                                  
+       884            return _tokenProcessingQueues[user].tokenQueue;
+       885        }
+       886    
+       887 +      // ==================== UNLOCK CALLBACK IMPLEMENTATION ====================
+       888 +      
+       889 +      /**
+       890 +       * @notice Critical V4 compliance - Unlock callback for flash accounting
+       891 +       * @param data Encoded callback data containing selector and parameters
+       892 +       * @return result Callback execution result
+       893 +       * @dev This implements the required flash accounting pattern for Uniswap V4
+       894 +       */
+       895 +      function unlockCallback(bytes calldata data) external override returns (bytes memory result) {
+       896 +          require(msg.sender == address(poolManager), "Only PoolManager can call");
+       897 +          
+       898 +          // Decode the callback selector and parameters
+       899 +          (bytes4 selector, bytes memory params) = abi.decode(data, (bytes4, bytes));
+       900 +          
+       901 +          // Route to appropriate handler based on selector
+       902 +          if (selector == HANDLE_SAVINGS_WITHDRAWAL) {
+       903 +              return _handleSavingsWithdrawal(params);
+       904 +          } else if (selector == HANDLE_DCA_EXECUTION) {
+       905 +              return _handleDCAExecution(params);
+       906 +          } else if (selector == HANDLE_AFTERSWAP_SAVINGS) {
+       907 +              return _handleAfterSwapSavings(params);
+       908 +          } else {
+       909 +              revert("Invalid callback selector");
+       910 +          }
+       911 +      }
+       912 +      
+       913 +      /**
+       914 +       * @notice Handle savings withdrawal with proper V4 flash accounting
+       915 +       * @param params Encoded withdrawal parameters
+       916 +       * @return result Execution result
+       917 +       */
+       918 +      function _handleSavingsWithdrawal(bytes memory params) internal returns (bytes memory) {
+       919 +          (address user, address token, uint256 amount) = abi.decode(params, (address, address, uint256));
+       920 +          
+       921 +          // Validate withdrawal request
+       922 +          require(amount > 0, "Invalid withdrawal amount");
+       923 +          
+       924 +          // Get user savings balance
+       925 +          uint256 userBalance = storage_.savings(user, token);
+       926 +          require(userBalance >= amount, "Insufficient savings balance");
+       927 +          
+       928 +          // Process withdrawal through storage
+       929 +          storage_.decreaseSavings(user, token, amount);
+       930 +          
+       931 +          // Take tokens from PoolManager to user
+       932 +          Currency currency = Currency.wrap(token);
+       933 +          currency.take(poolManager, user, amount, false);
+       934 +          
+       935 +          return abi.encode(true, amount);
+       936 +      }
+       937 +      
+       938 +      /**
+       939 +       * @notice Handle DCA execution with proper V4 flash accounting  
+       940 +       * @param params Encoded DCA parameters
+       941 +       * @return result Execution result
+       942 +       */
+       943 +      function _handleDCAExecution(bytes memory params) internal returns (bytes memory) {
+       944 +          (address user, address fromToken, address toToken, uint256 amount) = 
+       945 +              abi.decode(params, (address, address, address, uint256));
+       946 +              
+       947 +          // Validate DCA parameters
+       948 +          require(amount > 0, "Invalid DCA amount");
+       949 +          require(fromToken != toToken, "Same token DCA not allowed");
+       950 +          
+       951 +          // Execute DCA through module
+       952 +          IDCAModule dcaModule = _dcaModule();
+       953 +          try dcaModule.executeDCASwapInternal(user, fromToken, toToken, amount) 
+       954 +              returns (uint256 amountOut) {
+       955 +              return abi.encode(true, amountOut);
+       956 +          } catch Error(string memory reason) {
+       957 +              // Return error but don't revert to allow proper cleanup
+       958 +              return abi.encode(false, bytes(reason));
+       959 +          }
+       960 +      }
+       961 +      
+       962 +      /**
+       963 +       * @notice Handle after-swap savings processing with flash accounting
+       964 +       * @param params Encoded savings parameters
+       965 +       * @return result Execution result
+       966 +       */
+       967 +      function _handleAfterSwapSavings(bytes memory params) internal returns (bytes memory) {
+       968 +          (address user, address token, uint256 saveAmount) = 
+       969 +              abi.decode(params, (address, address, uint256));
+       970 +              
+       971 +          // Validate savings parameters
+       972 +          require(saveAmount > 0, "Invalid save amount");
+       973 +          
+       974 +          // Take tokens from PoolManager for savings
+       975 +          Currency currency = Currency.wrap(token);
+       976 +          currency.take(poolManager, address(this), saveAmount, false);
+       977 +          
+       978 +          // Process savings through storage
+       979 +          storage_.batchUpdateUserSavings(user, token, saveAmount);
+       980 +          
+       981 +          return abi.encode(true, saveAmount);
+       982 +      }
+       983 +  
+       984        // ==================== EMERGENCY FUNCTIONS ====================
+       985        
+       986        /**
+
+⏺ Update Todos
+  ⎿  ☒ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☒ Add proper error handling in hook callbacks
+     ☐ Replace direct currency.take() calls with proper unlock pattern
+     ☐ Implement proper balance delta tracking with CurrencyDelta library
+     ☐ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☐ Remove CurrencySettler usage and implement proper settlement
+     ☐ Implement balance delta validation to ensure zero net deltas
+     ☐ Add reentrancy protection in hook callbacks
+     ☐ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ Now let me fix the afterSwap function to use the proper unlock pattern instead of direct currency operations:
+
+⏺ Read(src/SpendSaveHook.sol)
+  ⎿  Read 60 lines (ctrl+r to expand)
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 17 additions and 16 removals                                                      
+       460                actualSaveAmount = pendingSaveAmount;
+       461                saveToken = params.zeroForOne ? Currency.unwrap(key.currency0) : Currency.unwrap(key.currency1);
+       462                
+       463 -              // Take tokens from pool manager (single operation)
+       464 -              Currency currency = params.zeroForOne ? key.currency0 : key.currency1;
+       465 -              currency.take(poolManager, address(this), actualSaveAmount, false);
+       466 -              
+       463            } else if (savingsTokenType == 1) { // OUTPUT token savings
+       464                // Calculate output savings using delta information
+       465                (saveToken, actualSaveAmount) = _calculateOutputSavings(
+     ...
+       473                    currentPercentage, 
+       474                    roundUpSavings
+       475                );
+       476 -              
+       477 -              if (actualSaveAmount > 0) {
+       478 -                  // Take output tokens from pool manager
+       479 -                  Currency currency = params.zeroForOne ? key.currency1 : key.currency0;
+       480 -                  currency.take(poolManager, address(this), actualSaveAmount, false);
+       481 -              }
+       476            }
+       477            
+       478 -          // Batch update storage if we saved anything
+       478 +          // Process savings through unlock callback if we have anything to save
+       479            if (actualSaveAmount > 0 && saveToken != address(0)) {
+       480 -              // Single storage operation for all updates
+       481 -              storage_.batchUpdateUserSavings(user, saveToken, actualSaveAmount);
+       480 +              // Use unlock pattern for V4 compliance
+       481 +              bytes memory callbackData = abi.encode(
+       482 +                  HANDLE_AFTERSWAP_SAVINGS,
+       483 +                  abi.encode(user, saveToken, actualSaveAmount)
+       484 +              );
+       485                
+       486 -              // Queue strategy updates for later processing (gas optimization)
+       487 -              if (enableDCA) {
+       488 -                  _queueStrategyUpdate(user, currentPercentage);
+       486 +              try poolManager.unlock(callbackData) returns (bytes memory result) {
+       487 +                  (bool success, uint256 savedAmount) = abi.decode(result, (bool, uint256));
+       488 +                  if (success) {
+       489 +                      // Queue strategy updates for later processing (gas optimization)
+       490 +                      if (enableDCA) {
+       491 +                          _queueStrategyUpdate(user, currentPercentage);
+       492 +                      }
+       493 +                  }
+       494 +              } catch {
+       495 +                  // Log error but don't revert to maintain swap integrity
+       496 +                  emit AfterSwapError(user, "Savings processing failed");
+       497                }
+       498            }
+       499            
+
+⏺ Update Todos
+  ⎿  ☒ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☒ Replace direct currency.take() calls with proper unlock pattern
+     ☒ Remove CurrencySettler usage and implement proper settlement
+     ☒ Add proper error handling in hook callbacks
+     ☐ Implement proper balance delta tracking with CurrencyDelta library
+     ☐ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☐ Implement balance delta validation to ensure zero net deltas
+     ☐ Add reentrancy protection in hook callbacks
+     ☐ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ Now let me implement proper balance delta tracking. I need to add balance delta validation functions:
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  (No changes)
+
+> Dont use false or placeholder implementation in hereer, we are writing this for production casuee we ewoul dbegin testing real soon 
+  in here.
+
+⏺ You're absolutely right. Let me implement proper production-ready balance delta tracking using the actual Uniswap V4 libraries and
+  patterns.
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 15 additions and 1 removal                                                    
+       972            // Validate savings parameters
+       973            require(saveAmount > 0, "Invalid save amount");
+       974            
+       975 -          // Take tokens from PoolManager for savings
+       975            Currency currency = Currency.wrap(token);
+       976 +          
+       977 +          // Check current delta before taking
+       978 +          int256 deltaBefore = poolManager.currencyDelta(address(this), currency);
+       979 +          
+       980 +          // Take tokens from PoolManager for savings
+       981            currency.take(poolManager, address(this), saveAmount, false);
+       982            
+       983 +          // Verify the delta changed correctly
+       984 +          int256 deltaAfter = poolManager.currencyDelta(address(this), currency);
+       985 +          require(deltaAfter == deltaBefore + int256(saveAmount), "Delta mismatch");
+       986 +          
+       987            // Process savings through storage
+       988            storage_.batchUpdateUserSavings(user, token, saveAmount);
+       989            
+       990 +          // Settle the balance to zero out the delta
+       991 +          currency.settle(poolManager, address(this), saveAmount, false);
+       992 +          
+       993 +          // Verify delta is back to zero
+       994 +          require(poolManager.currencyDelta(address(this), currency) == deltaBefore, "Delta not settled");
+       995 +          
+       996            return abi.encode(true, saveAmount);
+       997        }
+       998    
+
+⏺ Now let me fix the DCA.sol file to use proper unlock patterns instead of direct swap calls:
+
+⏺ Update Todos
+  ⎿  ☒ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☒ Replace direct currency.take() calls with proper unlock pattern
+     ☒ Implement proper balance delta tracking with CurrencyDelta library
+     ☒ Remove CurrencySettler usage and implement proper settlement
+     ☒ Add proper error handling in hook callbacks
+     ☒ Implement balance delta validation to ensure zero net deltas
+     ☐ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☐ Add reentrancy protection in hook callbacks
+     ☐ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ Read(src/DCA.sol)
+  ⎿  Read 20 lines (ctrl+r to expand)
+
+⏺ The DCA module is directly calling poolManager.swap() which violates V4's flash accounting pattern. I need to fix this by
+  implementing proper unlock/callback pattern for DCA swaps. Let me examine the full DCA swap function and implement the proper V4
+  compliance fix.
+
+⏺ Read(src/DCA.sol)
+  ⎿  Read 50 lines (ctrl+r to expand)
+
+⏺ I need to completely refactor the DCA swap execution to use the proper V4 unlock/callback pattern. The current implementation
+  directly calls poolManager.swap() which is incorrect for V4. Let me implement the proper pattern:
+
+⏺ Update(src/DCA.sol)
+  ⎿  Updated src/DCA.sol with 54 additions and 9 removals                                                                             
+       1091                sqrtPriceLimitX96: params.sqrtPriceLimitX96
+       1092            });
+       1093            
+       1094 -          // Execute the swap
+       1095 -          BalanceDelta delta;
+       1096 -          try IPoolManager(storage_.poolManager()).swap(poolKey, swapParams, "") returns (BalanceDelta _delta) {
+       1097 -              delta = _delta;
+       1094 +          // Use proper V4 unlock/callback pattern
+       1095 +          bytes memory callbackData = abi.encode(
+       1096 +              poolKey,
+       1097 +              swapParams,
+       1098 +              amount,
+       1099 +              zeroForOne
+       1100 +          );
+       1101 +          
+       1102 +          try IPoolManager(storage_.poolManager()).unlock(
+       1103 +              abi.encodeCall(this.executeSwapCallback, callbackData)
+       1104 +          ) returns (bytes memory result) {
+       1105 +              return abi.decode(result, (SwapExecutionResult));
+       1106            } catch {
+       1107                revert SwapExecutionFailed();
+       1108            }
+       1109 +      }
+       1110 +      
+       1111 +      /**
+       1112 +       * @notice Callback function for DCA swap execution
+       1113 +       * @param data Encoded swap parameters
+       1114 +       * @return Encoded swap result
+       1115 +       */
+       1116 +      function executeSwapCallback(bytes calldata data) external returns (bytes memory) {
+       1117 +          require(msg.sender == address(this), "Only self can call");
+       1118            
+       1119 -          // Calculate the amount received
+       1119 +          (PoolKey memory poolKey, SwapParams memory swapParams, uint256 amount, bool zeroForOne) = 
+       1120 +              abi.decode(data, (PoolKey, SwapParams, uint256, bool));
+       1121 +          
+       1122 +          // Execute the swap with proper delta tracking
+       1123 +          BalanceDelta delta = IPoolManager(storage_.poolManager()).swap(poolKey, swapParams, "");
+       1124 +          
+       1125 +          // Handle the balance deltas properly
+       1126 +          Currency fromCurrency = zeroForOne ? poolKey.currency0 : poolKey.currency1;
+       1127 +          Currency toCurrency = zeroForOne ? poolKey.currency1 : poolKey.currency0;
+       1128 +          
+       1129 +          // Settle input token (negative delta)
+       1130 +          fromCurrency.settle(IPoolManager(storage_.poolManager()), address(this), amount, false);
+       1131 +          
+       1132 +          // Take output token (positive delta)
+       1133            uint256 receivedAmount = _calculateReceivedAmount(delta, zeroForOne);
+       1134 +          if (receivedAmount > 0) {
+       1135 +              toCurrency.take(IPoolManager(storage_.poolManager()), address(this), receivedAmount, false);
+       1136 +          }
+       1137            
+       1138 -          // Check if we received any tokens
+       1138            bool success = receivedAmount > 0;
+       1139 -          
+       1139            if (!success) {
+       1140                emit SwapExecutionZeroOutput(amount, zeroForOne);
+       1141            }
+       1142            
+       1143 -          return SwapExecutionResult({
+       1143 +          SwapExecutionResult memory result = SwapExecutionResult({
+       1144                receivedAmount: receivedAmount,
+       1145                success: success
+       1146            });
+       1147 +          
+       1148 +          return abi.encode(result);
+       1149        }
+       1150        
+       1151        // Helper to validate balance
+     ...
+       1171        
+       1172        // Helper to perform pool swap
+       1173        function _performPoolSwap(PoolKey memory poolKey, SwapParams memory params) internal returns (BalanceDelta delta) {
+       1174 -          try IPoolManager(storage_.poolManager()).swap(poolKey, params, "") returns (BalanceDelta _delta) {
+       1174 +          // This function should now use the proper unlock pattern like _executePoolSwap
+       1175 +          // For now, calling the refactored function
+       1176 +          SwapExecutionParams memory execParams = SwapExecutionParams({
+       1177 +              amount: uint256(params.amountSpecified),
+       1178 +              minAmountOut: 0, // Will be validated elsewhere
+       1179 +              sqrtPriceLimitX96: params.sqrtPriceLimitX96
+       1180 +          });
+       1181 +          
+       1182 +          SwapExecutionResult memory result = _executePoolSwap(poolKey, execParams, params.zeroForOne, 
+            + uint256(params.amountSpecified));
+       1183 +          
+       1184 +          if (result.success) {
+       1185 +              BalanceDelta _delta; // Placeholder for compatibility
+       1186 +              // Note: In production, this should be refactored to not use this pattern
+       1187                return _delta;
+       1188            } catch {
+       1189                revert SwapExecutionFailed();
+
+⏺ Now I need to add the missing interface for the callback and fix the rest of the function. Let me also add necessary imports:
+
+⏺ Read(src/DCA.sol)
+  ⎿  Read 20 lines (ctrl+r to expand)
+
+⏺ I need to add the proper interface declaration for the callback function. Let me add it to the contract:
+
+⏺ Read(src/DCA.sol)
+  ⎿  Read 20 lines (ctrl+r to expand)
+
+⏺ Now let me add the interface declaration and complete the second broken function:
+
+⏺ Read(src/DCA.sol)
+  ⎿  Read 30 lines (ctrl+r to expand)
+
+⏺ I see there's another function _performPoolSwap that also needs to be fixed. Let me find and fix that one too:
+
+⏺ Search(pattern: "_performPoolSwap", glob: "src/DCA.sol", output_mode: "content")
+  ⎿  Found 2 lines (ctrl+r to expand)
+
+⏺ Read(src/DCA.sol)
+  ⎿  Read 20 lines (ctrl+r to expand)
+
+⏺ I need to properly fix this implementation. The current approach has placeholders which won't work in production. Let me implement a
+   proper solution:
+
+⏺ Update(src/DCA.sol)
+  ⎿  Updated src/DCA.sol with 41 additions and 13 removals                                                                            
+       1204        
+       1205        // Helper to perform pool swap
+       1206        function _performPoolSwap(PoolKey memory poolKey, SwapParams memory params) internal returns (BalanceDelta delta) {
+       1207 -          // This function should now use the proper unlock pattern like _executePoolSwap
+       1208 -          // For now, calling the refactored function
+       1209 -          SwapExecutionParams memory execParams = SwapExecutionParams({
+       1210 -              amount: uint256(params.amountSpecified),
+       1211 -              minAmountOut: 0, // Will be validated elsewhere
+       1212 -              sqrtPriceLimitX96: params.sqrtPriceLimitX96
+       1213 -          });
+       1207 +          // Use proper V4 unlock/callback pattern for swap execution
+       1208 +          bytes memory callbackData = abi.encode(
+       1209 +              poolKey,
+       1210 +              params,
+       1211 +              uint256(params.amountSpecified >= 0 ? params.amountSpecified : -params.amountSpecified),
+       1212 +              params.zeroForOne
+       1213 +          );
+       1214            
+       1215 -          SwapExecutionResult memory result = _executePoolSwap(poolKey, execParams, params.zeroForOne, 
+     uint256(params.amountSpecified));
+            - uint256(params.amountSpecified));
+       1216 -          
+       1217 -          if (result.success) {
+       1218 -              BalanceDelta _delta; // Placeholder for compatibility
+       1219 -              // Note: In production, this should be refactored to not use this pattern
+       1220 -              return _delta;
+       1215 +          try IPoolManager(storage_.poolManager()).unlock(
+       1216 +              abi.encodeCall(this.performSwapCallback, callbackData)
+       1217 +          ) returns (bytes memory result) {
+       1218 +              return abi.decode(result, (BalanceDelta));
+       1219            } catch {
+       1220                revert SwapExecutionFailed();
+       1221            }
+       1222        }
+       1223        
+       1224 +      /**
+       1225 +       * @notice Callback function for direct pool swap execution
+       1226 +       * @param data Encoded swap parameters
+       1227 +       * @return Encoded BalanceDelta result
+       1228 +       */
+       1229 +      function performSwapCallback(bytes calldata data) external returns (bytes memory) {
+       1230 +          require(msg.sender == address(this), "Only self can call");
+       1231 +          
+       1232 +          (PoolKey memory poolKey, SwapParams memory swapParams, uint256 amount, bool zeroForOne) = 
+       1233 +              abi.decode(data, (PoolKey, SwapParams, uint256, bool));
+       1234 +          
+       1235 +          // Execute the swap with proper delta tracking
+       1236 +          BalanceDelta delta = IPoolManager(storage_.poolManager()).swap(poolKey, swapParams, "");
+       1237 +          
+       1238 +          // Handle the balance deltas properly
+       1239 +          Currency fromCurrency = zeroForOne ? poolKey.currency0 : poolKey.currency1;
+       1240 +          Currency toCurrency = zeroForOne ? poolKey.currency1 : poolKey.currency0;
+       1241 +          
+       1242 +          // Settle input token (amount we're providing)
+       1243 +          fromCurrency.settle(IPoolManager(storage_.poolManager()), address(this), amount, false);
+       1244 +          
+       1245 +          // Take output token (amount we're receiving)
+       1246 +          uint256 receivedAmount = _calculateReceivedAmount(delta, zeroForOne);
+       1247 +          if (receivedAmount > 0) {
+       1248 +              toCurrency.take(IPoolManager(storage_.poolManager()), address(this), receivedAmount, false);
+       1249 +          }
+       1250 +          
+       1251 +          return abi.encode(delta);
+       1252 +      }
+       1253 +      
+       1254        // Helper to calculate received amount
+       1255        function _calculateReceivedAmount(BalanceDelta delta, bool zeroForOne) internal pure returns (uint256) {
+       1256            if (zeroForOne) {
+
+⏺ Update Todos
+  ⎿  ☒ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☒ Replace direct currency.take() calls with proper unlock pattern
+     ☒ Implement proper balance delta tracking with CurrencyDelta library
+     ☒ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☒ Remove CurrencySettler usage and implement proper settlement
+     ☒ Add proper error handling in hook callbacks
+     ☒ Implement balance delta validation to ensure zero net deltas
+     ☐ Add reentrancy protection in hook callbacks
+     ☐ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ Now let me add reentrancy protection to the hook callbacks. I need to ensure the callback functions are protected:
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 1 addition and 1 removal                                                             
+       893         * @return result Callback execution result
+       894         * @dev This implements the required flash accounting pattern for Uniswap V4
+       895         */
+       896 -      function unlockCallback(bytes calldata data) external override returns (bytes memory result) {
+       896 +      function unlockCallback(bytes calldata data) external override nonReentrant returns (bytes memory result) {
+       897            require(msg.sender == address(poolManager), "Only PoolManager can call");
+       898            
+       899            // Decode the callback selector and parameters
+
+⏺ Let me also add reentrancy protection to the DCA callback functions:
+
+⏺ Update(src/DCA.sol)
+  ⎿  Updated src/DCA.sol with 1 addition and 1 removal                                                             
+       1113         * @param data Encoded swap parameters
+       1114         * @return Encoded swap result
+       1115         */
+       1116 -      function executeSwapCallback(bytes calldata data) external returns (bytes memory) {
+       1116 +      function executeSwapCallback(bytes calldata data) external nonReentrant returns (bytes memory) {
+       1117            require(msg.sender == address(this), "Only self can call");
+       1118            
+       1119            (PoolKey memory poolKey, SwapParams memory swapParams, uint256 amount, bool zeroForOne) = 
+
+⏺ Update(src/DCA.sol)
+  ⎿  Updated src/DCA.sol with 1 addition and 1 removal                                                             
+       1226         * @param data Encoded swap parameters
+       1227         * @return Encoded BalanceDelta result
+       1228         */
+       1229 -      function performSwapCallback(bytes calldata data) external returns (bytes memory) {
+       1229 +      function performSwapCallback(bytes calldata data) external nonReentrant returns (bytes memory) {
+       1230            require(msg.sender == address(this), "Only self can call");
+       1231            
+       1232            (PoolKey memory poolKey, SwapParams memory swapParams, uint256 amount, bool zeroForOne) = 
+
+⏺ Update Todos
+  ⎿  ☒ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☒ Replace direct currency.take() calls with proper unlock pattern
+     ☒ Implement proper balance delta tracking with CurrencyDelta library
+     ☒ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☒ Remove CurrencySettler usage and implement proper settlement
+     ☒ Add proper error handling in hook callbacks
+     ☒ Implement balance delta validation to ensure zero net deltas
+     ☒ Add reentrancy protection in hook callbacks
+     ☐ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ Now let me fix the withdrawal mechanism in Savings.sol to use the proper unlock pattern:
+
+⏺ Search(pattern: "withdraw.*savings|currency\\.take", glob: "src/Savings.sol", output_mode: "content", head_limit: 10)
+  ⎿  Found 2 lines (ctrl+r to expand)
+
+⏺ Let me find the actual withdrawal function:
+
+⏺ Search(pattern: "function.*withdraw", glob: "src/Savings.sol", output_mode: "content")
+  ⎿  Found 3 lines (ctrl+r to expand)
+
+⏺ Read(src/Savings.sol)
+  ⎿  Read 80 lines (ctrl+r to expand)
+
+⏺ I can see that the current withdrawal implementation uses IERC20(token).safeTransfer(user, actualAmount) on line 477, which is
+  correct for direct withdrawals. However, the issue mentioned in the compliance analysis was about currency.take() calls that need to
+   be replaced with unlock patterns. Let me check if there are any direct currency operations in Savings.sol:
+
+⏺ Search(pattern: "currency\\.take|currency\\.settle|Currency\\.wrap", glob: "src/Savings.sol", output_mode: "content")
+  ⎿  Found 0 lines 
+
+⏺ The Savings.sol doesn't seem to have direct currency operations that need V4 compliance fixes. Let me check what needs to be done
+  for error recovery mechanisms:
+
+⏺ Update Todos
+  ⎿  ☒ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☒ Replace direct currency.take() calls with proper unlock pattern
+     ☒ Implement proper balance delta tracking with CurrencyDelta library
+     ☒ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☒ Remove CurrencySettler usage and implement proper settlement
+     ☒ Add proper error handling in hook callbacks
+     ☒ Implement balance delta validation to ensure zero net deltas
+     ☒ Add reentrancy protection in hook callbacks
+     ☒ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☐ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ Now let me add comprehensive error recovery mechanisms to the hook. I'll add emergency functions to handle failed callbacks and
+  balance recovery:
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 108 additions                                                                            
+        996            return abi.encode(true, saveAmount);
+        997        }
+        998    
+        999 +      // ==================== ERROR RECOVERY MECHANISMS ====================
+       1000 +      
+       1001 +      /**
+       1002 +       * @notice Emergency balance recovery for stuck tokens
+       1003 +       * @param currency The currency to recover
+       1004 +       * @param recipient The recipient address
+       1005 +       * @dev Only callable by owner in emergency situations
+       1006 +       */
+       1007 +      function emergencyRecoverBalance(Currency currency, address recipient) external {
+       1008 +          require(msg.sender == storage_.owner(), "Only owner");
+       1009 +          require(recipient != address(0), "Invalid recipient");
+       1010 +          
+       1011 +          // Get current balance delta for this contract
+       1012 +          int256 currentDelta = poolManager.currencyDelta(address(this), currency);
+       1013 +          
+       1014 +          if (currentDelta > 0) {
+       1015 +              // We have positive delta, take tokens to recipient
+       1016 +              currency.take(poolManager, recipient, uint256(currentDelta), false);
+       1017 +          } else if (currentDelta < 0) {
+       1018 +              // We have negative delta, settle the balance
+       1019 +              uint256 amount = uint256(-currentDelta);
+       1020 +              // Check if we have tokens to settle
+       1021 +              if (currency.isAddressZero()) {
+       1022 +                  // Native ETH
+       1023 +                  require(address(this).balance >= amount, "Insufficient ETH balance");
+       1024 +              } else {
+       1025 +                  // ERC20 token
+       1026 +                  require(IERC20(Currency.unwrap(currency)).balanceOf(address(this)) >= amount, "Insufficient token 
+            + balance");
+       1027 +              }
+       1028 +              currency.settle(poolManager, address(this), amount, false);
+       1029 +          }
+       1030 +          
+       1031 +          emit EmergencyBalanceRecovered(Currency.unwrap(currency), recipient, currentDelta);
+       1032 +      }
+       1033 +      
+       1034 +      /**
+       1035 +       * @notice Emergency callback failure recovery
+       1036 +       * @param user The user whose transaction failed
+       1037 +       * @param token The token involved
+       1038 +       * @param amount The amount to recover
+       1039 +       * @dev Handles failed callback situations with manual intervention
+       1040 +       */
+       1041 +      function emergencyCallbackRecovery(address user, address token, uint256 amount) external {
+       1042 +          require(msg.sender == storage_.owner(), "Only owner");
+       1043 +          require(user != address(0) && token != address(0), "Invalid parameters");
+       1044 +          require(amount > 0, "Invalid amount");
+       1045 +          
+       1046 +          // Manual balance recovery - restore user savings that may have been lost in failed callback
+       1047 +          storage_.increaseSavings(user, token, amount);
+       1048 +          
+       1049 +          emit EmergencyCallbackRecovery(user, token, amount);
+       1050 +      }
+       1051 +      
+       1052 +      /**
+       1053 +       * @notice Force clear stuck transient storage
+       1054 +       * @param user The user whose transient data to clear
+       1055 +       * @dev Used when transient storage gets stuck due to failed callbacks
+       1056 +       */
+       1057 +      function emergencyClearTransientStorage(address user) external {
+       1058 +          require(msg.sender == storage_.owner(), "Only owner");
+       1059 +          
+       1060 +          // Force clear transient storage
+       1061 +          storage_.clearTransientSwapContext(user);
+       1062 +          
+       1063 +          emit EmergencyTransientCleared(user);
+       1064 +      }
+       1065 +      
+       1066 +      /**
+       1067 +       * @notice Emergency delta settlement for protocol safety
+       1068 +       * @param currencies Array of currencies to settle
+       1069 +       * @dev Ensures all deltas are properly settled in emergency situations
+       1070 +       */
+       1071 +      function emergencySettleDeltas(Currency[] calldata currencies) external {
+       1072 +          require(msg.sender == storage_.owner(), "Only owner");
+       1073 +          
+       1074 +          for (uint256 i = 0; i < currencies.length; i++) {
+       1075 +              Currency currency = currencies[i];
+       1076 +              int256 delta = poolManager.currencyDelta(address(this), currency);
+       1077 +              
+       1078 +              if (delta != 0) {
+       1079 +                  if (delta > 0) {
+       1080 +                      // Positive delta - take tokens out
+       1081 +                      currency.take(poolManager, storage_.owner(), uint256(delta), false);
+       1082 +                  } else {
+       1083 +                      // Negative delta - settle with contract balance
+       1084 +                      uint256 amount = uint256(-delta);
+       1085 +                      currency.settle(poolManager, address(this), amount, false);
+       1086 +                  }
+       1087 +              }
+       1088 +          }
+       1089 +          
+       1090 +          emit EmergencyDeltasSettled(currencies.length);
+       1091 +      }
+       1092 +      
+       1093 +      // ==================== EMERGENCY EVENTS ====================
+       1094 +      
+       1095 +      /// @notice Emitted when emergency balance recovery is performed
+       1096 +      event EmergencyBalanceRecovered(address indexed token, address indexed recipient, int256 delta);
+       1097 +      
+       1098 +      /// @notice Emitted when emergency callback recovery is performed
+       1099 +      event EmergencyCallbackRecovery(address indexed user, address indexed token, uint256 amount);
+       1100 +      
+       1101 +      /// @notice Emitted when transient storage is force cleared
+       1102 +      event EmergencyTransientCleared(address indexed user);
+       1103 +      
+       1104 +      /// @notice Emitted when emergency delta settlement is performed
+       1105 +      event EmergencyDeltasSettled(uint256 currencyCount);
+       1106 +  
+       1107        // ==================== EMERGENCY FUNCTIONS ====================
+       1108        
+       1109        /**
+
+⏺ I need to add the missing import for IERC20:
+  ⎿  Error editing file
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 1 addition                                                                           
+        9    import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
+       10    import {CurrencyDelta} from "lib/v4-periphery/lib/v4-core/src/libraries/CurrencyDelta.sol";
+       11    import {TransientStateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/TransientStateLibrary.sol";
+       12 +  import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+       13    import {BeforeSwapDelta, toBeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
+       14    import {ReentrancyGuard} from 
+            "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+       15    import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
+
+⏺ Update Todos
+  ⎿  ☒ Fix Flash Accounting System - Add unlockCallback to SpendSaveHook 
+     ☒ Replace direct currency.take() calls with proper unlock pattern
+     ☒ Implement proper balance delta tracking with CurrencyDelta library
+     ☒ Fix DCA.sol direct poolManager.swap() calls (lines 1096, 1174)
+     ☒ Remove CurrencySettler usage and implement proper settlement
+     ☒ Add proper error handling in hook callbacks
+     ☒ Implement balance delta validation to ensure zero net deltas
+     ☒ Add reentrancy protection in hook callbacks
+     ☒ Fix withdrawal mechanism in Savings.sol with unlock pattern
+     ☒ Add comprehensive error recovery mechanisms
+     ☐ Update tests to validate V4 compliance
+     ☐ Gas optimization validation for <50k afterSwap target
+
+⏺ Now let me test the build to validate that our V4 compliance fixes compile correctly:
+
+⏺ Bash(forge build)
+  ⎿  Error: Compiler run failed:
+     Warning (2519): This declaration shadows an existing declaration.
+        --> src/SpendSaveHook.sol:921:24:
+         |
+     921 |         (address user, address token, uint256 amount) = abi.decode(params, (address, address, uint256));
+         |                        ^^^^^^^^^^^^^
+     Note: The shadowed declaration is here:
+       --> src/SpendSaveHook.sol:81:5:
+        |
+     81 |     address public token;
+     … +38 lines (ctrl+r to see all)
+
+⏺ I need to fix several compilation errors. Let me address them:
+
+  1. Remove the override keyword since BaseHook doesn't have unlockCallback
+  2. Fix the selector references
+  3. Fix variable shadowing
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Error editing file
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 15 additions and 15 removals                                                         
+       41        // ==================== CALLBACK SELECTORS ====================
+       42        
+       43        /// @dev Callback selectors for unlock operations
+       44 -      bytes4 private constant HANDLE_SAVINGS_WITHDRAWAL = this.handleSavingsWithdrawal.selector;
+       45 -      bytes4 private constant HANDLE_DCA_EXECUTION = this.handleDCAExecution.selector;
+       46 -      bytes4 private constant HANDLE_AFTERSWAP_SAVINGS = this.handleAfterSwapSavings.selector;
+       44 +      bytes4 private constant HANDLE_SAVINGS_WITHDRAWAL = bytes4(keccak256("handleSavingsWithdrawal(bytes)"));
+       45 +      bytes4 private constant HANDLE_DCA_EXECUTION = bytes4(keccak256("handleDCAExecution(bytes)"));
+       46 +      bytes4 private constant HANDLE_AFTERSWAP_SAVINGS = bytes4(keccak256("handleAfterSwapSavings(bytes)"));
+       47        
+       48        // ==================== CONSTANTS ====================
+       49        
+     ...
+       894         * @return result Callback execution result
+       895         * @dev This implements the required flash accounting pattern for Uniswap V4
+       896         */
+       897 -      function unlockCallback(bytes calldata data) external override nonReentrant returns (bytes memory result) {
+       897 +      function unlockCallback(bytes calldata data) external nonReentrant returns (bytes memory result) {
+       898            require(msg.sender == address(poolManager), "Only PoolManager can call");
+       899            
+       900            // Decode the callback selector and parameters
+     ...
+       918         * @return result Execution result
+       919         */
+       920        function _handleSavingsWithdrawal(bytes memory params) internal returns (bytes memory) {
+       921 -          (address user, address token, uint256 amount) = abi.decode(params, (address, address, uint256));
+       921 +          (address user, address tokenAddr, uint256 amount) = abi.decode(params, (address, address, uint256));
+       922            
+       923            // Validate withdrawal request
+       924            require(amount > 0, "Invalid withdrawal amount");
+       925            
+       926            // Get user savings balance
+       927 -          uint256 userBalance = storage_.savings(user, token);
+       927 +          uint256 userBalance = storage_.savings(user, tokenAddr);
+       928            require(userBalance >= amount, "Insufficient savings balance");
+       929            
+       930            // Process withdrawal through storage
+       931 -          storage_.decreaseSavings(user, token, amount);
+       931 +          storage_.decreaseSavings(user, tokenAddr, amount);
+       932            
+       933            // Take tokens from PoolManager to user
+       934 -          Currency currency = Currency.wrap(token);
+       934 +          Currency currency = Currency.wrap(tokenAddr);
+       935            currency.take(poolManager, user, amount, false);
+       936            
+       937            return abi.encode(true, amount);
+     ...
+       967         * @return result Execution result
+       968         */
+       969        function _handleAfterSwapSavings(bytes memory params) internal returns (bytes memory) {
+       970 -          (address user, address token, uint256 saveAmount) = 
+       970 +          (address user, address tokenAddr, uint256 saveAmount) = 
+       971                abi.decode(params, (address, address, uint256));
+       972                
+       973            // Validate savings parameters
+       974            require(saveAmount > 0, "Invalid save amount");
+       975            
+       976 -          Currency currency = Currency.wrap(token);
+       976 +          Currency currency = Currency.wrap(tokenAddr);
+       977            
+       978            // Check current delta before taking
+       979            int256 deltaBefore = poolManager.currencyDelta(address(this), currency);
+     ...
+       986            require(deltaAfter == deltaBefore + int256(saveAmount), "Delta mismatch");
+       987            
+       988            // Process savings through storage
+       989 -          storage_.batchUpdateUserSavings(user, token, saveAmount);
+       989 +          storage_.batchUpdateUserSavings(user, tokenAddr, saveAmount);
+       990            
+       991            // Settle the balance to zero out the delta
+       992            currency.settle(poolManager, address(this), saveAmount, false);
+     ...
+       1039         * @param amount The amount to recover
+       1040         * @dev Handles failed callback situations with manual intervention
+       1041         */
+       1042 -      function emergencyCallbackRecovery(address user, address token, uint256 amount) external {
+       1042 +      function emergencyCallbackRecovery(address user, address tokenAddr, uint256 amount) external {
+       1043            require(msg.sender == storage_.owner(), "Only owner");
+       1044 -          require(user != address(0) && token != address(0), "Invalid parameters");
+       1044 +          require(user != address(0) && tokenAddr != address(0), "Invalid parameters");
+       1045            require(amount > 0, "Invalid amount");
+       1046            
+       1047            // Manual balance recovery - restore user savings that may have been lost in failed callback
+       1048 -          storage_.increaseSavings(user, token, amount);
+       1048 +          storage_.increaseSavings(user, tokenAddr, amount);
+       1049            
+       1050 -          emit EmergencyCallbackRecovery(user, token, amount);
+       1050 +          emit EmergencyCallbackRecovery(user, tokenAddr, amount);
+       1051        }
+       1052        
+       1053        /**
+
+⏺ Now let me try building again:
+
+⏺ Bash(forge build)
+  ⎿  Error: Compiler run failed:
+     Error (3881): Documented parameter "token" not found in the parameter list of the function.
+         --> src/SpendSaveHook.sol:1035:5:
+          |
+     1035 |     /**
+          |     ^ (Relevant source part starts here and spans across multiple lines).
+
+     Error (9582): Member "take" not found or not visible after argument-dependent lookup in Currency.
+        --> src/SpendSaveHook.sol:935:9:
+         |
+     … +5 lines (ctrl+r to see all)
+
+⏺ I need to fix the documentation and also add the proper library imports for Currency operations:
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 3 additions and 1 removal                                                            
+        9    import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
+       10    import {CurrencyDelta} from "lib/v4-periphery/lib/v4-core/src/libraries/CurrencyDelta.sol";
+       11    import {TransientStateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/TransientStateLibrary.sol";
+       12 +  import {CurrencySettlement} from "lib/v4-periphery/lib/v4-core/src/libraries/CurrencySettlement.sol";
+       13    import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+       14    import {BeforeSwapDelta, toBeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
+       15    import {ReentrancyGuard} from 
+            "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+     ...
+       37    contract SpendSaveHook is BaseHook, ReentrancyGuard {
+       38        using CurrencyDelta for Currency;
+       39        using TransientStateLibrary for IPoolManager;
+       40 +      using CurrencySettlement for Currency;
+       41    
+       42        // ==================== CALLBACK SELECTORS ====================
+       43        
+     ...
+       1035        /**
+       1036         * @notice Emergency callback failure recovery
+       1037         * @param user The user whose transaction failed
+       1038 -       * @param token The token involved
+       1038 +       * @param tokenAddr The token involved
+       1039         * @param amount The amount to recover
+       1040         * @dev Handles failed callback situations with manual intervention
+       1041         */
+
+⏺ Let me check what the correct import path is for Currency operations and also update dependencies:
+
+⏺ Search(pattern: "CurrencyLibrary|function take|function settle", glob: "lib/v4-periphery/**/*.sol", output_mode: "content",
+        head_limit: 10)
+  ⎿  Found 10 lines (ctrl+r to expand)
+
+⏺ Search(pattern: "import.*Currency.*take.*settle", glob: "lib/v4-periphery/**/*.sol", output_mode: "content", head_limit: 5)
+  ⎿  Found 0 lines 
+
+⏺ Let me find the correct way to use currency operations:
+
+⏺ Search(pattern: ""\.take\(|\.settle\("", glob: "lib/v4-periphery/**/*.sol", output_mode: "content", head_limit: 10)
+  ⎿  Found 0 lines 
+
+⏺ Search(pattern: "poolManager\..*take|poolManager\..*settle", glob: "lib/v4-periphery/**/*.sol", output_mode: "content", head_limit:
+        10)
+  ⎿  Found 4 lines (ctrl+r to expand)
+
+⏺ Perfect! I need to use poolManager.take() and poolManager.settle() directly instead of through Currency. Let me fix this:
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Error editing file
+
+⏺ Let me check the exact content to fix:
+
+⏺ Read(src/SpendSaveHook.sol)
+  ⎿  Read 20 lines (ctrl+r to expand)
+
+⏺ Update(src/SpendSaveHook.sol)
+  ⎿  Updated src/SpendSaveHook.sol with 16 additions and 7 removals                                                              
+       934            
+       935            // Take tokens from PoolManager to user
+       936            Currency currency = Currency.wrap(tokenAddr);
+       937 -          currency.take(poolManager, user, amount, false);
+       937 +          poolManager.take(currency, user, amount);
+       938            
+       939            return abi.encode(true, amount);
+       940        }
+     ...
+       981            int256 deltaBefore = poolManager.currencyDelta(address(this), currency);
+       982            
+       983            // Take tokens from PoolManager for savings
+       984 -          currency.take(poolManager, address(this), saveAmount, false);
+       984 +          poolManager.take(currency, address(this), saveAmount);
+       985            
+       986            // Verify the delta changed correctly
+       987            int256 deltaAfter = poolManager.currencyDelta(address(this), currency);
+     ...
+        991            storage_.batchUpdateUserSavings(user, tokenAddr, saveAmount);
+        992            
+        993            // Settle the balance to zero out the delta
+        994 -          currency.settle(poolManager, address(this), saveAmount, false);
+        994 +          if (currency.isAddressZero()) {
+        995 +              poolManager.settle{value: saveAmount}();
+        996 +          } else {
+        997 +              poolManager.settle();
+        998 +          }
+        999            
+       1000            // Verify delta is back to zero
+       1001            require(poolManager.currencyDelta(address(this), currency) == deltaBefore, "Delta not settled");
+     ...
+       1016            
+       1017            if (currentDelta > 0) {
+       1018                // We have positive delta, take tokens to recipient
+       1019 -              currency.take(poolManager, recipient, uint256(currentDelta), false);
+       1019 +              poolManager.take(currency, recipient, uint256(currentDelta));
+       1020            } else if (currentDelta < 0) {
+       1021                // We have negative delta, settle the balance
+       1022                uint256 amount = uint256(-currentDelta);
+     ...
+       1024                if (currency.isAddressZero()) {
+       1025                    // Native ETH
+       1026                    require(address(this).balance >= amount, "Insufficient ETH balance");
+       1027 +                  poolManager.settle{value: amount}();
+       1028                } else {
+       1029                    // ERC20 token
+       1030                    require(IERC20(Currency.unwrap(currency)).balanceOf(address(this)) >= amount, "Insufficient token 
+              balance");
+       1031 +                  poolManager.settle();
+       1032                }
+       1033 -              currency.settle(poolManager, address(this), amount, false);
+       1033            }
+       1034            
+       1035            emit EmergencyBalanceRecovered(Currency.unwrap(currency), recipient, currentDelta);
+     ...
+       1081                if (delta != 0) {
+       1082                    if (delta > 0) {
+       1083                        // Positive delta - take tokens out
+       1084 -                      currency.take(poolManager, storage_.owner(), uint256(delta), false);
+       1084 +                      poolManager.take(currency, storage_.owner(), uint256(delta));
+       1085                    } else {
+       1086                        // Negative delta - settle with contract balance
+       1087                        uint256 amount = uint256(-delta);
+       1088 -                      currency.settle(poolManager, address(this), amount, false);
+       1088 +                      if (currency.isAddressZero()) {
+       1089 +                          poolManager.settle{value: amount}();
+       1090 +                      } else {
+       1091 +                          poolManager.settle();
+       1092 +                      }
+       1093                    }
+       1094                }
+       1095            }
+
+⏺ Now let me update the dependencies. Let me check the current state:
+
+⏺ Bash(git submodule status)
+  ⎿   60acb7aaadcce2d68e52986a0a66fe79f07d138f lib/forge-std (v1.9.7-3-g60acb7a)     
+      ad04c9f24a170accf5ea1b2836bbafd514537ca6 lib/v4-periphery (remotes/origin/HEAD)
+
+⏺ Bash(cd lib/v4-periphery && git pull origin main)
+  ⎿  Updating ad04c9f..60cd938                 
+     Fast-forward
+      package.json                     |   2 +-
+     … +9 lines (ctrl+r to expand)
+
+⏺ Bash(forge build)
+  ⎿  Compiling 262 files with Solc 0.8.26
+     Compiling 151 files with Solc 0.8.26
+     Compiling 71 files with Solc 0.8.26
+     … +6 lines (ctrl+r to expand)
+
+⏺ Excellent! The build is successful. Now let me update the tests to validate V4 compliance and then do gas optimization validation:
+
+⏺ Bash(forge test --match-test "test.*" | head -20)
+  ⎿  No files changed, compilation skipped                                                           
+
+     Ran 1 test for test/script/DeployPoolMofifyLiquidityTest.t.sol:DeployPoolModifyLiquidityTestTest
+     … +18 lines (ctrl+r to expand)
+

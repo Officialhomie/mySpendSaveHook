@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {ITokenModule} from "./interfaces/ITokenModule.sol";
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {IERC20Metadata} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
  * @title Token
@@ -16,6 +17,9 @@ contract Token is ITokenModule, ReentrancyGuard {
     // ERC6909 interface constants
     bytes4 constant private _ERC6909_RECEIVED = 0x05e3242b; // bytes4(keccak256("onERC6909Received(address,address,uint256,uint256,bytes)"))
     
+    // ERC6909 operator storage
+    mapping(address => mapping(address => bool)) public isOperator;
+    
     // Standardized module references
     address internal _savingStrategyModule;
     address internal _savingsModule;
@@ -25,9 +29,10 @@ contract Token is ITokenModule, ReentrancyGuard {
     address internal _dailySavingsModule;
 
 
-    // Events (same as in ERC6909)
-    event Transfer(address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount);
+    // ERC6909 compliant events
+    event Transfer(address caller, address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 indexed id, uint256 amount);
+    event OperatorSet(address indexed owner, address indexed operator, bool approved);
     event ModuleInitialized(address indexed storage_);
     event SavingsTokenMinted(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
     event SavingsTokenBurned(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
@@ -144,7 +149,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         storage_.increaseTotalSupply(tokenId, amount);
         
         // Emit events
-        emit Transfer(address(0), user, tokenId, amount);
+        emit Transfer(msg.sender, address(0), user, tokenId, amount);
         emit SavingsTokenMinted(user, token, tokenId, amount);
         emit TokenMinted(user, tokenId, amount);
     }
@@ -174,7 +179,7 @@ contract Token is ITokenModule, ReentrancyGuard {
                 storage_.increaseTotalSupply(tokenIds[i], amounts[i]);
                 
                 // Emit events
-                emit Transfer(address(0), user, tokenIds[i], amounts[i]);
+                emit Transfer(msg.sender, address(0), user, tokenIds[i], amounts[i]);
                 emit SavingsTokenMinted(user, token, tokenIds[i], amounts[i]);
                 emit TokenMinted(user, tokenIds[i], amounts[i]);
             }
@@ -205,7 +210,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         storage_.decreaseBalance(user, tokenId, amount);
         storage_.decreaseTotalSupply(tokenId, amount);
         
-        emit Transfer(user, address(0), tokenId, amount);
+        emit Transfer(msg.sender, user, address(0), tokenId, amount);
         emit SavingsTokenBurned(user, token, tokenId, amount);
         emit TokenBurned(user, tokenId, amount);
     }
@@ -241,7 +246,7 @@ contract Token is ITokenModule, ReentrancyGuard {
                 storage_.decreaseTotalSupply(tokenIds[i], amounts[i]);
                 
                 // Emit events
-                emit Transfer(user, address(0), tokenIds[i], amounts[i]);
+                emit Transfer(msg.sender, user, address(0), tokenIds[i], amounts[i]);
                 emit SavingsTokenBurned(user, token, tokenIds[i], amounts[i]);
                 emit TokenBurned(user, tokenIds[i], amounts[i]);
             }
@@ -294,7 +299,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         storage_.decreaseBalance(sender, id, amount);
         storage_.increaseBalance(receiver, id, amount);
         
-        emit Transfer(sender, receiver, id, amount);
+        emit Transfer(msg.sender, sender, receiver, id, amount);
         return true;
     }
     
@@ -325,7 +330,7 @@ contract Token is ITokenModule, ReentrancyGuard {
                 storage_.decreaseBalance(from, tokenIds[i], amounts[i]);
                 storage_.increaseBalance(to, tokenIds[i], amounts[i]);
                 
-                emit Transfer(from, to, tokenIds[i], amounts[i]);
+                emit Transfer(msg.sender, from, to, tokenIds[i], amounts[i]);
             }
         }
         
@@ -380,7 +385,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         storage_.decreaseBalance(sender, id, amount);
         storage_.increaseBalance(receiver, id, amount);
         
-        emit Transfer(sender, receiver, id, amount);
+        emit Transfer(msg.sender, sender, receiver, id, amount);
     }
     
     /**
@@ -436,7 +441,7 @@ contract Token is ITokenModule, ReentrancyGuard {
         // Update allowance
         storage_.setAllowance(from, msg.sender, tokenId, currentAllowance - amount);
         
-        emit Transfer(from, to, tokenId, amount);
+        emit Transfer(msg.sender, from, to, tokenId, amount);
         return true;
     }
     
@@ -552,6 +557,134 @@ contract Token is ITokenModule, ReentrancyGuard {
             size := extcodesize(addr)
         }
         return size > 0;
+    }
+    
+    // ==================== ERC6909 STANDARD COMPLIANCE FUNCTIONS ====================
+    
+    /**
+     * @notice Set or unset an operator for the caller
+     * @param operator The operator address
+     * @param approved Whether to approve or revoke approval
+     * @return success Always returns true
+     */
+    function setOperator(address operator, bool approved) external returns (bool) {
+        isOperator[msg.sender][operator] = approved;
+        emit OperatorSet(msg.sender, operator, approved);
+        return true;
+    }
+    
+    /**
+     * @notice Standard ERC6909 transfer function (caller is sender)
+     * @param receiver The recipient address
+     * @param id The token ID
+     * @param amount The amount to transfer
+     * @return success Always returns true on successful transfer
+     */
+    function transfer(address receiver, uint256 id, uint256 amount) external nonReentrant returns (bool) {
+        // Validate addresses
+        _validateTransferAddresses(msg.sender, receiver);
+        
+        // Check sender balance
+        _checkSenderBalance(msg.sender, id, amount);
+        
+        // Execute the transfer
+        _executeTransfer(msg.sender, receiver, id, amount);
+        
+        return true;
+    }
+    
+    /**
+     * @notice Standard ERC6909 transferFrom function (caller is operator/approved)
+     * @param sender The sender address  
+     * @param receiver The recipient address
+     * @param id The token ID
+     * @param amount The amount to transfer
+     * @return success Always returns true on successful transfer
+     */
+    /**
+     * @notice ERC165 interface support detection
+     * @param interfaceId The interface identifier
+     * @return supported Whether the interface is supported
+     */
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == 0x0f632fb3 || // ERC6909
+               interfaceId == 0x01ffc9a7;   // ERC165
+    }
+    
+    /**
+     * @notice Get token metadata (ERC6909 extension)
+     * @param id The token ID
+     * @return name The token name
+     */
+    function name(uint256 id) external view returns (string memory) {
+        address token = storage_.idToToken(id);
+        require(token != address(0), "Token not registered");
+        
+        // Try to get name from token contract
+        try IERC20Metadata(token).name() returns (string memory tokenName) {
+            return string(abi.encodePacked("SpendSave ", tokenName));
+        } catch {
+            return string(abi.encodePacked("SpendSave Token #", _toString(id)));
+        }
+    }
+    
+    /**
+     * @notice Get token symbol (ERC6909 extension)
+     * @param id The token ID
+     * @return symbol The token symbol
+     */
+    function symbol(uint256 id) external view returns (string memory) {
+        address token = storage_.idToToken(id);
+        require(token != address(0), "Token not registered");
+        
+        // Try to get symbol from token contract
+        try IERC20Metadata(token).symbol() returns (string memory tokenSymbol) {
+            return string(abi.encodePacked("ss", tokenSymbol));
+        } catch {
+            return string(abi.encodePacked("SST", _toString(id)));
+        }
+    }
+    
+    /**
+     * @notice Get token decimals (ERC6909 extension)
+     * @param id The token ID
+     * @return decimals The number of decimals
+     */
+    function decimals(uint256 id) external view returns (uint8) {
+        address token = storage_.idToToken(id);
+        require(token != address(0), "Token not registered");
+        
+        // Try to get decimals from token contract
+        try IERC20Metadata(token).decimals() returns (uint8 tokenDecimals) {
+            return tokenDecimals;
+        } catch {
+            return 18; // Default to 18 decimals
+        }
+    }
+    
+    /**
+     * @notice Convert number to string (internal utility)
+     */
+    function _toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) return "0";
+        
+        uint256 temp = value;
+        uint256 digits;
+        
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        
+        bytes memory buffer = new bytes(digits);
+        
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        
+        return string(buffer);
     }
 }
 
