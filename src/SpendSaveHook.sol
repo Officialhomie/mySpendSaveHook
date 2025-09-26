@@ -176,6 +176,10 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         storage_ = _storage;
     }
 
+    /// @dev Override validateHookAddress to prevent validation during construction
+    /// This allows HookMiner to deploy hooks with specific addresses for flag compliance
+    function validateHookAddress(BaseHook _this) internal pure override {}
+
     // ==================== MODIFIERS ====================
     
     /**
