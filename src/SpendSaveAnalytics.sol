@@ -97,6 +97,85 @@ contract SpendSaveAnalytics {
     }
     
     /**
+     * @notice Get detailed pool analytics using StateView
+     * @param poolKey The pool to analyze
+     * @return sqrtPriceX96 Current pool price
+     * @return tick Current tick
+     * @return liquidity Total active liquidity
+     * @return feeGrowthGlobal0 Total fee accumulation for token0
+     * @return feeGrowthGlobal1 Total fee accumulation for token1
+     */
+    function getPoolAnalytics(PoolKey memory poolKey) external view returns (
+        uint160 sqrtPriceX96,
+        int24 tick,
+        uint128 liquidity,
+        uint256 feeGrowthGlobal0,
+        uint256 feeGrowthGlobal1
+    ) {
+        PoolId poolId = poolKey.toId();
+        
+        // Get comprehensive pool state using StateView
+        (sqrtPriceX96, tick,,) = stateView.getSlot0(poolId);
+        liquidity = stateView.getLiquidity(poolId);
+        (feeGrowthGlobal0, feeGrowthGlobal1) = stateView.getFeeGrowthGlobals(poolId);
+        
+        return (sqrtPriceX96, tick, liquidity, feeGrowthGlobal0, feeGrowthGlobal1);
+    }
+    
+    /**
+     * @notice Get tick liquidity information around current price
+     * @param poolKey The pool to analyze
+     * @param tickRange Number of ticks above and below current tick to analyze
+     * @return currentTick The current pool tick
+     * @return ticks Array of tick values analyzed
+     * @return liquidityGross Array of gross liquidity at each tick
+     * @return liquidityNet Array of net liquidity at each tick
+     */
+    function getTickLiquidityDistribution(
+        PoolKey memory poolKey, 
+        uint256 tickRange
+    ) external view returns (
+        int24 currentTick,
+        int24[] memory ticks,
+        uint128[] memory liquidityGross,
+        int128[] memory liquidityNet
+    ) {
+        PoolId poolId = poolKey.toId();
+        
+        // Get current tick
+        (, currentTick,,) = stateView.getSlot0(poolId);
+        
+        // Calculate tick spacing for the pool
+        int24 tickSpacing = poolKey.tickSpacing;
+        
+        // Prepare arrays for tick data
+        uint256 numTicks = tickRange * 2 + 1; // Range above + range below + current
+        ticks = new int24[](numTicks);
+        liquidityGross = new uint128[](numTicks);
+        liquidityNet = new int128[](numTicks);
+        
+        // Get liquidity data for each tick in range
+        for (uint256 i = 0; i < numTicks; i++) {
+            int24 targetTick = currentTick + int24(int256(i - tickRange)) * tickSpacing;
+            ticks[i] = targetTick;
+            
+            try stateView.getTickLiquidity(poolId, targetTick) returns (
+                uint128 gross, 
+                int128 net
+            ) {
+                liquidityGross[i] = gross;
+                liquidityNet[i] = net;
+            } catch {
+                // Tick not initialized, leave as zero
+                liquidityGross[i] = 0;
+                liquidityNet[i] = 0;
+            }
+        }
+        
+        return (currentTick, ticks, liquidityGross, liquidityNet);
+    }
+    
+    /**
      * @notice Estimate token value in USD using real V4 pool data
      * @dev Production implementation using V4 pool pricing with USDC as base currency
      * @param token The token address to price
@@ -156,6 +235,7 @@ contract SpendSaveAnalytics {
     
     /**
      * @notice Get price from direct V4 pool (token/USDC)
+     * @dev Uses StateView for gas-efficient pool state reading
      */
     function _getDirectPoolPrice(
         address token, 
@@ -165,14 +245,14 @@ contract SpendSaveAnalytics {
         try storage_.getPoolKey(token, baseToken) returns (PoolKey memory poolKey) {
             PoolId poolId = poolKey.toId();
             
-            // Get pool state using StateLibrary
+            // Get pool state using StateView for optimized access
             (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = 
-                StateLibrary.getSlot0(poolManager, poolId);
+                stateView.getSlot0(poolId);
                 
             if (sqrtPriceX96 == 0) return 0; // Pool doesn't exist
             
             // Verify pool has sufficient liquidity for reliable pricing
-            uint128 liquidity = StateLibrary.getLiquidity(poolManager, poolId);
+            uint128 liquidity = stateView.getLiquidity(poolId);
             if (liquidity < 10000) return 0; // Minimum liquidity threshold for reliable pricing
             
             // Calculate price based on current pool state
@@ -185,6 +265,7 @@ contract SpendSaveAnalytics {
     
     /**
      * @notice Get price through indirect routing (token -> WETH -> USDC)
+     * @dev Uses StateView for optimized multi-hop pricing
      */
     function _getIndirectPrice(
         address token,
@@ -196,10 +277,10 @@ contract SpendSaveAnalytics {
         try storage_.getPoolKey(token, intermediateToken) returns (PoolKey memory poolKey1) {
             PoolId poolId1 = poolKey1.toId();
             
-            (uint160 sqrtPrice1,,,) = StateLibrary.getSlot0(poolManager, poolId1);
+            (uint160 sqrtPrice1,,,) = stateView.getSlot0(poolId1);
             if (sqrtPrice1 == 0) return 0;
             
-            uint128 liquidity1 = StateLibrary.getLiquidity(poolManager, poolId1);
+            uint128 liquidity1 = stateView.getLiquidity(poolId1);
             if (liquidity1 < 10000) return 0;
             
             uint256 wethAmount = _calculatePriceFromSqrtPrice(token, intermediateToken, amount, sqrtPrice1);
