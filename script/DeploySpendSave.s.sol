@@ -14,6 +14,11 @@ import {HookMiner} from "lib/v4-periphery/src/utils/HookMiner.sol";
 // Import our gas-efficient core contracts
 import {SpendSaveHook} from "../src/SpendSaveHook.sol";
 import {SpendSaveStorage} from "../src/SpendSaveStorage.sol";
+import {SpendSaveAnalytics} from "../src/SpendSaveAnalytics.sol";
+
+// Import V4 periphery for StateView
+import {StateView} from "lib/v4-periphery/src/lens/StateView.sol";
+import {IStateView} from "lib/v4-periphery/src/interfaces/IStateView.sol";
 
 // Import all gas-efficient modules
 import {SavingStrategy} from "../src/SavingStrategy.sol";
@@ -88,6 +93,8 @@ contract DeploySpendSave is Script {
     /// @notice Core protocol contracts
     SpendSaveHook public spendSaveHook;
     SpendSaveStorage public spendSaveStorage;
+    SpendSaveAnalytics public analytics;
+    StateView public stateView;
     
     /// @notice All protocol modules
     SavingStrategy public savingStrategyModule;
@@ -113,6 +120,12 @@ contract DeploySpendSave is Script {
     
     /// @notice Emitted when storage contract is deployed
     event StorageDeployed(address indexed storageAddress);
+    
+    /// @notice Emitted when StateView is deployed
+    event StateViewDeployed(address indexed stateViewAddress);
+    
+    /// @notice Emitted when analytics contract is deployed
+    event AnalyticsDeployed(address indexed analyticsAddress);
     
     /// @notice Emitted when hook is successfully deployed with proper address
     event HookDeployed(address indexed hookAddress, bytes32 salt, uint160 flags);
@@ -201,36 +214,44 @@ contract DeploySpendSave is Script {
         console.log("\n--- Step 1: Deploying SpendSaveStorage ---");
         _deployStorage();
         
-        // Step 2: Deploy all modules
-        console.log("\n--- Step 2: Deploying All Modules ---");
+        // Step 2: Deploy StateView for analytics
+        console.log("\n--- Step 2: Deploying StateView ---");
+        _deployStateView();
+        
+        // Step 3: Deploy all modules
+        console.log("\n--- Step 3: Deploying All Modules ---");
         _deployAllModules();
         
-        // Step 3: Deploy hook with proper address mining
-        console.log("\n--- Step 3: Deploying SpendSaveHook ---");
+        // Step 4: Deploy hook with proper address mining
+        console.log("\n--- Step 4: Deploying SpendSaveHook ---");
         _deployHookWithAddressMining();
         
-        // Step 4: Initialize storage with hook reference
-        console.log("\n--- Step 4: Initializing Storage ---");
+        // Step 5: Deploy analytics with StateView
+        console.log("\n--- Step 5: Deploying Analytics ---");
+        _deployAnalytics();
+        
+        // Step 6: Initialize storage with hook reference
+        console.log("\n--- Step 6: Initializing Storage ---");
         _initializeStorage();
         
-        // Step 5: Initialize all modules
-        console.log("\n--- Step 5: Initializing Modules ---");
+        // Step 7: Initialize all modules
+        console.log("\n--- Step 7: Initializing Modules ---");
         _initializeAllModules();
         
-        // Step 6: Register modules in storage registry
-        console.log("\n--- Step 6: Registering Modules ---");
+        // Step 8: Register modules in storage registry
+        console.log("\n--- Step 8: Registering Modules ---");
         _registerAllModules();
         
-        // Step 7: Initialize hook with module references
-        console.log("\n--- Step 7: Initializing Hook ---");
+        // Step 9: Initialize hook with module references
+        console.log("\n--- Step 9: Initializing Hook ---");
         _initializeHook();
         
-        // Step 8: Set cross-module references
-        console.log("\n--- Step 8: Setting Cross-Module References ---");
+        // Step 10: Set cross-module references
+        console.log("\n--- Step 10: Setting Cross-Module References ---");
         _setModuleReferences();
         
-        // Step 9: Verify deployment
-        console.log("\n--- Step 9: Verifying Deployment ---");
+        // Step 11: Verify deployment
+        console.log("\n--- Step 11: Verifying Deployment ---");
         _verifyDeployment();
     }
 
@@ -249,6 +270,19 @@ contract DeploySpendSave is Script {
         console.log("- Treasury:", spendSaveStorage.treasury());
         
         emit StorageDeployed(address(spendSaveStorage));
+    }
+    
+    /**
+     * @notice Deploy StateView for analytics functionality
+     * @dev StateView provides gas-efficient access to pool state data
+     */
+    function _deployStateView() internal {
+        stateView = new StateView(IPoolManager(poolManager));
+        
+        console.log("StateView deployed at:", address(stateView));
+        console.log("- Pool Manager reference:", address(stateView.poolManager()));
+        
+        emit StateViewDeployed(address(stateView));
     }
     
     /**
@@ -342,6 +376,21 @@ contract DeploySpendSave is Script {
         console.log("Hook flags verified:", vm.toString(actualFlags));
         
         emit HookDeployed(address(spendSaveHook), salt, actualFlags);
+    }
+    
+    /**
+     * @notice Deploy SpendSaveAnalytics with StateView integration
+     * @dev Analytics provides real-time portfolio tracking and pool metrics
+     */
+    function _deployAnalytics() internal {
+        analytics = new SpendSaveAnalytics(address(spendSaveStorage), address(stateView));
+        
+        console.log("SpendSaveAnalytics deployed at:", address(analytics));
+        console.log("- Storage reference:", address(analytics.storage_()));
+        console.log("- StateView reference:", address(analytics.stateView()));
+        console.log("- Pool Manager reference:", address(analytics.poolManager()));
+        
+        emit AnalyticsDeployed(address(analytics));
     }
     
     /**
@@ -477,6 +526,8 @@ contract DeploySpendSave is Script {
         // Verify core contract deployment
         require(address(spendSaveStorage) != address(0), "Storage not deployed");
         require(address(spendSaveHook) != address(0), "Hook not deployed");
+        require(address(stateView) != address(0), "StateView not deployed");
+        require(address(analytics) != address(0), "Analytics not deployed");
         
         // Verify module deployment
         require(address(savingStrategyModule) != address(0), "SavingStrategy not deployed");
@@ -582,6 +633,8 @@ contract DeploySpendSave is Script {
         console.log("CORE CONTRACTS:");
         console.log(string.concat("SpendSaveStorage: ", _addressToString(address(spendSaveStorage))));
         console.log(string.concat("SpendSaveHook:    ", _addressToString(address(spendSaveHook))));
+        console.log(string.concat("StateView:        ", _addressToString(address(stateView))));
+        console.log(string.concat("Analytics:        ", _addressToString(address(analytics))));
         console.log("-----------------------------------------------------------");
         console.log("MODULES:");
         console.log(string.concat("SavingStrategy:   ", _addressToString(address(savingStrategyModule))));
