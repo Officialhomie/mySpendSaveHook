@@ -657,7 +657,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return balance The token balance
      */
     function getBalance(address tokenOwner, uint256 id) external view returns (uint256 balance) {
-        return _balances[owner][id];
+        return _balances[tokenOwner][id];
     }
     
     /**
@@ -861,6 +861,11 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function increaseSavings(address user, address token, uint256 amount) external onlyModule {
         uint256 fee = (amount * treasuryFee) / 10000;
         uint256 netAmount = amount - fee;
+        
+        // Add token to user's savings tokens list if it's the first time
+        if (_savings[user][token] == 0) {
+            userSavingsTokens[user].push(token);
+        }
         
         _savings[user][token] += netAmount;
         if (fee > 0) {
