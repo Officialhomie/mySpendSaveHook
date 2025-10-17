@@ -24,5 +24,49 @@ via_ir = true
 [profile.dev]
 via_ir = true
 
+# Test category profiles using match patterns
+[profile.core]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=core forge test --match-path "*core*" -vv
+
+[profile.hook]  
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=hook forge test --match-path "*hook*" -vv
+
+[profile.module]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=module forge test --match-path "*module*" -vv
+
+[profile.dca]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=dca forge test --match-path "*DCA*" -vv
+
+[profile.savings]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=savings forge test --match-path "*Savings*" -vv
+
+[profile.infrastructure]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=infrastructure forge test --match-path "*{Deployment,ERC6909,Storage}*" -vv
+
+[profile.security]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=security forge test --match-path "*{Reentrancy,Security,Batch}*" -vv
+
+[profile.analytics]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=analytics forge test --match-path "*{Analytics,Quoter,Multicall,Liquidity}*" -vv
+
+[profile.performance]
+verbosity = 2
+# Usage: FOUNDRY_PROFILE=performance forge test --match-path "*{Performance,Advanced}*" -vv
+
+# Coverage analysis profile
+[profile.coverage]
+verbosity = 1
+via_ir = false
+optimizer = false
+# Usage: FOUNDRY_PROFILE=coverage forge coverage
+
 [rpc_endpoints]
 base_sepolia = "https://sepolia.base.org"
