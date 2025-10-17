@@ -462,6 +462,8 @@ contract ERC6909ComplianceTest is Test {
     
     function testERC6909_Metadata() public {
         console.log("\n=== P2 SECURITY: Testing ERC6909 metadata functions ===");
+        console.log("TOKEN_ID_A:", TOKEN_ID_A);
+        console.log("TOKEN_ID_B:", TOKEN_ID_B);
         
         // Test name function
         string memory nameA = tokenModule.name(TOKEN_ID_A);
@@ -484,9 +486,9 @@ contract ERC6909ComplianceTest is Test {
         uint8 decimalsB = tokenModule.decimals(TOKEN_ID_B);
         assertEq(decimalsB, 18, "Token B decimals should be 18");
         
-        // Test non-existent token metadata
-        string memory nonExistentName = tokenModule.name(999);
-        assertEq(nonExistentName, "", "Non-existent token should have empty name");
+        // Test non-existent token metadata - should revert for security
+        vm.expectRevert("Token not registered");
+        tokenModule.name(999);
         
         console.log("SUCCESS: ERC6909 metadata functions working correctly");
     }

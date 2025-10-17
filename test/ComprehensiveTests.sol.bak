@@ -78,7 +78,7 @@ contract ComprehensiveTests is Test, Deployers {
      */
     function _createIsolatedEnvironment() internal {
         // Deploy fresh V4 infrastructure
-        deployFreshManagerAndRouters();
+        deployFreshManager();
         poolManager = PoolManager(address(manager));
         
         // Deploy and sort fresh tokens for each test
@@ -159,8 +159,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testStorage_RegisterModule() public {
-        _createIsolatedEnvironment();
-
         bytes32 moduleId = keccak256("TEST_MODULE");
         address testModule = makeAddr("testModule");
         
@@ -172,8 +170,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testStorage_TokenIdManagement() public {
-        _createIsolatedEnvironment();
-
         uint256 initialNextId = storageContract.getNextTokenId();
         
         vm.prank(address(tokenModule));
@@ -193,8 +189,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testStorage_BalanceOperations() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
         
@@ -212,8 +206,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testStorage_TotalSupplyOperations() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
         
@@ -229,26 +221,18 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testStorage_SavingsOperations() public {
-        _createIsolatedEnvironment();
-
         uint256 amount = 100 ether;
-        // Treasury fee is 0.1% (10 bps), so net amount is 99.9 ether
-        uint256 treasuryFee = storageContract.treasuryFee();
-        uint256 netAmount = amount - (amount * treasuryFee / 10000);
-
+        
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(token0), amount);
-        assertEq(storageContract.savings(alice, address(token0)), netAmount);
-
+        assertEq(storageContract.savings(alice, address(token0)), amount);
+        
         vm.prank(address(savingsModule));
         storageContract.decreaseSavings(alice, address(token0), 30 ether);
-        // After decreasing 30 ether: 99.9 - 30 = 69.9 ether
-        assertEq(storageContract.savings(alice, address(token0)), netAmount - 30 ether);
+        assertEq(storageContract.savings(alice, address(token0)), 70 ether);
     }
 
     function testStorage_SwapContext() public {
-        _createIsolatedEnvironment();
-
         SpendSaveStorage.SwapContext memory context = SpendSaveStorage.SwapContext({
             hasStrategy: true,
             currentPercentage: 1000,
@@ -265,12 +249,12 @@ contract ComprehensiveTests is Test, Deployers {
         
         vm.prank(address(strategyModule));
         storageContract.setSwapContext(alice, context);
-
+        
         SpendSaveStorage.SwapContext memory retrieved = storageContract.getSwapContext(alice);
         assertEq(retrieved.hasStrategy, context.hasStrategy);
         assertEq(retrieved.currentPercentage, context.currentPercentage);
-        // Note: inputAmount and inputToken are NOT stored in packed format, so they return 0/address(0)
-        // This is expected behavior - only essential fields are persisted for gas efficiency
+        assertEq(retrieved.inputAmount, context.inputAmount);
+        assertEq(retrieved.inputToken, context.inputToken);
         assertEq(retrieved.roundUpSavings, context.roundUpSavings);
         
         vm.prank(address(hook));
@@ -286,14 +270,10 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testSavings_Initialize() public {
-        _createIsolatedEnvironment();
-
         assertEq(address(savingsModule.storage_()), address(storageContract));
     }
 
     function testSavings_GetUserSavings() public {
-        _createIsolatedEnvironment();
-
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(token0), 100 ether);
         
@@ -310,16 +290,9 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testSavings_GetSavingsDetails() public {
-        _createIsolatedEnvironment();
-
-        uint256 amount = 100 ether;
-        // Treasury fee is 0.1% (10 bps), so net amount is 99.9 ether
-        uint256 treasuryFee = storageContract.treasuryFee();
-        uint256 netAmount = amount - (amount * treasuryFee / 10000);
-
         vm.prank(address(savingsModule));
-        storageContract.increaseSavings(alice, address(token0), amount);
-
+        storageContract.increaseSavings(alice, address(token0), 100 ether);
+        
         (
             uint256 balance,
             uint256 totalSaved,
@@ -327,13 +300,11 @@ contract ComprehensiveTests is Test, Deployers {
             bool isLocked,
             uint256 unlockTime
         ) = savingsModule.getSavingsDetails(alice, address(token0));
-
-        assertEq(balance, netAmount);
+        
+        assertEq(balance, 100 ether);
     }
 
     function testSavings_SetWithdrawalTimelock() public {
-        _createIsolatedEnvironment();
-
         uint256 timelock = 1 days;
         
         vm.prank(alice);
@@ -341,18 +312,14 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testSavings_PauseResume() public {
-        _createIsolatedEnvironment();
-
-        // pauseSavings and resumeSavings require owner permissions
-        vm.prank(owner);
+        vm.prank(address(hook));
         savingsModule.pauseSavings();
-
-        vm.prank(owner);
+        
+        vm.prank(address(hook));
         savingsModule.resumeSavings();
     }
 
-    function testSavings_GetModuleVersion() public {
-        _createIsolatedEnvironment();
+    function testSavings_GetModuleVersion() public view {
         string memory version = savingsModule.getModuleVersion();
         assertTrue(bytes(version).length > 0, "Version should not be empty");
     }
@@ -361,16 +328,13 @@ contract ComprehensiveTests is Test, Deployers {
                           HOOK CONTRACT TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function testHook_GetHookPermissions() public {
-        _createIsolatedEnvironment();
+    function testHook_GetHookPermissions() public view {
         Hooks.Permissions memory permissions = hook.getHookPermissions();
         assertTrue(permissions.beforeSwap, "Should have beforeSwap permission");
         assertTrue(permissions.afterSwap, "Should have afterSwap permission");
     }
 
     function testHook_ProcessDailySavings() public {
-        _createIsolatedEnvironment();
-
         vm.prank(alice);
         try hook.processDailySavings(alice) {
             assertTrue(true, "Process daily savings executed");
@@ -380,8 +344,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testHook_GetProcessingQueue() public {
-        _createIsolatedEnvironment();
-
         address[] memory queue = hook.getProcessingQueue(alice);
         assertEq(queue.length, 0, "Empty queue for new user");
         
@@ -390,10 +352,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testHook_EmergencyPause() public {
-        _createIsolatedEnvironment();
-
-        // emergencyPause requires owner permissions
-        vm.prank(owner);
         hook.emergencyPause();
         assertTrue(true, "Emergency pause executed");
     }
@@ -403,40 +361,30 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testToken_Initialize() public {
-        _createIsolatedEnvironment();
-
         Token newToken = new Token();
         newToken.initialize(storageContract);
         assertEq(address(newToken.storage_()), address(storageContract));
     }
 
     function testStrategy_Initialize() public {
-        _createIsolatedEnvironment();
-
         SavingStrategy newStrategy = new SavingStrategy();
         newStrategy.initialize(storageContract);
         assertEq(address(newStrategy.storage_()), address(storageContract));
     }
 
     function testDCA_Initialize() public {
-        _createIsolatedEnvironment();
-
         DCA newDCA = new DCA();
         newDCA.initialize(storageContract);
         assertEq(address(newDCA.storage_()), address(storageContract));
     }
 
     function testDailySavings_Initialize() public {
-        _createIsolatedEnvironment();
-
         DailySavings newDailySavings = new DailySavings();
         newDailySavings.initialize(storageContract);
         assertEq(address(newDailySavings.storage_()), address(storageContract));
     }
 
     function testSlippage_Initialize() public {
-        _createIsolatedEnvironment();
-
         SlippageControl newSlippage = new SlippageControl();
         newSlippage.initialize(storageContract);
         assertEq(address(newSlippage.storage_()), address(storageContract));
@@ -447,13 +395,11 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testAccessControl_OnlyOwner() public {
-        _createIsolatedEnvironment();
-
         bytes32 moduleId = keccak256("UNAUTHORIZED_TEST");
         address testModule = makeAddr("testModule");
         
         vm.prank(alice);
-        vm.expectRevert(SpendSaveStorage.Unauthorized.selector);
+        vm.expectRevert("Unauthorized");
         storageContract.registerModule(moduleId, testModule);
         
         vm.prank(owner);
@@ -462,13 +408,11 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testAccessControl_OnlyModule() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
         
         vm.prank(alice);
-        vm.expectRevert(SpendSaveStorage.Unauthorized.selector);
+        vm.expectRevert("Unauthorized");
         storageContract.setBalance(alice, tokenId, amount);
         
         vm.prank(address(savingsModule));
@@ -477,10 +421,8 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testAccessControl_OnlyHook() public {
-        _createIsolatedEnvironment();
-
         vm.prank(alice);
-        vm.expectRevert(SpendSaveStorage.Unauthorized.selector);
+        vm.expectRevert("Unauthorized");
         storageContract.clearTransientSwapContext(alice);
         
         vm.prank(address(hook));
@@ -492,8 +434,6 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testPoolKey_Creation() public {
-        _createIsolatedEnvironment();
-
         vm.prank(address(strategyModule));
         PoolKey memory poolKey = storageContract.createPoolKey(address(token0), address(token1));
         
@@ -503,11 +443,9 @@ contract ComprehensiveTests is Test, Deployers {
         assertEq(poolKey.tickSpacing, 60);
     }
 
-    function testPoolKey_GetPoolKey() public {
-        _createIsolatedEnvironment();
-
+    function testPoolKey_GetPoolKey() public view {
         PoolKey memory poolKey = storageContract.getPoolKey(address(token0), address(token1));
-
+        
         assertEq(Currency.unwrap(poolKey.currency0), address(token0));
         assertEq(Currency.unwrap(poolKey.currency1), address(token1));
         assertEq(poolKey.fee, 3000);
@@ -519,41 +457,34 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testIntegration_ModuleWorkflow() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
-        // Treasury fee is 0.1% (10 bps), so net amount is 99.9 ether
-        uint256 treasuryFee = storageContract.treasuryFee();
-        uint256 netAmount = amount - (amount * treasuryFee / 10000);
-
+        
         // Register token
         vm.prank(address(tokenModule));
         storageContract.setIdToToken(tokenId, address(token0));
         vm.prank(address(tokenModule));
         storageContract.setTokenToId(address(token0), tokenId);
-
-        // Create savings (applies treasury fee)
+        
+        // Create savings
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(token0), amount);
-
-        // Update balances (use net amount after fee)
+        
+        // Update balances
         vm.prank(address(tokenModule));
-        storageContract.setBalance(alice, tokenId, netAmount);
+        storageContract.setBalance(alice, tokenId, amount);
         vm.prank(address(tokenModule));
-        storageContract.increaseTotalSupply(tokenId, netAmount);
-
-        // Verify (check against net amount after treasury fee)
-        assertEq(storageContract.savings(alice, address(token0)), netAmount);
-        assertEq(storageContract.getBalance(alice, tokenId), netAmount);
-        assertEq(storageContract.getTotalSupply(tokenId), netAmount);
+        storageContract.increaseTotalSupply(tokenId, amount);
+        
+        // Verify
+        assertEq(storageContract.savings(alice, address(token0)), amount);
+        assertEq(storageContract.getBalance(alice, tokenId), amount);
+        assertEq(storageContract.getTotalSupply(tokenId), amount);
         assertEq(storageContract.idToToken(tokenId), address(token0));
         assertEq(storageContract.tokenToId(address(token0)), tokenId);
     }
 
     function testIntegration_SwapContextWorkflow() public {
-        _createIsolatedEnvironment();
-
         SpendSaveStorage.SwapContext memory context = SpendSaveStorage.SwapContext({
             hasStrategy: true,
             currentPercentage: 1000,
@@ -588,8 +519,6 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testErrorHandling_InsufficientBalance() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = 1;
         uint256 initialAmount = 50 ether;
         uint256 decreaseAmount = 100 ether;
@@ -598,25 +527,21 @@ contract ComprehensiveTests is Test, Deployers {
         storageContract.setBalance(alice, tokenId, initialAmount);
         
         vm.prank(address(savingsModule));
-        vm.expectRevert(SpendSaveStorage.InsufficientBalance.selector);
+        vm.expectRevert("Insufficient balance");
         storageContract.decreaseBalance(alice, tokenId, decreaseAmount);
     }
 
     function testErrorHandling_ZeroAddress() public {
-        _createIsolatedEnvironment();
-
         bytes32 moduleId = keccak256("TEST");
         
         vm.prank(owner);
-        vm.expectRevert(SpendSaveStorage.InvalidInput.selector);
+        vm.expectRevert("Invalid input");
         storageContract.registerModule(moduleId, address(0));
     }
 
     function testErrorHandling_Reinitialization() public {
-        _createIsolatedEnvironment();
-
         vm.prank(owner);
-        vm.expectRevert(SpendSaveStorage.AlreadyInitialized.selector);
+        vm.expectRevert("Already initialized");
         storageContract.initialize(address(hook));
     }
 
@@ -625,8 +550,6 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testToken_GetTokenId() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = tokenModule.getTokenId(address(token0));
         
         if (tokenId == 0) {
@@ -637,8 +560,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testToken_BalanceOperations() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = 1;
         
         vm.prank(address(tokenModule));
@@ -655,8 +576,6 @@ contract ComprehensiveTests is Test, Deployers {
     //////////////////////////////////////////////////////////////*/
 
     function testGas_StorageOperations() public {
-        _createIsolatedEnvironment();
-
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
         
@@ -670,8 +589,6 @@ contract ComprehensiveTests is Test, Deployers {
     }
 
     function testGas_ModuleRegistration() public {
-        _createIsolatedEnvironment();
-
         bytes32 moduleId = keccak256("GAS_TEST_MODULE");
         address testModule = makeAddr("gasTestModule");
         

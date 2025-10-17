@@ -256,22 +256,28 @@ contract DCATickLogicTest is Test, Deployers {
         }
 
         // Enable DCA for Alice with tick-based strategy (price improvement only)
-        vm.startPrank(alice);
+        vm.prank(alice);
         dcaModule.enableDCA(alice, address(tokenB), DCA_MIN_AMOUNT, DCA_MAX_SLIPPAGE);
+
+        // Set tick strategy - must be called by authorized module
+        vm.prank(address(dcaModule));
         storageContract.setDcaTickStrategy(alice, TICK_DELTA, TICK_EXPIRY_TIME, true, MIN_TICK_IMPROVEMENT, false, 0);
-        vm.stopPrank();
 
         // Enable DCA for Bob with tick-based strategy (any tick movement)
-        vm.startPrank(bob);
+        vm.prank(bob);
         dcaModule.enableDCA(bob, address(tokenC), DCA_MIN_AMOUNT, DCA_MAX_SLIPPAGE);
+
+        // Set tick strategy - must be called by authorized module
+        vm.prank(address(dcaModule));
         storageContract.setDcaTickStrategy(bob, TICK_DELTA, TICK_EXPIRY_TIME, false, 0, false, 0);
-        vm.stopPrank();
 
         // Enable DCA for Charlie with dynamic sizing
-        vm.startPrank(charlie);
+        vm.prank(charlie);
         dcaModule.enableDCA(charlie, address(tokenB), DCA_MIN_AMOUNT, DCA_MAX_SLIPPAGE);
+
+        // Set tick strategy - must be called by authorized module
+        vm.prank(address(dcaModule));
         storageContract.setDcaTickStrategy(charlie, TICK_DELTA, TICK_EXPIRY_TIME, true, MIN_TICK_IMPROVEMENT, true, 0);
-        vm.stopPrank();
 
         console.log("Test accounts configured with different tick-based DCA strategies");
     }
@@ -296,8 +302,9 @@ contract DCATickLogicTest is Test, Deployers {
     function testDCATickLogic_ShouldExecuteDCAWithTickMovement() public {
         console.log("\n=== P3 CORE: Testing shouldExecuteDCA with Tick Movement ===");
 
-        // Set initial execution tick for Alice
+        // Set initial execution tick for Alice - must be called by authorized module
         bytes32 poolId = PoolId.unwrap(poolKey.toId());
+        vm.prank(address(dcaModule));
         storageContract.setLastDcaExecutionTick(alice, poolId, BASE_TICK);
 
         // Test with no tick movement (should not execute)
@@ -411,7 +418,8 @@ contract DCATickLogicTest is Test, Deployers {
         vm.prank(alice);
         dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenB), 1 ether);
 
-        // Mark as executed
+        // Mark as executed - must be called by authorized module
+        vm.prank(address(dcaModule));
         storageContract.markDcaExecuted(alice, 0);
 
         // Test shouldExecuteDCAAtTick with executed order

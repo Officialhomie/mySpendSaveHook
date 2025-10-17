@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+   // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -396,7 +396,8 @@ contract DCAQueueManagementTest is Test, Deployers {
         (,,,,, bool executedBefore,) = storageContract.getDcaQueueItem(alice, 0);
         assertFalse(executedBefore, "Item should not be executed initially");
 
-        // Mark as executed
+        // Mark as executed - must be called by authorized module
+        vm.prank(address(dcaModule));
         storageContract.markDcaExecuted(alice, 0);
 
         // Verify item is now executed
@@ -420,10 +421,12 @@ contract DCAQueueManagementTest is Test, Deployers {
         uint256 initialLength = storageContract.getDcaQueueLength(alice);
         assertEq(initialLength, 3, "Should have 3 items initially");
 
-        // Mark first item as executed
+        // Mark first item as executed - must be called by authorized module
+        vm.prank(address(dcaModule));
         storageContract.markDcaExecuted(alice, 0);
 
-        // Remove executed items
+        // Remove executed items - must be called by authorized module
+        vm.prank(address(dcaModule));
         storageContract.removeExecutedDcaItems(alice);
 
         // Verify queue length decreased (if cleanup is implemented)

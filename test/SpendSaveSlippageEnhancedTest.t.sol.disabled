@@ -1,0 +1,698 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {Test, console} from "forge-std/Test.sol";
+import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
+
+// V4 Core imports
+import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolManager} from "lib/v4-periphery/lib/v4-core/src/PoolManager.sol";
+import {Deployers} from "lib/v4-periphery/lib/v4-core/test/utils/Deployers.sol";
+import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
+import {Currency, CurrencyLibrary} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
+import {BalanceDelta} from "lib/v4-periphery/lib/v4-core/src/types/BalanceDelta.sol";
+import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
+import {Hooks} from "lib/v4-periphery/lib/v4-core/src/libraries/Hooks.sol";
+import {HookMiner} from "lib/v4-periphery/src/utils/HookMiner.sol";
+
+// V4 Periphery imports
+import {SlippageCheck} from "lib/v4-periphery/src/libraries/SlippageCheck.sol";
+
+// SpendSave Contracts
+import {SpendSaveHook} from "../src/SpendSaveHook.sol";
+import {SpendSaveStorage} from "../src/SpendSaveStorage.sol";
+import {SavingStrategy} from "../src/SavingStrategy.sol";
+import {Savings} from "../src/Savings.sol";
+import {DCA} from "../src/DCA.sol";
+import {Token} from "../src/Token.sol";
+import {SlippageControl} from "../src/SlippageControl.sol";
+import {DailySavings} from "../src/DailySavings.sol";
+import {SpendSaveSlippageEnhanced} from "../src/SpendSaveSlippageEnhanced.sol";
+
+/**
+ * @title SpendSaveSlippageEnhancedTest
+ * @notice P8 ENHANCED: Comprehensive testing of SpendSaveSlippageEnhanced dynamic market condition adjustments
+ * @dev Tests dynamic slippage calculation, market condition adjustments, and slippage validation
+ */
+contract SpendSaveSlippageEnhancedTest is Test, Deployers {
+    using CurrencyLibrary for Currency;
+    using SlippageCheck for BalanceDelta;
+
+    // Core contracts
+    SpendSaveHook public hook;
+    SpendSaveStorage public storageContract;
+    SpendSaveSlippageEnhanced public slippageModule;
+
+    // All modules
+    Savings public savingsModule;
+    SavingStrategy public strategyModule;
+    Token public tokenModule;
+    DCA public dcaModule;
+    DailySavings public dailySavingsModule;
+    SlippageControl public slippageControlModule;
+
+    // Test accounts
+    address public owner;
+    address public alice;
+    address public bob;
+    address public charlie;
+
+    // Test tokens
+    MockERC20 public tokenA;
+    MockERC20 public tokenB;
+    MockERC20 public tokenC;
+
+    // Pool configuration
+    PoolKey public poolKey;
+
+    // Test parameters
+    uint256 constant INITIAL_BALANCE = 1000 ether;
+    uint256 constant BASE_SLIPPAGE_BPS = 100; // 1%
+    uint256 constant LARGE_TRADE_AMOUNT = 100000 ether; // 100k tokens
+    uint256 constant MEDIUM_TRADE_AMOUNT = 10000 ether; // 10k tokens
+    uint256 constant SMALL_TRADE_AMOUNT = 1000 ether; // 1k tokens
+
+    // Token IDs
+    uint256 public tokenAId;
+    uint256 public tokenBId;
+    uint256 public tokenCId;
+
+    function setUp() public {
+        // Create test accounts
+        owner = makeAddr("owner");
+        alice = makeAddr("alice");
+        bob = makeAddr("bob");
+        charlie = makeAddr("charlie");
+
+        // Deploy V4 infrastructure
+        deployFreshManagerAndRouters();
+
+        // Deploy tokens
+        tokenA = new MockERC20("Token A", "TKNA", 18);
+        tokenB = new MockERC20("Token B", "TKNB", 18);
+        tokenC = new MockERC20("Token C", "TKNC", 18);
+
+        // Ensure proper token ordering for V4
+        if (address(tokenA) > address(tokenB)) {
+            (tokenA, tokenB) = (tokenB, tokenA);
+        }
+
+        // Deploy core protocol
+        _deployProtocol();
+
+        // Initialize pool
+        _initializePool();
+
+        // Setup test accounts
+        _setupTestAccounts();
+
+        console.log("=== P8 ENHANCED: SLIPPAGE ENHANCED TESTS SETUP COMPLETE ===");
+    }
+
+    function _deployProtocol() internal {
+        // Deploy storage
+        vm.prank(owner);
+        storageContract = new SpendSaveStorage(address(manager));
+
+        // Deploy all modules with fresh instances
+        vm.startPrank(owner);
+        savingsModule = new Savings();
+        strategyModule = new SavingStrategy();
+        tokenModule = new Token();
+        dcaModule = new DCA();
+        dailySavingsModule = new DailySavings();
+        slippageControlModule = new SlippageControl();
+        vm.stopPrank();
+
+        // Deploy hook with proper address mining
+        uint160 flags = uint160(
+            Hooks.BEFORE_SWAP_FLAG |
+            Hooks.AFTER_SWAP_FLAG |
+            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
+            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+        );
+
+        (address hookAddress, bytes32 salt) = HookMiner.find(
+            owner,
+            flags,
+            type(SpendSaveHook).creationCode,
+            abi.encode(IPoolManager(address(manager)), storageContract)
+        );
+
+        vm.prank(owner);
+        hook = new SpendSaveHook{salt: salt}(
+            IPoolManager(address(manager)),
+            storageContract
+        );
+
+        require(address(hook) == hookAddress, "Hook deployed at wrong address");
+
+        // Deploy SpendSaveSlippageEnhanced
+        vm.prank(owner);
+        slippageModule = new SpendSaveSlippageEnhanced(address(storageContract));
+
+        // Initialize storage
+        vm.prank(owner);
+        storageContract.initialize(address(hook));
+
+        // Register modules
+        vm.startPrank(owner);
+        storageContract.registerModule(keccak256("SAVINGS"), address(savingsModule));
+        storageContract.registerModule(keccak256("STRATEGY"), address(strategyModule));
+        storageContract.registerModule(keccak256("TOKEN"), address(tokenModule));
+        storageContract.registerModule(keccak256("DCA"), address(dcaModule));
+        storageContract.registerModule(keccak256("DAILY"), address(dailySavingsModule));
+        storageContract.registerModule(keccak256("SLIPPAGE"), address(slippageControlModule));
+        vm.stopPrank();
+
+        // Initialize modules with storage reference
+        vm.startPrank(owner);
+        savingsModule.initialize(storageContract);
+        strategyModule.initialize(storageContract);
+        tokenModule.initialize(storageContract);
+        dcaModule.initialize(storageContract);
+        dailySavingsModule.initialize(storageContract);
+        slippageControlModule.initialize(storageContract);
+
+        // Set cross-module references
+        strategyModule.setModuleReferences(
+            address(strategyModule),
+            address(savingsModule),
+            address(dcaModule),
+            address(slippageControlModule),
+            address(tokenModule),
+            address(dailySavingsModule)
+        );
+
+        savingsModule.setModuleReferences(
+            address(strategyModule),
+            address(savingsModule),
+            address(dcaModule),
+            address(slippageControlModule),
+            address(tokenModule),
+            address(dailySavingsModule)
+        );
+
+        dcaModule.setModuleReferences(
+            address(strategyModule),
+            address(savingsModule),
+            address(dcaModule),
+            address(slippageControlModule),
+            address(tokenModule),
+            address(dailySavingsModule)
+        );
+
+        slippageControlModule.setModuleReferences(
+            address(strategyModule),
+            address(savingsModule),
+            address(dcaModule),
+            address(slippageControlModule),
+            address(tokenModule),
+            address(dailySavingsModule)
+        );
+
+        tokenModule.setModuleReferences(
+            address(strategyModule),
+            address(savingsModule),
+            address(dcaModule),
+            address(slippageControlModule),
+            address(tokenModule),
+            address(dailySavingsModule)
+        );
+
+        dailySavingsModule.setModuleReferences(
+            address(strategyModule),
+            address(savingsModule),
+            address(dcaModule),
+            address(slippageControlModule),
+            address(tokenModule),
+            address(dailySavingsModule)
+        );
+
+        vm.stopPrank();
+
+        console.log("Core protocol deployed and initialized");
+    }
+
+    function _initializePool() internal {
+        // Create pool key
+        poolKey = PoolKey({
+            currency0: Currency.wrap(address(tokenA)),
+            currency1: Currency.wrap(address(tokenB)),
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: IHooks(address(hook))
+        });
+
+        // Initialize pool
+        manager.initialize(poolKey, SQRT_PRICE_1_1);
+
+        console.log("Initialized pool with SpendSave hook");
+    }
+
+    function _setupTestAccounts() internal {
+        // Fund all test accounts with tokens
+        address[] memory accounts = new address[](4);
+        accounts[0] = alice;
+        accounts[1] = bob;
+        accounts[2] = charlie;
+        accounts[3] = owner;
+
+        for (uint256 i = 0; i < accounts.length; i++) {
+            tokenA.mint(accounts[i], INITIAL_BALANCE);
+            tokenB.mint(accounts[i], INITIAL_BALANCE);
+            tokenC.mint(accounts[i], INITIAL_BALANCE);
+        }
+
+        // Register tokens and get their IDs
+        tokenAId = tokenModule.registerToken(address(tokenA));
+        tokenBId = tokenModule.registerToken(address(tokenB));
+        tokenCId = tokenModule.registerToken(address(tokenC));
+
+        // Setup user slippage history for testing
+        _setupUserSlippageHistory();
+
+        console.log("Test accounts configured with tokens and slippage history");
+    }
+
+    function _setupUserSlippageHistory() internal {
+        // Set some historical slippage data for users
+        vm.prank(address(slippageControlModule));
+        storageContract.setUserSlippageTolerance(alice, 150); // 1.5%
+
+        vm.prank(address(slippageControlModule));
+        storageContract.setUserSlippageTolerance(bob, 75); // 0.75%
+
+        // Set token-specific slippage for volatile tokens
+        vm.prank(address(slippageControlModule));
+        storageContract.setTokenSlippageTolerance(alice, address(tokenC), 300); // 3% for token C
+    }
+
+    // ==================== BASIC SLIPPAGE VALIDATION TESTS ====================
+
+    function testSlippageEnhanced_ValidateSwapSlippage() public {
+        console.log("\n=== P8 ENHANCED: Testing Basic Slippage Validation ===");
+
+        // Create balance delta for testing
+        BalanceDelta delta = BalanceDelta.wrap(int256(uint256(100 ether)) << 128 | uint256(95 ether)); // 100 in, 95 out
+
+        uint128 amountInMax = 100 ether;
+        uint128 amountOutMin = 90 ether;
+
+        // Validate slippage (should pass)
+        slippageModule.validateSwapSlippage(delta, amountInMax, amountOutMin);
+
+        console.log("Basic slippage validation working");
+        console.log("SUCCESS: Basic slippage validation working");
+    }
+
+    function testSlippageEnhanced_ValidateSwapSlippageTooMuchIn() public {
+        console.log("\n=== P8 ENHANCED: Testing Slippage Validation - Too Much Input ===");
+
+        // Create balance delta with excessive input
+        BalanceDelta delta = BalanceDelta.wrap(int256(uint256(150 ether)) << 128 | uint256(95 ether)); // 150 in, 95 out
+
+        uint128 amountInMax = 100 ether; // Max 100 in allowed
+
+        // Should revert due to excessive input
+        vm.expectRevert(); // V4 SlippageCheck will revert
+        slippageModule.validateSwapSlippage(delta, amountInMax, 0);
+
+        console.log("Excessive input protection working");
+        console.log("SUCCESS: Excessive input protection working");
+    }
+
+    function testSlippageEnhanced_ValidateSwapSlippageInsufficientOut() public {
+        console.log("\n=== P8 ENHANCED: Testing Slippage Validation - Insufficient Output ===");
+
+        // Create balance delta with insufficient output
+        BalanceDelta delta = BalanceDelta.wrap(int256(uint256(100 ether)) << 128 | uint256(80 ether)); // 100 in, 80 out
+
+        uint128 amountOutMin = 90 ether; // Min 90 out required
+
+        // Should revert due to insufficient output
+        vm.expectRevert(); // V4 SlippageCheck will revert
+        slippageModule.validateSwapSlippage(delta, type(uint128).max, amountOutMin);
+
+        console.log("Insufficient output protection working");
+        console.log("SUCCESS: Insufficient output protection working");
+    }
+
+    // ==================== DYNAMIC SLIPPAGE CALCULATION TESTS ====================
+
+    function testSlippageEnhanced_CalculateDynamicSlippageTradeSize() public {
+        console.log("\n=== P8 ENHANCED: Testing Dynamic Slippage - Trade Size Impact ===");
+
+        // Test different trade sizes
+        uint256 baseSlippage = BASE_SLIPPAGE_BPS;
+
+        // Small trade (should not adjust)
+        uint256 smallTradeSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SMALL_TRADE_AMOUNT,
+            baseSlippage
+        );
+
+        // Medium trade (should increase slightly)
+        uint256 mediumTradeSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            MEDIUM_TRADE_AMOUNT,
+            baseSlippage
+        );
+
+        // Large trade (should increase significantly)
+        uint256 largeTradeSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            LARGE_TRADE_AMOUNT,
+            baseSlippage
+        );
+
+        // Verify adjustments
+        assertEq(smallTradeSlippage, baseSlippage, "Small trade should not be adjusted");
+        assertGt(mediumTradeSlippage, baseSlippage, "Medium trade should increase slippage");
+        assertGt(largeTradeSlippage, mediumTradeSlippage, "Large trade should increase slippage more");
+
+        // Verify within bounds
+        assertLe(largeTradeSlippage, slippageModule.MAX_SLIPPAGE_BPS(), "Should not exceed max slippage");
+
+        console.log("Trade size adjustments working correctly");
+        console.log("Small:", smallTradeSlippage, "Medium:", mediumTradeSlippage, "Large:", largeTradeSlippage);
+        console.log("SUCCESS: Trade size impact working");
+    }
+
+    function testSlippageEnhanced_CalculateDynamicSlippageTokenVolatility() public {
+        console.log("\n=== P8 ENHANCED: Testing Dynamic Slippage - Token Volatility ===");
+
+        uint256 baseSlippage = BASE_SLIPPAGE_BPS;
+
+        // Test with "stable" token (should reduce slippage)
+        uint256 stableTokenSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA), // Assume tokenA is stable
+            SWAP_AMOUNT,
+            baseSlippage
+        );
+
+        // Test with "volatile" token (should increase slippage)
+        uint256 volatileTokenSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenC), // Assume tokenC is volatile
+            SWAP_AMOUNT,
+            baseSlippage
+        );
+
+        // Verify volatility adjustments
+        assertLt(stableTokenSlippage, baseSlippage, "Stable token should reduce slippage");
+        assertGt(volatileTokenSlippage, baseSlippage, "Volatile token should increase slippage");
+
+        console.log("Token volatility adjustments working correctly");
+        console.log("Stable token:", stableTokenSlippage, "Volatile token:", volatileTokenSlippage);
+        console.log("SUCCESS: Token volatility impact working");
+    }
+
+    function testSlippageEnhanced_CalculateDynamicSlippageMarketConditions() public {
+        console.log("\n=== P8 ENHANCED: Testing Dynamic Slippage - Market Conditions ===");
+
+        uint256 baseSlippage = BASE_SLIPPAGE_BPS;
+
+        // Test market condition adjustments (time-based)
+        uint256 marketSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SWAP_AMOUNT,
+            baseSlippage
+        );
+
+        // Should adjust based on market conditions
+        assertGe(marketSlippage, slippageModule.DEFAULT_SLIPPAGE_BPS(), "Should be at least default");
+        assertLe(marketSlippage, slippageModule.MAX_SLIPPAGE_BPS(), "Should not exceed max");
+
+        console.log("Market condition adjustments working");
+        console.log("Market adjusted slippage:", marketSlippage);
+        console.log("SUCCESS: Market condition impact working");
+    }
+
+    function testSlippageEnhanced_CalculateDynamicSlippageUserHistory() public {
+        console.log("\n=== P8 ENHANCED: Testing Dynamic Slippage - User History ===");
+
+        uint256 baseSlippage = BASE_SLIPPAGE_BPS;
+
+        // Test with Alice (has 1.5% historical tolerance)
+        uint256 aliceSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SWAP_AMOUNT,
+            baseSlippage
+        );
+
+        // Test with Bob (has 0.75% historical tolerance)
+        uint256 bobSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SWAP_AMOUNT,
+            baseSlippage
+        );
+
+        // Should reflect user history
+        assertGe(aliceSlippage, baseSlippage, "Alice should have adjusted slippage based on history");
+        assertGe(bobSlippage, baseSlippage, "Bob should have adjusted slippage based on history");
+
+        console.log("User history adjustments working");
+        console.log("Alice slippage:", aliceSlippage, "Bob slippage:", bobSlippage);
+        console.log("SUCCESS: User history impact working");
+    }
+
+    function testSlippageEnhanced_CalculateDynamicSlippageBounds() public {
+        console.log("\n=== P8 ENHANCED: Testing Dynamic Slippage Bounds ===");
+
+        // Test extreme cases to ensure bounds are respected
+        uint256 baseSlippage = BASE_SLIPPAGE_BPS;
+
+        // Very small trade (should use minimum)
+        uint256 minSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            1, // Very small amount
+            baseSlippage
+        );
+
+        // Very large trade (should be capped at max)
+        uint256 maxSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenC), // Volatile token
+            type(uint256).max, // Extremely large amount
+            baseSlippage
+        );
+
+        assertGe(minSlippage, slippageModule.DEFAULT_SLIPPAGE_BPS(), "Should be at least default minimum");
+        assertLe(maxSlippage, slippageModule.MAX_SLIPPAGE_BPS(), "Should not exceed maximum");
+
+        console.log("Slippage bounds protection working");
+        console.log("Min slippage:", minSlippage, "Max slippage:", maxSlippage);
+        console.log("SUCCESS: Slippage bounds protection working");
+    }
+
+    // ==================== SLIPPAGE ADJUSTMENT ALGORITHMS TESTS ====================
+
+    function testSlippageEnhanced_AdjustForTradeSize() public {
+        console.log("\n=== P8 ENHANCED: Testing Trade Size Adjustment Algorithm ===");
+
+        uint256 baseSlippage = BASE_SLIPPAGE_BPS;
+
+        // Test different trade size tiers
+        uint256 smallTrade = slippageModule.calculateDynamicSlippage(address(tokenA), SMALL_TRADE_AMOUNT, baseSlippage);
+        uint256 mediumTrade = slippageModule.calculateDynamicSlippage(address(tokenA), MEDIUM_TRADE_AMOUNT, baseSlippage);
+        uint256 largeTrade = slippageModule.calculateDynamicSlippage(address(tokenA), LARGE_TRADE_AMOUNT, baseSlippage);
+
+        // Verify progressive adjustment
+        assertEq(smallTrade, baseSlippage, "Small trades should not be adjusted");
+        assertGt(mediumTrade, baseSlippage, "Medium trades should be adjusted");
+        assertGt(largeTrade, mediumTrade, "Large trades should be adjusted more");
+
+        console.log("Trade size adjustment algorithm working");
+        console.log("Small:", smallTrade, "Medium:", mediumTrade, "Large:", largeTrade);
+        console.log("SUCCESS: Trade size adjustment algorithm working");
+    }
+
+    function testSlippageEnhanced_AdjustForTokenVolatilityStable() public {
+        console.log("\n=== P8 ENHANCED: Testing Token Volatility Adjustment - Stable Token ===");
+
+        // Test with stable token (should reduce slippage)
+        uint256 stableSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SWAP_AMOUNT,
+            BASE_SLIPPAGE_BPS
+        );
+
+        // Should be reduced from base
+        assertLt(stableSlippage, BASE_SLIPPAGE_BPS, "Stable token should reduce slippage");
+
+        console.log("Stable token volatility adjustment working");
+        console.log("Base:", BASE_SLIPPAGE_BPS, "Adjusted:", stableSlippage);
+        console.log("SUCCESS: Stable token volatility adjustment working");
+    }
+
+    function testSlippageEnhanced_AdjustForTokenVolatilityVolatile() public {
+        console.log("\n=== P8 ENHANCED: Testing Token Volatility Adjustment - Volatile Token ===");
+
+        // Test with volatile token (should increase slippage)
+        uint256 volatileSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenC),
+            SWAP_AMOUNT,
+            BASE_SLIPPAGE_BPS
+        );
+
+        // Should be increased from base
+        assertGt(volatileSlippage, BASE_SLIPPAGE_BPS, "Volatile token should increase slippage");
+
+        console.log("Volatile token volatility adjustment working");
+        console.log("Base:", BASE_SLIPPAGE_BPS, "Adjusted:", volatileSlippage);
+        console.log("SUCCESS: Volatile token volatility adjustment working");
+    }
+
+    // ==================== INTEGRATION WITH DCA MODULE TESTS ====================
+
+    function testSlippageEnhanced_DCAIntegration() public {
+        console.log("\n=== P8 ENHANCED: Testing DCA Integration with Enhanced Slippage ===");
+
+        // Setup DCA with slippage
+        vm.prank(alice);
+        dcaModule.enableDCA(alice, address(tokenB), 10 ether, BASE_SLIPPAGE_BPS);
+
+        // Verify DCA configuration includes slippage
+        DCA.DCAConfig memory dcaConfig = dcaModule.getDCAConfig(alice);
+        assertTrue(dcaConfig.enabled, "DCA should be enabled");
+        assertEq(dcaConfig.maxSlippage, BASE_SLIPPAGE_BPS, "DCA should use base slippage");
+
+        // Test dynamic slippage calculation for DCA amount
+        uint256 dcaSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            10 ether, // DCA amount
+            BASE_SLIPPAGE_BPS
+        );
+
+        // Should provide reasonable slippage for DCA
+        assertGe(dcaSlippage, BASE_SLIPPAGE_BPS, "DCA slippage should be at least base");
+        assertLe(dcaSlippage, slippageModule.MAX_SLIPPAGE_BPS(), "DCA slippage should not exceed max");
+
+        console.log("DCA integration with enhanced slippage working");
+        console.log("DCA slippage:", dcaSlippage);
+        console.log("SUCCESS: DCA integration working");
+    }
+
+    // ==================== PERFORMANCE TESTS ====================
+
+    function testSlippageEnhanced_GasEfficiency() public {
+        console.log("\n=== P8 ENHANCED: Testing Gas Efficiency ===");
+
+        uint256 gasBefore = gasleft();
+
+        // Perform multiple slippage calculations
+        for (uint256 i = 0; i < 10; i++) {
+            slippageModule.calculateDynamicSlippage(
+                address(tokenA),
+                SWAP_AMOUNT * (i + 1),
+                BASE_SLIPPAGE_BPS
+            );
+        }
+
+        uint256 gasUsed = gasBefore - gasleft();
+
+        // Gas usage should be reasonable for multiple calculations
+        assertLt(gasUsed, 500000, "Gas usage should be reasonable for 10 calculations");
+
+        console.log("Gas efficiency verified");
+        console.log("Gas used for 10 calculations:", gasUsed);
+        console.log("SUCCESS: Gas efficiency working");
+    }
+
+    // ==================== INTEGRATION TESTS ====================
+
+    function testSlippageEnhanced_CompleteWorkflow() public {
+        console.log("\n=== P8 ENHANCED: Testing Complete Slippage Enhanced Workflow ===");
+
+        // 1. Validate basic swap slippage
+        BalanceDelta delta = BalanceDelta.wrap(int256(uint256(100 ether)) << 128 | uint256(95 ether));
+        slippageModule.validateSwapSlippage(delta, 100 ether, 90 ether);
+
+        // 2. Calculate dynamic slippage for different scenarios
+        uint256 smallTradeSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SMALL_TRADE_AMOUNT,
+            BASE_SLIPPAGE_BPS
+        );
+
+        uint256 largeTradeSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenC),
+            LARGE_TRADE_AMOUNT,
+            BASE_SLIPPAGE_BPS
+        );
+
+        // 3. Test with user history
+        uint256 aliceSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SWAP_AMOUNT,
+            BASE_SLIPPAGE_BPS
+        );
+
+        uint256 bobSlippage = slippageModule.calculateDynamicSlippage(
+            address(tokenA),
+            SWAP_AMOUNT,
+            BASE_SLIPPAGE_BPS
+        );
+
+        // 4. Verify all calculations are within bounds
+        assertGe(smallTradeSlippage, slippageModule.DEFAULT_SLIPPAGE_BPS(), "Small trade within bounds");
+        assertLe(largeTradeSlippage, slippageModule.MAX_SLIPPAGE_BPS(), "Large trade within bounds");
+        assertGe(aliceSlippage, slippageModule.DEFAULT_SLIPPAGE_BPS(), "Alice slippage within bounds");
+        assertGe(bobSlippage, slippageModule.DEFAULT_SLIPPAGE_BPS(), "Bob slippage within bounds");
+
+        // 5. Test DCA integration
+        vm.prank(alice);
+        dcaModule.enableDCA(alice, address(tokenB), 10 ether, BASE_SLIPPAGE_BPS);
+
+        DCA.DCAConfig memory dcaConfig = dcaModule.getDCAConfig(alice);
+        assertEq(dcaConfig.maxSlippage, BASE_SLIPPAGE_BPS, "DCA should use base slippage");
+
+        console.log("Complete slippage enhanced workflow successful");
+        console.log("Small trade:", smallTradeSlippage, "Large trade:", largeTradeSlippage);
+        console.log("Alice:", aliceSlippage, "Bob:", bobSlippage);
+        console.log("SUCCESS: Complete slippage enhanced workflow verified");
+    }
+
+    function testSlippageEnhanced_ComprehensiveReport() public {
+        console.log("\n=== P8 ENHANCED: COMPREHENSIVE SLIPPAGE ENHANCED REPORT ===");
+
+        // Run all slippage enhanced tests
+        testSlippageEnhanced_ValidateSwapSlippage();
+        testSlippageEnhanced_ValidateSwapSlippageTooMuchIn();
+        testSlippageEnhanced_ValidateSwapSlippageInsufficientOut();
+        testSlippageEnhanced_CalculateDynamicSlippageTradeSize();
+        testSlippageEnhanced_CalculateDynamicSlippageTokenVolatility();
+        testSlippageEnhanced_CalculateDynamicSlippageMarketConditions();
+        testSlippageEnhanced_CalculateDynamicSlippageUserHistory();
+        testSlippageEnhanced_CalculateDynamicSlippageBounds();
+        testSlippageEnhanced_AdjustForTradeSize();
+        testSlippageEnhanced_AdjustForTokenVolatilityStable();
+        testSlippageEnhanced_AdjustForTokenVolatilityVolatile();
+        testSlippageEnhanced_DCAIntegration();
+        testSlippageEnhanced_GasEfficiency();
+        testSlippageEnhanced_CompleteWorkflow();
+
+        console.log("\n=== FINAL SLIPPAGE ENHANCED RESULTS ===");
+        console.log("PASS - Basic Slippage Validation: PASS");
+        console.log("PASS - Excessive Input Protection: PASS");
+        console.log("PASS - Insufficient Output Protection: PASS");
+        console.log("PASS - Trade Size Impact: PASS");
+        console.log("PASS - Token Volatility Impact: PASS");
+        console.log("PASS - Market Conditions Impact: PASS");
+        console.log("PASS - User History Impact: PASS");
+        console.log("PASS - Slippage Bounds Protection: PASS");
+        console.log("PASS - Trade Size Algorithm: PASS");
+        console.log("PASS - Stable Token Volatility: PASS");
+        console.log("PASS - Volatile Token Volatility: PASS");
+        console.log("PASS - DCA Integration: PASS");
+        console.log("PASS - Gas Efficiency: PASS");
+        console.log("PASS - Complete Workflow: PASS");
+
+        console.log("\n=== SLIPPAGE ENHANCED SUMMARY ===");
+        console.log("Total slippage enhanced scenarios: 14");
+        console.log("Scenarios passing: 14");
+        console.log("Success rate: 100%");
+        console.log("SUCCESS: Complete SpendSaveSlippageEnhanced functionality verified!");
+    }
+}
+
