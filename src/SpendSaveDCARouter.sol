@@ -50,6 +50,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using BipsLibrary for uint256;
     using SafeCast for uint256;
+    using PoolIdLibrary for PoolKey;
 
     // ==================== EVENTS ====================
 
@@ -359,12 +360,34 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
 
     /**
      * @notice Try direct path between two tokens
+     * @dev Validates that the pool actually exists before returning path
      */
     function _tryDirectPath(
         address fromToken,
         address toToken
     ) internal view returns (PathKey[] memory path) {
-        // Create direct path with standard 0.3% fee tier
+        // Construct pool key for direct path
+        // Ensure proper token ordering for V4
+        (address token0, address token1) = fromToken < toToken ? (fromToken, toToken) : (toToken, fromToken);
+
+        PoolKey memory poolKey = PoolKey({
+            currency0: Currency.wrap(token0),
+            currency1: Currency.wrap(token1),
+            fee: 3000, // 0.3%
+            tickSpacing: 60,
+            hooks: IHooks(address(0))
+        });
+
+        // Check if pool has been initialized by checking if sqrtPriceX96 != 0
+        PoolId poolId = poolKey.toId();
+        (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(poolManager, poolId);
+
+        if (sqrtPriceX96 == 0) {
+            // Pool not initialized - return empty path
+            return new PathKey[](0);
+        }
+
+        // Pool exists - create direct path
         PathKey memory pathKey = PathKey({
             intermediateCurrency: Currency.wrap(toToken),
             fee: 3000, // 0.3%
@@ -375,7 +398,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
 
         path = new PathKey[](1);
         path[0] = pathKey;
-        
+
         return path;
     }
 

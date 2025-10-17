@@ -45,11 +45,16 @@ contract SpendSaveQuoter {
                 hookData: ""
             })
         );
-        
+
         // Calculate savings amount
         savedAmount = (uint256(uint128(amountIn)) * savingsPercentage) / 10000;
         uint128 adjustedInput = amountIn - uint128(savedAmount);
-        
+
+        // Handle case where all input is saved (100% savings)
+        if (adjustedInput == 0) {
+            return (fullSwapOutput, savedAmount, 0);
+        }
+
         // Get quote for adjusted amount
         (uint256 adjustedSwapOutput, ) = quoter.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
@@ -59,10 +64,10 @@ contract SpendSaveQuoter {
                 hookData: ""
             })
         );
-        
+
         swapOutput = fullSwapOutput;
         netOutput = adjustedSwapOutput;
-        
+
         return (swapOutput, savedAmount, netOutput);
     }
 
@@ -74,6 +79,11 @@ contract SpendSaveQuoter {
         bool zeroForOne,
         uint128 amountIn
     ) external returns (uint256 amountOut, uint256 gasEstimate) {
+        // Handle zero amount gracefully
+        if (amountIn == 0) {
+            return (0, 50000); // Return 0 output with base gas estimate
+        }
+
         (uint256 quoteOutput, uint256 gas) = quoter.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
                 poolKey: poolKey,
@@ -82,10 +92,10 @@ contract SpendSaveQuoter {
                 hookData: ""
             })
         );
-        
+
         amountOut = quoteOutput;
         gasEstimate = gas + 50000; // Add DCA execution overhead
-        
+
         return (amountOut, gasEstimate);
     }
 
@@ -93,21 +103,22 @@ contract SpendSaveQuoter {
      * @notice Preview multi-hop routing using real V4Quoter
      */
     function previewMultiHopRouting(
+        Currency startingCurrency,
         PathKey[] memory path,
         uint128 amountIn
     ) external returns (uint256 amountOut, uint256 gasEstimate) {
         require(path.length > 0, "Empty path");
         require(amountIn > 0, "Zero amount");
-        
+
         // Use V4Quoter for accurate multi-hop pricing with production struct
         (amountOut, gasEstimate) = quoter.quoteExactInput(
             IV4Quoter.QuoteExactParams({
-                exactCurrency: Currency.wrap(address(0)), // Will be determined from path
+                exactCurrency: startingCurrency,
                 path: path,
                 exactAmount: amountIn
             })
         );
-        
+
         return (amountOut, gasEstimate);
     }
 }

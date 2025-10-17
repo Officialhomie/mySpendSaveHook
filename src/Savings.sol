@@ -474,7 +474,8 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         }
         storage_.decreaseSavings(user, token, amount);
         _burnSavingsToken(user, token, amount);
-        IERC20(token).safeTransfer(user, actualAmount);
+        // Call Storage to release tokens to user (Storage holds the tokens)
+        storage_.releaseTokens(token, actualAmount, user);
         emit WithdrawalProcessed(user, token, amount, actualAmount, isEarlyWithdrawal);
         return actualAmount;
     }
@@ -613,13 +614,28 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         if (msg.sender != user) revert Unauthorized();
         if (amount == 0) revert InvalidAmount();
         if (token == address(0)) revert InvalidToken();
-        
-        // Transfer tokens from user
-        IERC20(token).safeTransferFrom(user, address(this), amount);
-        
-        // Process as savings
-        SpendSaveStorage.SwapContext memory context; // Empty context for direct deposit
-        _processSavings(user, token, amount, context);
+
+        // Transfer tokens from user to Storage contract (central custody)
+        IERC20(token).safeTransferFrom(user, address(storage_), amount);
+
+        // Calculate treasury fee and net amount
+        uint256 treasuryFee = storage_.treasuryFee();
+        uint256 feeAmount = (amount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
+        uint256 netAmount = amount - feeAmount;
+
+        // Update savings in storage (this applies the treasury fee internally)
+        storage_.increaseSavings(user, token, amount);
+
+        // Mint ERC6909 savings tokens for the net amount
+        _mintSavingsToken(user, token, netAmount);
+
+        // Register token if needed
+        _registerTokenIfNeeded(token);
+
+        // Check for goal achievement
+        _checkGoalAchievement(user, token, netAmount);
+
+        emit SavingsProcessed(user, token, amount, netAmount, feeAmount);
     }
 
     // ==================== VIEW FUNCTIONS ====================
@@ -851,8 +867,9 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         
         // Emergency withdrawal bypasses all checks
         storage_.decreaseSavings(user, token, amount);
-        IERC20(token).safeTransfer(recipient, amount);
-        
+        // Call Storage to release tokens to recipient (Storage holds the tokens)
+        storage_.releaseTokens(token, amount, recipient);
+
         emit EmergencyWithdrawal(user, token, amount, recipient);
     }
     
@@ -860,17 +877,17 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @notice Pause savings operations (owner only)
      * @dev Emergency pause for critical situations
      */
-    function pauseSavings() external onlyHook whenNotPaused onlyInitialized {
+    function pauseSavings() external whenNotPaused onlyInitialized {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         paused = true;
         emit PauseStateChanged(true);
     }
-    
+
     /**
      * @notice Resume savings operations (owner only)
      * @dev Resume operations after emergency pause
      */
-    function resumeSavings() external nonReentrant whenNotPaused onlyInitialized {
+    function resumeSavings() external nonReentrant onlyInitialized {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         paused = false;
         emit PauseStateChanged(false);

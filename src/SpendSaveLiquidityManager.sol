@@ -514,20 +514,18 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         require(storage_.savings(user, token1) >= amount1, "Insufficient token1 savings");
         
         // Decrease user's savings in storage (this is the real transfer from savings)
-        storage_.decreaseSavings(user, token0, amount0);
-        storage_.decreaseSavings(user, token1, amount1);
-        
-        // Note: The actual tokens are held by the SpendSaveStorage contract
-        // We need to implement a way to access them for LP operations
-        // This would typically involve the storage contract having approval
-        // to transfer tokens to this contract, or this contract being authorized
-        // to access the storage contract's token holdings
-        
-        // Transfer the actual tokens from storage contract to this contract
-        // This requires SpendSaveStorage to have a function to release tokens
-        // for authorized operations like LP conversion
-        _requestTokensFromStorage(token0, amount0);
-        _requestTokensFromStorage(token1, amount1);
+        // Only decrease if amount > 0 (pool might be outside range needing only one token)
+        if (amount0 > 0) {
+            storage_.decreaseSavings(user, token0, amount0);
+            // Request tokens from storage contract for LP operations
+            _requestTokensFromStorage(token0, amount0);
+        }
+
+        if (amount1 > 0) {
+            storage_.decreaseSavings(user, token1, amount1);
+            // Request tokens from storage contract for LP operations
+            _requestTokensFromStorage(token1, amount1);
+        }
     }
     
     /**

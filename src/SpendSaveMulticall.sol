@@ -69,6 +69,9 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
     /// @notice Maximum gas per batch to prevent DOS
     uint256 public constant MAX_BATCH_GAS = 8000000; // 8M gas
 
+    /// @notice Maximum number of calls per batch
+    uint256 public constant MAX_BATCH_SIZE = 50; // Maximum 50 calls per batch
+
     /// @notice Authorized batch executors
     mapping(address => bool) public authorizedExecutors;
 
@@ -116,7 +119,7 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
         bool requireSuccess
     ) external payable nonReentrant onlyWhenActive returns (bytes[] memory results) {
         require(calls.length > 0, "Empty batch");
-        require(gasleft() <= MAX_BATCH_GAS, "Batch too large");
+        require(calls.length <= MAX_BATCH_SIZE, "Batch too large");
 
         uint256 batchId = ++batchCounter;
         uint256 gasStart = gasleft();

@@ -141,9 +141,10 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     
     // Helper for authorization check
     function _isAuthorizedCaller(address user) internal view returns (bool) {
-        return (msg.sender == user || 
-                msg.sender == address(storage_) || 
-                msg.sender == storage_.spendSaveHook());
+        return (msg.sender == user ||
+                msg.sender == address(storage_) ||
+                msg.sender == storage_.spendSaveHook() ||
+                storage_.isAuthorizedModule(msg.sender));
     }
     
     // Initialize module with storage reference
@@ -248,7 +249,21 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             targetToken
         );
         
-        emit DCAEnabled(user, targetToken, true);
+        // Store DCA-specific configuration
+        storage_.setDcaTargetToken(user, targetToken);
+
+        // Store DCA parameters in tick strategy (using custom slippage tolerance field)
+        storage_.setDcaTickStrategy(
+            user,
+            0,          // tickDelta (default)
+            1 days,     // tickExpiryTime (default)
+            true,       // onlyImprovePrice (default)
+            0,          // minTickImprovement (default)
+            false,      // dynamicSizing (default)
+            maxSlippage // customSlippageTolerance
+        );
+        
+        emit DCAEnabled(user, targetToken);
     }
     
     // Helper to update saving strategy
@@ -698,7 +713,22 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         
         return (shouldExecute, currentTick);
     }
-    
+
+    /**
+     * @notice Check if DCA should execute at specific tick (for testing)
+     * @param user The user address
+     * @param index The queue item index
+     * @param currentTick The current tick to check
+     * @return shouldExecute Whether DCA should execute at this tick
+     */
+    function shouldExecuteDCAAtTickPublic(
+        address user,
+        uint256 index,
+        int24 currentTick
+    ) external view returns (bool shouldExecute) {
+        return shouldExecuteDCAAtTick(user, index, currentTick);
+    }
+
     /**
      * @notice Calculate optimal DCA execution amount
      * @param user The user address
