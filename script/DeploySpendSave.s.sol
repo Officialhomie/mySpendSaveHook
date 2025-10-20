@@ -28,6 +28,14 @@ import {Token} from "../src/Token.sol";
 import {SlippageControl} from "../src/SlippageControl.sol";
 import {DailySavings} from "../src/DailySavings.sol";
 
+// Import Phase 2 Enhancement contracts
+import {SpendSaveDCARouter} from "../src/SpendSaveDCARouter.sol";
+import {SpendSaveLiquidityManager} from "../src/SpendSaveLiquidityManager.sol";
+import {SpendSaveModuleRegistry} from "../src/SpendSaveModuleRegistry.sol";
+import {SpendSaveMulticall} from "../src/SpendSaveMulticall.sol";
+import {SpendSaveQuoter} from "../src/SpendSaveQuoter.sol";
+import {SpendSaveSlippageEnhanced} from "../src/SpendSaveSlippageEnhanced.sol";
+
 /**
  * @title DeploySpendSave
  * @notice Comprehensive deployment script for the gas-efficient SpendSave protocol
@@ -57,16 +65,102 @@ contract DeploySpendSave is Script {
     
     // ==================== NETWORK CONFIGURATION ====================
     
-    /// @notice Base Mainnet PoolManager address
-    address constant POOL_MANAGER_BASE = 0x498581fF718922c3f8e6A244956aF099B2652b2b;
-    
-    /// @notice Base Sepolia Testnet PoolManager address 
-    address constant POOL_MANAGER_BASE_SEPOLIA = 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408;
-    
     /// @notice Supported chain IDs for deployment
     uint256 constant CHAIN_ID_BASE = 8453;
     uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
+    uint256 constant CHAIN_ID_ETHEREUM = 1;
+    uint256 constant CHAIN_ID_OPTIMISM = 10;
+    uint256 constant CHAIN_ID_ARBITRUM = 42161;
+    uint256 constant CHAIN_ID_POLYGON = 137;
+    
+    /// @notice Network configuration struct
+    struct NetworkConfig {
+        string name;
+        address poolManager;
+        address positionManager;
+        address quoter;
+        address permit2;
+        bool isTestnet;
+    }
+    
+    /// @notice Network configurations mapping
+    mapping(uint256 => NetworkConfig) public networkConfigs;
+    
+    /// @notice Current network configuration
+    NetworkConfig public currentNetwork;
 
+    // ==================== CONSTRUCTOR ====================
+    
+    constructor() {
+        _initializeNetworkConfigs();
+    }
+    
+    /**
+     * @notice Initialize network configurations for all supported networks
+     * @dev Sets up the networkConfigs mapping with addresses from Uniswap V4 deployments
+     */
+    function _initializeNetworkConfigs() internal {
+        // Base Sepolia Testnet
+        networkConfigs[CHAIN_ID_BASE_SEPOLIA] = NetworkConfig({
+            name: "Base Sepolia",
+            poolManager: 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408,
+            positionManager: 0x33E61BCa1cDa979E349Bf14840BD178Cc7d0F55D,
+            quoter: 0xf3A39C86dbd13C45365E57FB90fe413371F65AF8,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
+            isTestnet: true
+        });
+        
+        // Base Mainnet
+        networkConfigs[CHAIN_ID_BASE] = NetworkConfig({
+            name: "Base",
+            poolManager: 0x498581fF718922c3f8e6A244956aF099B2652b2b,
+            positionManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            quoter: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
+            isTestnet: false
+        });
+        
+        // Ethereum Mainnet
+        networkConfigs[CHAIN_ID_ETHEREUM] = NetworkConfig({
+            name: "Ethereum",
+            poolManager: 0x000000000004444c5dc75cB358380D2e3dE08A90,
+            positionManager: 0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e,
+            quoter: 0x52F0E24D1c21C8A0cB1e5a5dD6198556BD9E1203,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
+            isTestnet: false
+        });
+        
+        // Optimism Mainnet
+        networkConfigs[CHAIN_ID_OPTIMISM] = NetworkConfig({
+            name: "Optimism",
+            poolManager: 0x9a13F98Cb987694C9F086b1F5eB990EeA8264Ec3,
+            positionManager: 0x3C3Ea4B57a46241e54610e5f022E5c45859A1017,
+            quoter: 0x1f3131A13296FB91C90870043742C3CDBFF1A8d7,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
+            isTestnet: false
+        });
+        
+        // Arbitrum One
+        networkConfigs[CHAIN_ID_ARBITRUM] = NetworkConfig({
+            name: "Arbitrum One",
+            poolManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            positionManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            quoter: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
+            isTestnet: false
+        });
+        
+        // Polygon
+        networkConfigs[CHAIN_ID_POLYGON] = NetworkConfig({
+            name: "Polygon",
+            poolManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            positionManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            quoter: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
+            isTestnet: false
+        });
+    }
+    
     // ==================== MODULE REGISTRY CONSTANTS ====================
     
     /// @notice Module identifiers for storage registry
@@ -76,6 +170,14 @@ contract DeploySpendSave is Script {
     bytes32 constant TOKEN_MODULE_ID = keccak256("TOKEN");
     bytes32 constant SLIPPAGE_MODULE_ID = keccak256("SLIPPAGE");
     bytes32 constant DAILY_MODULE_ID = keccak256("DAILY");
+    
+    /// @notice Phase 2 Enhancement module identifiers
+    bytes32 constant DCA_ROUTER_MODULE_ID = keccak256("DCA_ROUTER");
+    bytes32 constant LIQUIDITY_MANAGER_MODULE_ID = keccak256("LIQUIDITY_MANAGER");
+    bytes32 constant MODULE_REGISTRY_ID = keccak256("MODULE_REGISTRY");
+    bytes32 constant MULTICALL_MODULE_ID = keccak256("MULTICALL");
+    bytes32 constant QUOTER_MODULE_ID = keccak256("QUOTER");
+    bytes32 constant SLIPPAGE_ENHANCED_MODULE_ID = keccak256("SLIPPAGE_ENHANCED");
 
     // ==================== HOOK CONFIGURATION ====================
     
@@ -103,6 +205,14 @@ contract DeploySpendSave is Script {
     Token public tokenModule;
     SlippageControl public slippageControlModule;
     DailySavings public dailySavingsModule;
+    
+    /// @notice Phase 2 Enhancement contracts
+    SpendSaveDCARouter public dcaRouter;
+    SpendSaveLiquidityManager public liquidityManager;
+    SpendSaveModuleRegistry public moduleRegistry;
+    SpendSaveMulticall public multicall;
+    SpendSaveQuoter public quoter;
+    SpendSaveSlippageEnhanced public slippageEnhanced;
     
     /// @notice Deployment configuration
     address public poolManager;
@@ -138,6 +248,16 @@ contract DeploySpendSave is Script {
         address tokenModule,
         address slippageModule,
         address dailyModule
+    );
+    
+    /// @notice Emitted when Phase 2 Enhancement contracts are deployed
+    event Phase2ContractsDeployed(
+        address dcaRouter,
+        address liquidityManager,
+        address moduleRegistry,
+        address multicall,
+        address quoter,
+        address slippageEnhanced
     );
     
     /// @notice Emitted when deployment completes successfully
@@ -182,14 +302,28 @@ contract DeploySpendSave is Script {
     /**
      * @notice Initialize deployment configuration based on network and environment
      * @dev Sets up network-specific parameters and validates deployment environment
+     *      Supports both private key and account-based deployment methods
      */
     function _initializeDeploymentConfig() internal {
-        // Determine network and pool manager
-        poolManager = _getPoolManagerForNetwork();
+        uint256 chainId = block.chainid;
         
-        // Get deployer from private key
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        deployer = vm.addr(deployerPrivateKey);
+        // Get network configuration
+        currentNetwork = networkConfigs[chainId];
+        require(currentNetwork.poolManager != address(0), "Unsupported network");
+        
+        // Set addresses from network configuration
+        poolManager = currentNetwork.poolManager;
+        
+        // Get deployer address - supports both private key and account-based deployment
+        try vm.envUint("PRIVATE_KEY") returns (uint256 deployerPrivateKey) {
+            // Private key method (legacy)
+            deployer = vm.addr(deployerPrivateKey);
+            console.log("Using private key deployment method");
+        } catch {
+            // Account-based method (recommended)
+            deployer = msg.sender;
+            console.log("Using account-based deployment method");
+        }
         
         // Set owner (can be different from deployer)
         owner = vm.envOr("OWNER_ADDRESS", deployer);
@@ -198,8 +332,10 @@ contract DeploySpendSave is Script {
         treasury = vm.envOr("TREASURY_ADDRESS", owner);
         
         // Log configuration
-        console.log("Network:", _getNetworkName());
+        console.log("Network:", currentNetwork.name);
         console.log("Pool Manager:", poolManager);
+        console.log("Position Manager:", currentNetwork.positionManager);
+        console.log("Quoter:", currentNetwork.quoter);
         console.log("Deployer:", deployer);
         console.log("Owner:", owner);
         console.log("Treasury:", treasury);
@@ -234,24 +370,28 @@ contract DeploySpendSave is Script {
         console.log("\n--- Step 6: Initializing Storage ---");
         _initializeStorage();
         
-        // Step 7: Initialize all modules
-        console.log("\n--- Step 7: Initializing Modules ---");
+        // Step 7: Deploy Phase 2 Enhancement contracts (after storage initialization)
+        console.log("\n--- Step 7: Deploying Phase 2 Enhancement Contracts ---");
+        _deployPhase2Contracts();
+        
+        // Step 8: Initialize all modules
+        console.log("\n--- Step 8: Initializing Modules ---");
         _initializeAllModules();
         
-        // Step 8: Register modules in storage registry
-        console.log("\n--- Step 8: Registering Modules ---");
+        // Step 9: Register modules in storage registry
+        console.log("\n--- Step 9: Registering Modules ---");
         _registerAllModules();
         
-        // Step 9: Initialize hook with module references
-        console.log("\n--- Step 9: Initializing Hook ---");
+        // Step 10: Initialize hook with module references
+        console.log("\n--- Step 10: Initializing Hook ---");
         _initializeHook();
         
-        // Step 10: Set cross-module references
-        console.log("\n--- Step 10: Setting Cross-Module References ---");
+        // Step 11: Set cross-module references
+        console.log("\n--- Step 11: Setting Cross-Module References ---");
         _setModuleReferences();
         
-        // Step 11: Verify deployment
-        console.log("\n--- Step 11: Verifying Deployment ---");
+        // Step 12: Verify deployment
+        console.log("\n--- Step 12: Verifying Deployment ---");
         _verifyDeployment();
     }
 
@@ -316,6 +456,53 @@ contract DeploySpendSave is Script {
             address(tokenModule),
             address(slippageControlModule),
             address(dailySavingsModule)
+        );
+    }
+    
+    /**
+     * @notice Deploy Phase 2 Enhancement contracts
+     * @dev Deploys advanced routing, liquidity management, and utility contracts
+     */
+    function _deployPhase2Contracts() internal {
+        // Deploy DCA Router for advanced routing
+        dcaRouter = new SpendSaveDCARouter(
+            IPoolManager(poolManager),
+            address(spendSaveStorage),
+            currentNetwork.quoter
+        );
+        console.log("SpendSaveDCARouter deployed at:", address(dcaRouter));
+        
+        // Deploy Liquidity Manager for LP position management
+        liquidityManager = new SpendSaveLiquidityManager(
+            address(spendSaveStorage),
+            currentNetwork.positionManager,
+            currentNetwork.permit2
+        );
+        console.log("SpendSaveLiquidityManager deployed at:", address(liquidityManager));
+        
+        // Deploy Module Registry for upgradeable module management
+        moduleRegistry = new SpendSaveModuleRegistry(address(spendSaveStorage));
+        console.log("SpendSaveModuleRegistry deployed at:", address(moduleRegistry));
+        
+        // Deploy Multicall for batch operations
+        multicall = new SpendSaveMulticall(address(spendSaveStorage));
+        console.log("SpendSaveMulticall deployed at:", address(multicall));
+        
+        // Deploy Quoter for price impact preview
+        quoter = new SpendSaveQuoter(address(spendSaveStorage), currentNetwork.quoter);
+        console.log("SpendSaveQuoter deployed at:", address(quoter));
+        
+        // Deploy Enhanced Slippage Control
+        slippageEnhanced = new SpendSaveSlippageEnhanced(address(spendSaveStorage));
+        console.log("SpendSaveSlippageEnhanced deployed at:", address(slippageEnhanced));
+        
+        emit Phase2ContractsDeployed(
+            address(dcaRouter),
+            address(liquidityManager),
+            address(moduleRegistry),
+            address(multicall),
+            address(quoter),
+            address(slippageEnhanced)
         );
     }
     
@@ -440,7 +627,7 @@ contract DeploySpendSave is Script {
      * @dev This enables the gas-efficient module lookup system
      */
     function _registerAllModules() internal {
-        // Register each module with its identifier
+        // Register core modules with their identifiers
         spendSaveStorage.registerModule(STRATEGY_MODULE_ID, address(savingStrategyModule));
         spendSaveStorage.registerModule(SAVINGS_MODULE_ID, address(savingsModule));
         spendSaveStorage.registerModule(DCA_MODULE_ID, address(dcaModule));
@@ -448,9 +635,17 @@ contract DeploySpendSave is Script {
         spendSaveStorage.registerModule(SLIPPAGE_MODULE_ID, address(slippageControlModule));
         spendSaveStorage.registerModule(DAILY_MODULE_ID, address(dailySavingsModule));
         
+        // Register Phase 2 Enhancement modules
+        spendSaveStorage.registerModule(DCA_ROUTER_MODULE_ID, address(dcaRouter));
+        spendSaveStorage.registerModule(LIQUIDITY_MANAGER_MODULE_ID, address(liquidityManager));
+        spendSaveStorage.registerModule(MODULE_REGISTRY_ID, address(moduleRegistry));
+        spendSaveStorage.registerModule(MULTICALL_MODULE_ID, address(multicall));
+        spendSaveStorage.registerModule(QUOTER_MODULE_ID, address(quoter));
+        spendSaveStorage.registerModule(SLIPPAGE_ENHANCED_MODULE_ID, address(slippageEnhanced));
+        
         console.log("All modules registered in storage registry");
         
-        // Verify registrations
+        // Verify core module registrations
         require(
             spendSaveStorage.getModule(STRATEGY_MODULE_ID) == address(savingStrategyModule),
             "Strategy module registration failed"
@@ -463,6 +658,44 @@ contract DeploySpendSave is Script {
             spendSaveStorage.getModule(DCA_MODULE_ID) == address(dcaModule),
             "DCA module registration failed"
         );
+        require(
+            spendSaveStorage.getModule(TOKEN_MODULE_ID) == address(tokenModule),
+            "Token module registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(SLIPPAGE_MODULE_ID) == address(slippageControlModule),
+            "Slippage module registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(DAILY_MODULE_ID) == address(dailySavingsModule),
+            "Daily module registration failed"
+        );
+        
+        // Verify Phase 2 module registrations
+        require(
+            spendSaveStorage.getModule(DCA_ROUTER_MODULE_ID) == address(dcaRouter),
+            "DCA Router module registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(LIQUIDITY_MANAGER_MODULE_ID) == address(liquidityManager),
+            "Liquidity Manager module registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(MODULE_REGISTRY_ID) == address(moduleRegistry),
+            "Module Registry registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(MULTICALL_MODULE_ID) == address(multicall),
+            "Multicall module registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(QUOTER_MODULE_ID) == address(quoter),
+            "Quoter module registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(SLIPPAGE_ENHANCED_MODULE_ID) == address(slippageEnhanced),
+            "Slippage Enhanced module registration failed"
+        );
     }
     
     /**
@@ -470,21 +703,15 @@ contract DeploySpendSave is Script {
      * @dev This enables the hook to coordinate with all modules during swap execution
      */
     function _initializeHook() internal {
-        spendSaveHook.initializeModules(
-            address(savingStrategyModule),
-            address(savingsModule),
-            address(dcaModule),
-            address(slippageControlModule),
-            address(tokenModule),
-            address(dailySavingsModule)
-        );
+        // Note: Modules are already initialized in step 7, so we don't need to call initializeModules
+        // The hook will use the module registry to access modules
         
-        console.log("Hook initialized with all module references");
+        console.log("Hook ready to coordinate with all modules via registry");
         
-        // Verify hook module initialization
+        // Verify hook can access modules through registry
         require(
             spendSaveHook.checkModulesInitialized(),
-            "Hook module initialization verification failed"
+            "Hook module access verification failed"
         );
     }
     
@@ -587,36 +814,28 @@ contract DeploySpendSave is Script {
     // ==================== UTILITY FUNCTIONS ====================
     
     /**
-     * @notice Get pool manager address for current network
-     * @return poolManagerAddress The pool manager for the current network
-     * @dev Supports Base Mainnet and Base Sepolia, easily extensible
-     */
-    function _getPoolManagerForNetwork() internal view returns (address poolManagerAddress) {
-        uint256 chainId = block.chainid;
-        
-        if (chainId == CHAIN_ID_BASE) {
-            return POOL_MANAGER_BASE;
-        } else if (chainId == CHAIN_ID_BASE_SEPOLIA) {
-            return POOL_MANAGER_BASE_SEPOLIA;
-        } else {
-            revert(string.concat("Unsupported network. Chain ID: ", vm.toString(chainId)));
-        }
-    }
-    
-    /**
      * @notice Get human-readable network name for logging
      * @return networkName The name of the current network
      */
     function _getNetworkName() internal view returns (string memory networkName) {
-        uint256 chainId = block.chainid;
-        
-        if (chainId == CHAIN_ID_BASE) {
-            return "Base Mainnet";
-        } else if (chainId == CHAIN_ID_BASE_SEPOLIA) {
-            return "Base Sepolia";
-        } else {
-            return string.concat("Unknown Network (", vm.toString(chainId), ")");
-        }
+        return currentNetwork.name;
+    }
+    
+    /**
+     * @notice Check if current network is supported
+     * @return isSupported True if network is supported
+     */
+    function _isNetworkSupported() internal view returns (bool isSupported) {
+        return currentNetwork.poolManager != address(0);
+    }
+    
+    /**
+     * @notice Get network configuration for a specific chain ID
+     * @param chainId The chain ID to get configuration for
+     * @return config The network configuration
+     */
+    function getNetworkConfig(uint256 chainId) external view returns (NetworkConfig memory config) {
+        return networkConfigs[chainId];
     }
     
     /**
@@ -636,13 +855,21 @@ contract DeploySpendSave is Script {
         console.log(string.concat("StateView:        ", _addressToString(address(stateView))));
         console.log(string.concat("Analytics:        ", _addressToString(address(analytics))));
         console.log("-----------------------------------------------------------");
-        console.log("MODULES:");
+        console.log("CORE MODULES:");
         console.log(string.concat("SavingStrategy:   ", _addressToString(address(savingStrategyModule))));
         console.log(string.concat("Savings:          ", _addressToString(address(savingsModule))));
         console.log(string.concat("DCA:              ", _addressToString(address(dcaModule))));
         console.log(string.concat("Token:            ", _addressToString(address(tokenModule))));
         console.log(string.concat("SlippageControl:  ", _addressToString(address(slippageControlModule))));
         console.log(string.concat("DailySavings:     ", _addressToString(address(dailySavingsModule))));
+        console.log("-----------------------------------------------------------");
+        console.log("PHASE 2 ENHANCEMENT CONTRACTS:");
+        console.log(string.concat("DCA Router:       ", _addressToString(address(dcaRouter))));
+        console.log(string.concat("Liquidity Manager:", _addressToString(address(liquidityManager))));
+        console.log(string.concat("Module Registry:  ", _addressToString(address(moduleRegistry))));
+        console.log(string.concat("Multicall:        ", _addressToString(address(multicall))));
+        console.log(string.concat("Quoter:           ", _addressToString(address(quoter))));
+        console.log(string.concat("Slippage Enhanced:", _addressToString(address(slippageEnhanced))));
         console.log("-----------------------------------------------------------");
         console.log("GAS OPTIMIZATIONS:");
         console.log("Packed Storage:        ENABLED");
