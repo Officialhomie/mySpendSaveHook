@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -13,6 +13,17 @@ import {Currency, CurrencyLibrary} from "lib/v4-periphery/lib/v4-core/src/types/
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "lib/v4-periphery/lib/v4-core/src/libraries/Hooks.sol";
 import {HookMiner} from "lib/v4-periphery/src/utils/HookMiner.sol";
+
+// V4 Periphery imports
+import {IPositionManager} from "lib/v4-periphery/src/interfaces/IPositionManager.sol";
+import {PositionManager} from "lib/v4-periphery/src/PositionManager.sol";
+import {PositionDescriptor} from "lib/v4-periphery/src/PositionDescriptor.sol";
+import {IPositionDescriptor} from "lib/v4-periphery/src/interfaces/IPositionDescriptor.sol";
+import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
+import {DeployPermit2} from "permit2/test/utils/DeployPermit2.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IWETH9} from "lib/v4-periphery/src/interfaces/external/IWETH9.sol";
+import {WETH} from "solmate/src/tokens/WETH.sol";
 
 // SpendSave Contracts
 import {SpendSaveHook} from "../src/SpendSaveHook.sol";
@@ -35,12 +46,19 @@ import {SpendSaveMulticall} from "../src/SpendSaveMulticall.sol";
  * @notice P5 ADVANCED: Comprehensive testing of cross-module communication through module registry
  * @dev Tests module authorization, cross-module references, data flow, and integration patterns
  */
-contract CrossModuleCommunicationTest is Test, Deployers {
+contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
     using CurrencyLibrary for Currency;
 
     // Core contracts
     SpendSaveHook public hook;
     SpendSaveStorage public storageContract;
+
+    // V4 Periphery
+    IPositionManager public positionManager;
+    IAllowanceTransfer public permit2;
+    IWETH9 public weth9;
+    IPositionDescriptor public positionDescriptor;
+    TransparentUpgradeableProxy public proxy;
 
     // All modules
     Savings public savingsModule;
@@ -93,6 +111,9 @@ contract CrossModuleCommunicationTest is Test, Deployers {
         // Deploy V4 infrastructure
         deployFreshManagerAndRouters();
 
+        // Deploy V4 Periphery (Permit2, WETH9, PositionManager)
+        _deployV4Periphery();
+
         // Deploy tokens
         tokenA = new MockERC20("Token A", "TKNA", 18);
         tokenB = new MockERC20("Token B", "TKNB", 18);
@@ -110,6 +131,43 @@ contract CrossModuleCommunicationTest is Test, Deployers {
         _setupTestAccounts();
 
         console.log("=== P5 ADVANCED: CROSS-MODULE TESTS SETUP COMPLETE ===");
+    }
+
+    function _deployV4Periphery() internal {
+        // Deploy Permit2
+        permit2 = IAllowanceTransfer(deployPermit2());
+
+        // Deploy WETH9
+        WETH wethImpl = new WETH();
+        address wethAddr = makeAddr("WETH");
+        vm.etch(wethAddr, address(wethImpl).code);
+        weth9 = IWETH9(wethAddr);
+
+        // Deploy PositionDescriptor
+        PositionDescriptor descriptorImpl = new PositionDescriptor(
+            manager,
+            address(weth9),
+            bytes32("ETH")
+        );
+
+        // Deploy TransparentUpgradeableProxy for descriptor
+        proxy = new TransparentUpgradeableProxy(
+            address(descriptorImpl),
+            owner,
+            ""
+        );
+        positionDescriptor = IPositionDescriptor(address(proxy));
+
+        // Deploy PositionManager
+        positionManager = new PositionManager(
+            manager,
+            permit2,
+            100_000, // unsubscribeGasLimit
+            positionDescriptor,
+            weth9
+        );
+
+        console.log("V4 Periphery deployed successfully");
     }
 
     function _deployProtocol() internal {
@@ -150,19 +208,19 @@ contract CrossModuleCommunicationTest is Test, Deployers {
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
-        // Deploy additional contracts
+        // Initialize storage FIRST (required by LiquidityManager)
         vm.prank(owner);
-        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(manager));
+        storageContract.initialize(address(hook));
+
+        // Deploy additional contracts AFTER storage initialization
+        vm.prank(owner);
+        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
 
         vm.prank(owner);
         dcaRouter = new SpendSaveDCARouter(manager, address(storageContract), address(0x01));
 
         vm.prank(owner);
         multicall = new SpendSaveMulticall(address(storageContract));
-
-        // Initialize storage
-        vm.prank(owner);
-        storageContract.initialize(address(hook));
 
         // Register modules
         vm.startPrank(owner);
