@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {ITokenModule} from "./interfaces/ITokenModule.sol";
@@ -60,10 +60,12 @@ contract Token is ITokenModule, ReentrancyGuard {
     constructor() {}
 
     modifier onlyAuthorized(address user) {
-        if (msg.sender != user && 
-            msg.sender != address(storage_) && 
+        if (msg.sender != user &&
+            msg.sender != address(storage_) &&
             msg.sender != storage_.spendSaveHook() &&
-            msg.sender != _savingsModule) {  // Add this line
+            msg.sender != _savingsModule &&
+            msg.sender != _dailySavingsModule &&
+            !isOperator[user][msg.sender]) {  // Also allow operators
             revert UnauthorizedCaller();
         }
         _;

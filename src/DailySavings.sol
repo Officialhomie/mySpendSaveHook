@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -193,22 +193,28 @@ contract DailySavings is IDailySavingsModule {
         uint256 endTime
     ) external override onlyAuthorized(user) nonReentrant {
         _validateConfigParams(token, dailyAmount, penaltyBps, endTime);
-        
+
         // Store daily amount
         storage_.setDailySavingsAmount(user, token, dailyAmount);
-        
+
+        // Query existing savings balance to include in currentAmount
+        uint256 existingSavings = storage_.savings(user, token);
+
         // Configure settings
         SpendSaveStorage.DailySavingsConfigParams memory params = SpendSaveStorage.DailySavingsConfigParams({
             enabled: true,
             lastExecutionTime: block.timestamp,  // NEW: Set to current time for new configs
-            startTime: block.timestamp,  
+            startTime: block.timestamp,
             goalAmount: goalAmount,
-            currentAmount: 0,    // starting at 0 for a new configuration
+            currentAmount: existingSavings,    // Include existing savings in current amount
             penaltyBps: penaltyBps,
             endTime: endTime
         });
 
         storage_.setDailySavingsConfig(user, token, params);
+        
+        // Register token in user's savings token list for tracking
+        storage_.addUserSavingsToken(user, token);
         
         // Check if we need to register token for ERC6909
         tokenModule.getTokenId(token);
@@ -227,16 +233,8 @@ contract DailySavings is IDailySavingsModule {
     
     // Helper to validate savings are enabled
     function _validateSavingsEnabled(address user, address token) internal view {
-        SpendSaveStorage.DailySavingsConfig memory config = storage_.getDailySavingsConfig(user);
-        bool tokenConfigured = false;
-        for (uint i = 0; i < config.tokens.length; i++) {
-            if (config.tokens[i] == token) {
-                tokenConfigured = true;
-                break;
-            }
-        }
-        bool enabled = config.isActive && tokenConfigured;
-        if(!enabled) revert NoSavingsConfigured();
+        (bool enabled,,,,,, ) = storage_.getDailySavingsConfig(user, token);
+        if (!enabled) revert NoSavingsConfigured();
     }
     
     // Helper to reset daily savings
@@ -308,19 +306,15 @@ contract DailySavings is IDailySavingsModule {
             address token = tokens[i];
             uint256 tokenStartGas = gasleft();
             
-            try this.executeDailySavingsForToken(user, token) returns (uint256 amount) {
-                if (amount > 0) {
-                    context.totalSaved += amount;
-                    context.processingCount++;
-                    
-                    // Calculate actual gas used and adjust estimate
-                    uint256 gasUsed = tokenStartGas - gasleft();
-                    context.gasLimit = _adjustGasEstimate(context.gasLimit, gasUsed);
-                }
-            } catch Error(string memory reason) {
-                emit DailySavingsExecutionSkipped(user, token, reason);
-            } catch {
-                emit DailySavingsExecutionSkipped(user, token, "Unknown error");
+            // Call internal function directly (no reentrancy issue)
+            uint256 amount = _executeDailySavingsForTokenInternal(user, token);
+            if (amount > 0) {
+                context.totalSaved += amount;
+                context.processingCount++;
+                
+                // Calculate actual gas used and adjust estimate
+                uint256 gasUsed = tokenStartGas - gasleft();
+                context.gasLimit = _adjustGasEstimate(context.gasLimit, gasUsed);
             }
         }
     }
@@ -337,11 +331,19 @@ contract DailySavings is IDailySavingsModule {
         return currentEstimate; // Keep same estimate if usage is close
     }
     
-    // Execute daily savings for a specific token - optimized version
+    // Execute daily savings for a specific token - public wrapper with reentrancy guard
     function executeDailySavingsForToken(
         address user, 
         address token
     ) public override nonReentrant returns (uint256) {
+        return _executeDailySavingsForTokenInternal(user, token);
+    }
+    
+    // Internal implementation without reentrancy guard (safe to call from other internal functions)
+    function _executeDailySavingsForTokenInternal(
+        address user, 
+        address token
+    ) internal returns (uint256) {
         uint256 startGas = gasleft();
         
         // Get execution context with all necessary checks
@@ -433,14 +435,15 @@ contract DailySavings is IDailySavingsModule {
 
     // Execute token savings with proper error handling
     function _executeTokenSavings(
-        address user, 
-        address token, 
+        address user,
+        address token,
         uint256 amount
     ) internal returns (uint256) {
         // Try to transfer tokens with proper error handling
+        // Transfer to Storage contract (central custody) per architecture
         bool transferSuccess;
-        
-        try IERC20(token).transferFrom(user, address(this), amount) {
+
+        try IERC20(token).transferFrom(user, address(storage_), amount) {
             transferSuccess = true;
         } catch Error(string memory reason) {
             emit TransferError(user, token, reason);
@@ -449,32 +452,41 @@ contract DailySavings is IDailySavingsModule {
             emit TransferError(user, token, "Unknown transfer error");
             return 0;
         }
-        
+
         if (transferSuccess) {
             // Update storage and process tokens only if transfer was successful
             _updateSavingsState(user, token, amount);
             return amount;
         }
-        
+
         return 0;
     }
 
 
     // Update savings state with all necessary operations
     function _updateSavingsState(
-        address user, 
-        address token, 
+        address user,
+        address token,
         uint256 amount
     ) internal {
-        // Update execution time and amount
-        storage_.updateDailySavingsExecution(user, token, amount);
+        // Calculate net amount after treasury fee first
+        uint256 treasuryFee = storage_.treasuryFee();
+        uint256 feeAmount = (amount * treasuryFee) / 10000; // TREASURY_FEE_DENOMINATOR
+        uint256 netAmount = amount - feeAmount;
         
-        // Mint ERC6909 savings tokens
-        _mintSavingsTokenForDailySavings(user, token, amount);
-        
+        // Increase the user's savings balance in storage
+        // NOTE: increaseSavings() applies treasury fee internally
+        storage_.increaseSavings(user, token, amount);
+
+        // Update execution time and amount with NET amount (after fees)
+        storage_.updateDailySavingsExecution(user, token, netAmount);
+
+        // Mint ERC6909 savings tokens for the net amount (consistent with other savings flows)
+        _mintSavingsTokenForDailySavings(user, token, netAmount);
+
         // Check if goal has been reached
         _checkGoalReached(user, token);
-        
+
         // Apply yield strategy if configured
         _applyYieldStrategy(user, token);
     }
@@ -525,21 +537,25 @@ contract DailySavings is IDailySavingsModule {
             status.penaltyBps,
             status.endTime
         ) = storage_.getDailySavingsConfig(user, token);
-        
+
+        // Always get daily amount if enabled (needed for status queries)
+        if (status.enabled) {
+            status.dailyAmount = storage_.dailySavingsAmounts(user, token);
+        }
+
         // Calculate goal reached
         status.goalReached = status.goalAmount > 0 && status.currentAmount >= status.goalAmount;
-        
+
         // Calculate days passed since last execution
         if (status.enabled && !status.goalReached) {
             status.daysPassed = (block.timestamp - status.lastExecutionTime) / ONE_DAY_IN_SECONDS;
-            
-            // Get daily amount if we have days to process
+
+            // Should process if we have days passed and a daily amount configured
             if (status.daysPassed > 0) {
-                status.dailyAmount = storage_.dailySavingsAmounts(user, token);
                 status.shouldProcess = status.dailyAmount > 0;
             }
         }
-        
+
         return status;
     }
     
@@ -656,23 +672,23 @@ contract DailySavings is IDailySavingsModule {
     
     // Update config after withdrawal
     function _updateConfigAfterWithdrawal(
-        address user, 
-        address token, 
-        uint256 amount, 
+        address user,
+        address token,
+        uint256 amount,
         uint256 currentAmount
     ) internal {
         // Calculate new amount after withdrawal
         uint256 newAmount = currentAmount >= amount ? currentAmount - amount : 0;
-        
+
         // Get current config first (except currentAmount which we already have)
-        (bool enabled, , , uint256 goalAmount, , uint256 penaltyBps, uint256 endTime) = 
+        (bool enabled, uint256 lastExecutionTime, uint256 startTime, uint256 goalAmount, , uint256 penaltyBps, uint256 endTime) =
             storage_.getDailySavingsConfig(user, token);
-        
+
         // Create parameter struct
         SpendSaveStorage.DailySavingsConfigParams memory params = SpendSaveStorage.DailySavingsConfigParams({
             enabled: enabled,
-            lastExecutionTime: block.timestamp, // or retrieve the correct value if needed
-            startTime: block.timestamp, // set appropriately if you have this info, else 0
+            lastExecutionTime: lastExecutionTime, // Preserve execution time
+            startTime: startTime, // Preserve start time
             goalAmount: goalAmount,
             currentAmount: newAmount,
             penaltyBps: penaltyBps,
@@ -680,6 +696,9 @@ contract DailySavings is IDailySavingsModule {
         });
 
         storage_.setDailySavingsConfig(user, token, params);
+
+        // Also decrease the actual savings balance in storage
+        storage_.decreaseSavings(user, token, amount);
     }
     
     // Transfer withdrawal funds with error handling
@@ -689,18 +708,18 @@ contract DailySavings is IDailySavingsModule {
         uint256 netAmount,
         uint256 penalty
     ) internal {
-        // Transfer net amount to user with proper error handling
-        try IERC20(token).transfer(user, netAmount) {
+        // Request storage contract to release tokens to user
+        try storage_.releaseTokens(token, netAmount, user) {
             // Success - continue to penalty transfer if needed
         } catch {
             revert WithdrawalFailed();
         }
-        
+
         // Transfer penalty to treasury if applicable
         if (penalty > 0) {
             address treasury = storage_.treasury();
-            // Use safeTransfer for penalty - it's ok if this fails
-            try IERC20(token).transfer(treasury, penalty) {
+            // Request storage to release penalty to treasury
+            try storage_.releaseTokens(token, penalty, treasury) {
                 // Success
             } catch {
                 // If penalty transfer fails, we don't revert since the user already got their funds

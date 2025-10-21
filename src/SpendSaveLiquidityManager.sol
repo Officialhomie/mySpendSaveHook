@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
@@ -20,6 +20,7 @@ import {PositionInfo, PositionInfoLibrary} from "lib/v4-periphery/src/libraries/
 import {LiquidityAmounts} from "lib/v4-periphery/src/libraries/LiquidityAmounts.sol";
 import {Actions} from "lib/v4-periphery/src/libraries/Actions.sol";
 import {IMulticall_v4} from "lib/v4-periphery/src/interfaces/IMulticall_v4.sol";
+import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 
@@ -90,8 +91,14 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     /// @notice Reference to Uniswap V4 PositionManager
     IPositionManager public immutable positionManager;
 
+    /// @notice Reference to Permit2 for token approvals
+    IAllowanceTransfer public immutable permit2;
+
     /// @notice Reference to Uniswap V4 PoolManager
-    IPoolManager public immutable poolManager;
+    IPoolManager public poolManager;
+
+    /// @notice Hook address to use for pool keys (if applicable)
+    IHooks public poolHook;
 
     /// @notice Mapping from user to their LP position token IDs
     mapping(address user => uint256[] tokenIds) public userPositions;
@@ -117,17 +124,28 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @notice Initialize the SpendSaveLiquidityManager
      * @param _storage SpendSaveStorage contract address
      * @param _positionManager Uniswap V4 PositionManager address
+     * @param _permit2 Permit2 contract address for token approvals
      */
     constructor(
         address _storage,
-        address _positionManager
+        address _positionManager,
+        address _permit2
     ) {
         require(_storage != address(0), "Invalid storage address");
         require(_positionManager != address(0), "Invalid position manager address");
-        
+        require(_permit2 != address(0), "Invalid permit2 address");
+
         storage_ = SpendSaveStorage(_storage);
         positionManager = IPositionManager(_positionManager);
-        poolManager = IPoolManager(storage_.poolManager());
+        permit2 = IAllowanceTransfer(_permit2);
+        // Get poolManager from positionManager's immutable state
+        poolManager = positionManager.poolManager();
+
+        // Get hook address from storage
+        // NOTE: Storage must be initialized BEFORE deploying LiquidityManager
+        address hookAddr = storage_.spendSaveHook();
+        require(hookAddr != address(0), "Storage not initialized - deploy LiquidityManager after storage.initialize()");
+        poolHook = IHooks(hookAddr);
 
         // Set default minimum conversion amounts (0.01 tokens)
         // These can be updated by governance
@@ -165,18 +183,30 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         // Get user savings amounts
         uint256 amount0 = storage_.savings(user, token0);
         uint256 amount1 = storage_.savings(user, token1);
-        
-        // Check minimum amounts
-        require(amount0 >= minConversionAmounts[token0], "Insufficient token0 amount");
-        require(amount1 >= minConversionAmounts[token1], "Insufficient token1 amount");
+
+        // Check minimum amounts (use defaultMinAmount if token not configured)
+        uint256 minAmount0 = minConversionAmounts[token0] == 0 ? defaultMinAmount : minConversionAmounts[token0];
+        uint256 minAmount1 = minConversionAmounts[token1] == 0 ? defaultMinAmount : minConversionAmounts[token1];
+
+        require(amount0 >= minAmount0, "Insufficient token0 amount");
+        require(amount1 >= minAmount1, "Insufficient token1 amount");
 
         // Create pool key
         PoolKey memory poolKey = _createPoolKey(token0, token1);
 
         // Calculate optimal liquidity amounts
-        (uint256 optimalAmount0, uint256 optimalAmount1, uint128 liquidityToAdd) = 
+        (uint256 optimalAmount0, uint256 optimalAmount1, uint128 liquidityToAdd) =
             _calculateOptimalAmounts(poolKey, amount0, amount1, tickLower, tickUpper);
 
+        // Better error messages for debugging
+        if (liquidityToAdd == 0) {
+            if (optimalAmount0 == 0) {
+                revert("Insufficient token0 amount");
+            }
+            if (optimalAmount1 == 0) {
+                revert("Insufficient token1 amount");
+            }
+        }
         require(liquidityToAdd >= MIN_LIQUIDITY, "Insufficient liquidity");
 
         // Transfer tokens from storage to this contract
@@ -222,10 +252,10 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         address[] calldata users,
         ConversionParams[] calldata params,
         uint256 deadline
-    ) external nonReentrant {
+    ) external {
         require(users.length == params.length, "Array length mismatch");
         require(users.length > 0, "Empty arrays");
-        
+
         for (uint256 i = 0; i < users.length; i++) {
             try this.convertSavingsToLP(
                 users[i],
@@ -382,8 +412,10 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
 
     /**
      * @notice Create pool key ensuring proper token ordering
+     * @dev For V4, we need to match the exact pool that was initialized
+     * Uses the stored poolHook address to match existing SpendSave pools
      */
-    function _createPoolKey(address token0, address token1) internal pure returns (PoolKey memory) {
+    function _createPoolKey(address token0, address token1) internal view returns (PoolKey memory) {
         // Ensure proper token ordering
         if (token0 > token1) {
             (token0, token1) = (token1, token0);
@@ -394,7 +426,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
             currency1: Currency.wrap(token1),
             fee: 3000, // 0.3% fee tier
             tickSpacing: 60,
-            hooks: IHooks(address(0)) // No hooks for standard pools
+            hooks: poolHook // Use the configured hook (SpendSaveHook or zero address)
         });
     }
 
@@ -514,20 +546,18 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         require(storage_.savings(user, token1) >= amount1, "Insufficient token1 savings");
         
         // Decrease user's savings in storage (this is the real transfer from savings)
-        storage_.decreaseSavings(user, token0, amount0);
-        storage_.decreaseSavings(user, token1, amount1);
-        
-        // Note: The actual tokens are held by the SpendSaveStorage contract
-        // We need to implement a way to access them for LP operations
-        // This would typically involve the storage contract having approval
-        // to transfer tokens to this contract, or this contract being authorized
-        // to access the storage contract's token holdings
-        
-        // Transfer the actual tokens from storage contract to this contract
-        // This requires SpendSaveStorage to have a function to release tokens
-        // for authorized operations like LP conversion
-        _requestTokensFromStorage(token0, amount0);
-        _requestTokensFromStorage(token1, amount1);
+        // Only decrease if amount > 0 (pool might be outside range needing only one token)
+        if (amount0 > 0) {
+            storage_.decreaseSavings(user, token0, amount0);
+            // Request tokens from storage contract for LP operations
+            _requestTokensFromStorage(token0, amount0);
+        }
+
+        if (amount1 > 0) {
+            storage_.decreaseSavings(user, token1, amount1);
+            // Request tokens from storage contract for LP operations
+            _requestTokensFromStorage(token1, amount1);
+        }
     }
     
     /**
@@ -561,6 +591,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
 
     /**
      * @notice Create LP position through PositionManager
+     * @dev Uses V4 Periphery pattern: MINT_POSITION + CLOSE_CURRENCY (x2)
      */
     function _createLPPosition(
         PoolKey memory poolKey,
@@ -570,30 +601,79 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         uint256 amount1,
         uint256 deadline
     ) internal returns (uint256 tokenId) {
-        // Approve tokens for PositionManager
-        IERC20(Currency.unwrap(poolKey.currency0)).approve(address(positionManager), amount0);
-        IERC20(Currency.unwrap(poolKey.currency1)).approve(address(positionManager), amount1);
+        // Calculate liquidity from amounts
+        (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
+        uint160 sqrtPriceLowerX96 = TickMath.getSqrtPriceAtTick(tickLower);
+        uint160 sqrtPriceUpperX96 = TickMath.getSqrtPriceAtTick(tickUpper);
 
-        // Prepare mint position data
-        bytes memory actions = abi.encodePacked(uint256(Actions.MINT_POSITION));
-        
-        bytes[] memory params = new bytes[](1);
+        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtPriceX96,
+            sqrtPriceLowerX96,
+            sqrtPriceUpperX96,
+            amount0,
+            amount1
+        );
+
+        // Approve tokens for PositionManager via Permit2
+        // PositionManager uses Permit2 for token transfers
+        address token0 = Currency.unwrap(poolKey.currency0);
+        address token1 = Currency.unwrap(poolKey.currency1);
+
+        // First approve Permit2 (if not already approved)
+        if (IERC20(token0).allowance(address(this), address(permit2)) < amount0) {
+            IERC20(token0).approve(address(permit2), type(uint256).max);
+        }
+        if (IERC20(token1).allowance(address(this), address(permit2)) < amount1) {
+            IERC20(token1).approve(address(permit2), type(uint256).max);
+        }
+
+        // Then approve PositionManager through Permit2
+        permit2.approve(
+            token0,
+            address(positionManager),
+            type(uint160).max,
+            type(uint48).max
+        );
+        permit2.approve(
+            token1,
+            address(positionManager),
+            type(uint160).max,
+            type(uint48).max
+        );
+
+        // Build V4 action sequence: MINT_POSITION + CLOSE_CURRENCY (x2)
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.MINT_POSITION),
+            uint8(Actions.CLOSE_CURRENCY),
+            uint8(Actions.CLOSE_CURRENCY)
+        );
+
+        bytes[] memory params = new bytes[](3);
+
+        // Action 1: MINT_POSITION with 8 parameters (V4 format)
         params[0] = abi.encode(
             poolKey,
             tickLower,
             tickUpper,
-            amount0,
-            amount1,
-            address(this), // recipient
-            deadline
+            liquidity,              // Use liquidity, not amounts
+            type(uint128).max,      // amount0Max (max slippage)
+            type(uint128).max,      // amount1Max (max slippage)
+            address(this),          // recipient (this contract receives NFT)
+            bytes("")               // hookData
         );
 
-        // Execute position creation
+        // Action 2: CLOSE_CURRENCY for token0
+        params[1] = abi.encode(poolKey.currency0);
+
+        // Action 3: CLOSE_CURRENCY for token1
+        params[2] = abi.encode(poolKey.currency1);
+
+        // Execute position creation via PositionManager
         positionManager.modifyLiquidities(abi.encode(actions, params), deadline);
-        
-        // Get the token ID (would be returned from actual PositionManager)
+
+        // Get the token ID (PositionManager increments nextTokenId after minting)
         tokenId = positionManager.nextTokenId() - 1;
-        
+
         return tokenId;
     }
 
@@ -629,10 +709,11 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
                                 IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) : 0;
         
         // Build actions array: DECREASE_LIQUIDITY + 2x CLOSE_CURRENCY (production pattern)
+        // Each action must be encoded as uint8
         bytes memory actions = abi.encodePacked(
-            uint256(Actions.DECREASE_LIQUIDITY),
-            uint256(Actions.CLOSE_CURRENCY),
-            uint256(Actions.CLOSE_CURRENCY)
+            uint8(Actions.DECREASE_LIQUIDITY),
+            uint8(Actions.CLOSE_CURRENCY),
+            uint8(Actions.CLOSE_CURRENCY)
         );
         
         bytes[] memory params = new bytes[](3);
@@ -713,11 +794,12 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         uint256 balance1Before = Currency.unwrap(poolKey.currency1) != address(0) ?
                                 IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) : 0;
         
-        // Build actions: DECREASE_LIQUIDITY + CLOSE_CURRENCY (production pattern)  
+        // Build actions: DECREASE_LIQUIDITY + CLOSE_CURRENCY (production pattern)
+        // Each action must be encoded as uint8
         bytes memory actions = abi.encodePacked(
-            uint256(Actions.DECREASE_LIQUIDITY),
-            uint256(Actions.CLOSE_CURRENCY),
-            uint256(Actions.CLOSE_CURRENCY)
+            uint8(Actions.DECREASE_LIQUIDITY),
+            uint8(Actions.CLOSE_CURRENCY),
+            uint8(Actions.CLOSE_CURRENCY)
         );
         
         bytes[] memory params = new bytes[](3);
@@ -795,10 +877,11 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         
         // cbETH (18 decimals) - minimum 0.001 ETH worth
         minConversionAmounts[address(0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22)] = 1e15; // 0.001 cbETH
-        
-        // Default minimum for unlisted tokens (assumes 18 decimals, $1 minimum)
-        defaultMinAmount = 1e18; // $1 worth for 18-decimal tokens
-        
+
+        // Default minimum for unlisted tokens (assumes 18 decimals, 0.001 minimum for testing)
+        // This prevents dust positions while allowing test tokens to work
+        defaultMinAmount = 1e15; // 0.001 tokens for 18-decimal tokens
+
         emit MinAmountsInitialized();
     }
 

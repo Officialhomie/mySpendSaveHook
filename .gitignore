@@ -12,3 +12,41 @@ docs/
 
 # Dotenv file
 .env
+
+# Development and testing artifacts
+*.txt
+*.md
+*.sh
+test-results*
+analysis*
+summary*
+complete-test-analysis.txt
+current-test-status.txt
+first-half-test-results.txt
+second-half-test-results*.txt
+DEPLOYMENT-SCRIPT-ANALYSIS.md
+HIGH-PRIORITY-FIXES-SUMMARY.md
+LOW-PRIORITY-FIXES-SUMMARY.md
+LOW-PRIORITY-ISSUES-ANALYSIS.md
+MEDIUM-PRIORITY-FIXES-SUMMARY.md
+TEST-FIXES-PROGRESS-SUMMARY.md
+TEST-ORGANIZATION.md
+count-tests.sh
+run-all-tests.sh
+test-all-files.sh
+test-second-half.sh
+test-shortcuts.sh
+
+# Backup files
+*.bak
+*.backup
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

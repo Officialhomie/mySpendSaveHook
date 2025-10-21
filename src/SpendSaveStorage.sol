@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
@@ -84,6 +84,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice Treasury fee in basis points (0-10000, where 10000 = 100%)
     uint256 public treasuryFee;
+    
+    /// @notice Maximum savings percentage allowed globally (in basis points)
+    uint256 public maxSavingsPercentage;
 
     // ==================== OPTIMIZED STORAGE MAPPINGS ====================
     
@@ -192,6 +195,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     
     /// @notice DCA target tokens per user
     mapping(address => address) public dcaTargetTokens;
+    
+    /// @notice DCA minimum amounts per user
+    mapping(address => uint256) public dcaMinAmounts;
     
     /// @notice Enhanced DCA queues with detailed information
     mapping(address => EnhancedDCAQueue) private enhancedDcaQueues;
@@ -423,6 +429,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         owner = msg.sender;
         treasury = msg.sender;
         treasuryFee = 10; // 0.1% default treasury fee
+        maxSavingsPercentage = 10000; // 100% default maximum
     }
 
     // ==================== INITIALIZATION ====================
@@ -589,7 +596,11 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         address user,
         address token,
         uint256 savingsAmount
-    ) external onlyModule returns (uint256 netSavings) {
+    ) external returns (uint256 netSavings) {
+        // Allow both hook and modules to call this function
+        if (msg.sender != spendSaveHook && !authorizedModules[msg.sender]) {
+            revert Unauthorized();
+        }
         // Calculate fee and net savings
         uint256 feeAmount = (savingsAmount * treasuryFee) / 10000;
         netSavings = savingsAmount - feeAmount;
@@ -657,7 +668,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return balance The token balance
      */
     function getBalance(address tokenOwner, uint256 id) external view returns (uint256 balance) {
-        return _balances[owner][id];
+        return _balances[tokenOwner][id];
     }
     
     /**
@@ -861,6 +872,11 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function increaseSavings(address user, address token, uint256 amount) external onlyModule {
         uint256 fee = (amount * treasuryFee) / 10000;
         uint256 netAmount = amount - fee;
+        
+        // Add token to user's savings tokens list if it's the first time
+        if (_savings[user][token] == 0) {
+            userSavingsTokens[user].push(token);
+        }
         
         _savings[user][token] += netAmount;
         if (fee > 0) {
@@ -1583,6 +1599,15 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
     
     /**
+     * @notice Set maximum savings percentage allowed globally (owner only)
+     * @param newMaxPercentage The new maximum savings percentage in basis points
+     */
+    function setMaxSavingsPercentage(uint256 newMaxPercentage) external onlyOwner {
+        if (newMaxPercentage > 10000) revert InvalidInput(); // Max 100%
+        maxSavingsPercentage = newMaxPercentage;
+    }
+    
+    /**
      * @notice Transfer ownership (owner only)
      * @param newOwner The new owner address
      */
@@ -1736,15 +1761,35 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         require(token != address(0), "Invalid token address");
         require(amount > 0, "Invalid amount");
         require(recipient != address(0), "Invalid recipient");
-        
+
         // Ensure we have sufficient balance
         uint256 contractBalance = IERC20(token).balanceOf(address(this));
         require(contractBalance >= amount, "Insufficient contract balance");
-        
+
         // Transfer tokens to the liquidity manager
         IERC20(token).safeTransfer(recipient, amount);
-        
+
         emit TokensReleasedForLP(token, amount, recipient);
+    }
+
+    /**
+     * @notice Release tokens for withdrawals
+     * @param token Token address to release
+     * @param amount Amount to release
+     * @param recipient Recipient address (user withdrawing)
+     * @dev General token release function for savings withdrawals
+     */
+    function releaseTokens(address token, uint256 amount, address recipient) external onlyModule {
+        require(token != address(0), "Invalid token address");
+        require(amount > 0, "Invalid amount");
+        require(recipient != address(0), "Invalid recipient");
+
+        // Ensure we have sufficient balance
+        uint256 contractBalance = IERC20(token).balanceOf(address(this));
+        require(contractBalance >= amount, "Insufficient contract balance");
+
+        // Transfer tokens to the recipient
+        IERC20(token).safeTransfer(recipient, amount);
     }
 
     // ==================== DCA CONFIGURATION FUNCTIONS ====================
@@ -1867,9 +1912,4 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function savingStrategyModule() external view returns (address strategyAddress) {
         return getModule(keccak256("SAVING_STRATEGY"));
     }
-
-    // ==================== LEGACY/COMPATIBILITY STORAGE ====================
-    // Add all legacy mappings, structs, and functions from the previous contract here,
-    // except those superseded by the new ultra-packed logic above.
-    // ... existing code ...
 }
