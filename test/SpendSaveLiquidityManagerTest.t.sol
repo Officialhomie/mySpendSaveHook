@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
+import {WETH} from "solmate/src/tokens/WETH.sol";
 
 // V4 Core imports
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
@@ -20,9 +21,16 @@ import {ModifyLiquidityParams} from "lib/v4-periphery/lib/v4-core/src/types/Pool
 
 // V4 Periphery imports
 import {IPositionManager} from "lib/v4-periphery/src/interfaces/IPositionManager.sol";
+import {PositionManager} from "lib/v4-periphery/src/PositionManager.sol";
 import {PositionInfo, PositionInfoLibrary} from "lib/v4-periphery/src/libraries/PositionInfoLibrary.sol";
 import {LiquidityAmounts} from "lib/v4-periphery/src/libraries/LiquidityAmounts.sol";
 import {Actions} from "lib/v4-periphery/src/libraries/Actions.sol";
+import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
+import {DeployPermit2} from "permit2/test/utils/DeployPermit2.sol";
+import {IPositionDescriptor} from "lib/v4-periphery/src/interfaces/IPositionDescriptor.sol";
+import {PositionDescriptor} from "lib/v4-periphery/src/PositionDescriptor.sol";
+import {IWETH9} from "lib/v4-periphery/src/interfaces/external/IWETH9.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 // SpendSave Contracts
 import {SpendSaveHook} from "../src/SpendSaveHook.sol";
@@ -40,7 +48,7 @@ import {SpendSaveLiquidityManager} from "../src/SpendSaveLiquidityManager.sol";
  * @notice P5 ADVANCED: Comprehensive testing of SpendSaveLiquidityManager complete LP conversion from savings
  * @dev Tests LP conversion, fee collection, position management, batch operations, and gas optimization
  */
-contract SpendSaveLiquidityManagerTest is Test, Deployers {
+contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
     using CurrencyLibrary for Currency;
     using PoolIdLibrary for PoolKey;
     using PositionInfoLibrary for PositionInfo;
@@ -49,6 +57,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers {
     SpendSaveHook public hook;
     SpendSaveStorage public storageContract;
     SpendSaveLiquidityManager public liquidityManager;
+    IPositionManager public positionManager;
 
     // All modules
     Savings public savingsModule;
@@ -57,6 +66,12 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers {
     DCA public dcaModule;
     DailySavings public dailySavingsModule;
     SlippageControl public slippageModule;
+
+    // V4 Periphery dependencies
+    IAllowanceTransfer public permit2;
+    IWETH9 public weth9;
+    IPositionDescriptor public positionDescriptor;
+    TransparentUpgradeableProxy public proxy;
 
     // Test accounts
     address public owner;
@@ -124,6 +139,9 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers {
         // Deploy V4 infrastructure
         deployFreshManagerAndRouters();
 
+        // Deploy V4 Periphery (PositionManager and dependencies)
+        _deployV4Periphery();
+
         // Deploy tokens
         tokenA = new MockERC20("Token A", "TKNA", 18);
         tokenB = new MockERC20("Token B", "TKNB", 18);
@@ -144,6 +162,43 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers {
         _setupTestAccounts();
 
         console.log("=== P5 ADVANCED: LIQUIDITY MANAGER TESTS SETUP COMPLETE ===");
+    }
+
+    function _deployV4Periphery() internal {
+        // Deploy Permit2
+        permit2 = IAllowanceTransfer(deployPermit2());
+
+        // Deploy WETH9
+        WETH wethImpl = new WETH();
+        address wethAddr = makeAddr("WETH");
+        vm.etch(wethAddr, address(wethImpl).code);
+        weth9 = IWETH9(wethAddr);
+
+        // Deploy PositionDescriptor
+        PositionDescriptor descriptorImpl = new PositionDescriptor(
+            manager,
+            address(weth9),
+            bytes32("ETH")
+        );
+
+        // Deploy TransparentUpgradeableProxy for descriptor
+        proxy = new TransparentUpgradeableProxy(
+            address(descriptorImpl),
+            owner,
+            ""
+        );
+        positionDescriptor = IPositionDescriptor(address(proxy));
+
+        // Deploy PositionManager directly
+        positionManager = new PositionManager(
+            manager,
+            permit2,
+            100_000, // unsubscribeGasLimit
+            positionDescriptor,
+            weth9
+        );
+
+        console.log("V4 Periphery deployed successfully");
     }
 
     function _deployProtocol() internal {
@@ -184,13 +239,13 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers {
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
-        // Deploy LiquidityManager
-        vm.prank(owner);
-        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(manager));
-
-        // Initialize storage
+        // Initialize storage FIRST (LiquidityManager needs this)
         vm.prank(owner);
         storageContract.initialize(address(hook));
+
+        // Deploy LiquidityManager AFTER storage initialization
+        vm.prank(owner);
+        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
 
         // Register modules
         vm.startPrank(owner);
@@ -334,7 +389,34 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers {
         // Setup initial savings for testing LP conversion
         _setupInitialSavings();
 
+        // Setup approvals for PositionManager (uses Permit2)
+        _setupPositionManagerApprovals();
+
         console.log("Test accounts configured with tokens and savings");
+    }
+
+    function _setupPositionManagerApprovals() internal {
+        // Approve tokens for permit2 and then permit2 for position manager
+        address[] memory users = new address[](3);
+        users[0] = alice;
+        users[1] = bob;
+        users[2] = charlie;
+
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.startPrank(users[i]);
+
+            // Approve permit2 for all tokens
+            tokenA.approve(address(permit2), type(uint256).max);
+            tokenB.approve(address(permit2), type(uint256).max);
+            tokenC.approve(address(permit2), type(uint256).max);
+
+            // Approve positionManager through permit2
+            permit2.approve(address(tokenA), address(positionManager), type(uint160).max, type(uint48).max);
+            permit2.approve(address(tokenB), address(positionManager), type(uint160).max, type(uint48).max);
+            permit2.approve(address(tokenC), address(positionManager), type(uint160).max, type(uint48).max);
+
+            vm.stopPrank();
+        }
     }
 
     function _setupInitialSavings() internal {
