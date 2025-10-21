@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -227,7 +227,8 @@ contract AdvancedProtocolIntegration is Test, Deployers {
         // Deploy liquidity manager (requires position manager integration)
         try new SpendSaveLiquidityManager(
             address(storageContract),
-            address(0) // positionManager - would need actual deployment
+            address(0), // positionManager - would need actual deployment
+            address(0) // permit2 - would need actual deployment
         ) returns (SpendSaveLiquidityManager _liquidityManager) {
             liquidityManager = _liquidityManager;
             console.log("LiquidityManager deployed successfully");
