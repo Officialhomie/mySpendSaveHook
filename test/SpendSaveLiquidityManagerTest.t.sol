@@ -113,12 +113,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         uint128 liquidity
     );
 
-    event FeesCollected(
-        address indexed user,
-        uint256 indexed tokenId,
-        uint256 amount0,
-        uint256 amount1
-    );
+    event FeesCollected(address indexed user, uint256 indexed tokenId, uint256 amount0, uint256 amount1);
 
     event PositionRebalanced(
         address indexed user,
@@ -175,18 +170,10 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         weth9 = IWETH9(wethAddr);
 
         // Deploy PositionDescriptor
-        PositionDescriptor descriptorImpl = new PositionDescriptor(
-            manager,
-            address(weth9),
-            bytes32("ETH")
-        );
+        PositionDescriptor descriptorImpl = new PositionDescriptor(manager, address(weth9), bytes32("ETH"));
 
         // Deploy TransparentUpgradeableProxy for descriptor
-        proxy = new TransparentUpgradeableProxy(
-            address(descriptorImpl),
-            owner,
-            ""
-        );
+        proxy = new TransparentUpgradeableProxy(address(descriptorImpl), owner, "");
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager directly
@@ -218,24 +205,16 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -245,7 +224,8 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         // Deploy LiquidityManager AFTER storage initialization
         vm.prank(owner);
-        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
+        liquidityManager =
+            new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
 
         // Register modules
         vm.startPrank(owner);
@@ -470,14 +450,8 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         // Convert savings to LP
         vm.prank(alice);
-        (uint256 tokenId, uint128 liquidity) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            tickLower,
-            tickUpper,
-            deadline
-        );
+        (uint256 tokenId, uint128 liquidity) =
+            liquidityManager.convertSavingsToLP(alice, address(tokenA), address(tokenB), tickLower, tickUpper, deadline);
 
         // Verify conversion
         assertGt(tokenId, 0, "Should receive valid token ID");
@@ -533,14 +507,8 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         // Alice converts to LP
         vm.prank(alice);
-        (uint256 aliceTokenId,) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            tickLower,
-            tickUpper,
-            deadline
-        );
+        (uint256 aliceTokenId,) =
+            liquidityManager.convertSavingsToLP(alice, address(tokenA), address(tokenB), tickLower, tickUpper, deadline);
 
         // Bob converts to LP (different tick range, properly aligned to tickSpacing=60)
         vm.prank(bob);
@@ -548,8 +516,8 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
             bob,
             address(tokenA),
             address(tokenB),
-            -240,  // Aligned to tickSpacing=60 (-240 % 60 == 0)
-            420,   // Aligned to tickSpacing=60 (420 % 60 == 0)
+            -240, // Aligned to tickSpacing=60 (-240 % 60 == 0)
+            420, // Aligned to tickSpacing=60 (420 % 60 == 0)
             deadline
         );
 
@@ -580,14 +548,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         vm.prank(charlie);
         vm.expectRevert("Insufficient token0 amount");
-        liquidityManager.convertSavingsToLP(
-            charlie,
-            address(tokenA),
-            address(tokenB),
-            tickLower,
-            tickUpper,
-            deadline
-        );
+        liquidityManager.convertSavingsToLP(charlie, address(tokenA), address(tokenB), tickLower, tickUpper, deadline);
 
         console.log("SUCCESS: Insufficient amount protection working");
     }
@@ -653,8 +614,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         users[0] = alice;
         users[1] = bob;
 
-        SpendSaveLiquidityManager.ConversionParams[] memory params =
-            new SpendSaveLiquidityManager.ConversionParams[](2);
+        SpendSaveLiquidityManager.ConversionParams[] memory params = new SpendSaveLiquidityManager.ConversionParams[](2);
 
         params[0] = SpendSaveLiquidityManager.ConversionParams({
             token0: address(tokenA),
@@ -666,8 +626,8 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         params[1] = SpendSaveLiquidityManager.ConversionParams({
             token0: address(tokenA),
             token1: address(tokenB),
-            tickLower: -240,  // Aligned to tickSpacing=60
-            tickUpper: 420    // Aligned to tickSpacing=60
+            tickLower: -240, // Aligned to tickSpacing=60
+            tickUpper: 420 // Aligned to tickSpacing=60
         });
 
         uint256 deadline = block.timestamp + 3600;
@@ -706,12 +666,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         // First create LP position for Alice
         vm.prank(alice);
         (uint256 tokenId,) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         // Get initial position details
@@ -768,12 +723,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         // Create initial position
         vm.prank(alice);
         (uint256 oldTokenId,) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         // Get initial position details
@@ -788,12 +738,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         uint256 deadline = block.timestamp + 3600;
 
         vm.prank(alice);
-        uint256 newTokenId = liquidityManager.rebalancePosition(
-            oldTokenId,
-            newTickLower,
-            newTickUpper,
-            deadline
-        );
+        uint256 newTokenId = liquidityManager.rebalancePosition(oldTokenId, newTickLower, newTickUpper, deadline);
 
         // Verify rebalancing
         assertGt(newTokenId, 0, "Should receive new token ID");
@@ -821,23 +766,13 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         // Alice creates position
         vm.prank(alice);
         (uint256 tokenId,) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         // Bob tries to rebalance Alice's position
         vm.prank(bob);
         vm.expectRevert("Not position owner");
-        liquidityManager.rebalancePosition(
-            tokenId,
-            -600,
-            600,
-            block.timestamp + 3600
-        );
+        liquidityManager.rebalancePosition(tokenId, -600, 600, block.timestamp + 3600);
 
         console.log("SUCCESS: Unauthorized rebalancing protection working");
     }
@@ -848,12 +783,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         // Alice creates position
         vm.prank(alice);
         (uint256 tokenId,) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         // Try to rebalance with invalid range
@@ -878,13 +808,8 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         int24 tickUpper = 300;
 
         // Preview Alice's savings conversion
-        (uint256 amount0, uint256 amount1, uint128 liquidity) = liquidityManager.previewSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            tickLower,
-            tickUpper
-        );
+        (uint256 amount0, uint256 amount1, uint128 liquidity) =
+            liquidityManager.previewSavingsToLP(alice, address(tokenA), address(tokenB), tickLower, tickUpper);
 
         // Verify preview calculations
         assertGt(amount0, 0, "Should calculate token0 amount");
@@ -908,13 +833,8 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         console.log("\n=== P5 ADVANCED: Testing Preview with Zero Savings ===");
 
         // Charlie has no savings
-        (uint256 amount0, uint256 amount1, uint128 liquidity) = liquidityManager.previewSavingsToLP(
-            charlie,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300
-        );
+        (uint256 amount0, uint256 amount1, uint128 liquidity) =
+            liquidityManager.previewSavingsToLP(charlie, address(tokenA), address(tokenB), -300, 300);
 
         assertEq(amount0, 0, "Should return zero amount0");
         assertEq(amount1, 0, "Should return zero amount1");
@@ -946,12 +866,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         // Create position for Alice
         vm.prank(alice);
         (uint256 tokenId,) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         // Verify position appears in query
@@ -979,12 +894,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         // Create position
         vm.prank(alice);
         (uint256 tokenId,) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         // Get position details
@@ -1013,14 +923,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         vm.prank(alice);
         vm.expectRevert("Transaction deadline passed");
-        liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            tickLower,
-            tickUpper,
-            pastDeadline
-        );
+        liquidityManager.convertSavingsToLP(alice, address(tokenA), address(tokenB), tickLower, tickUpper, pastDeadline);
 
         console.log("SUCCESS: Deadline protection working");
     }
@@ -1065,8 +968,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         users[0] = alice;
         users[1] = bob;
 
-        SpendSaveLiquidityManager.ConversionParams[] memory params =
-            new SpendSaveLiquidityManager.ConversionParams[](2);
+        SpendSaveLiquidityManager.ConversionParams[] memory params = new SpendSaveLiquidityManager.ConversionParams[](2);
 
         for (uint256 i = 0; i < 2; i++) {
             params[i] = SpendSaveLiquidityManager.ConversionParams({
@@ -1128,7 +1030,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         console.log("Individual operations gas - Alice:", aliceGas);
         console.log("Bob:", bobGas);
         console.log("Total individual gas:", totalIndividualGas);
-        
+
         // Log gas comparison (batch may or may not be more efficient with only 2 users)
         if (totalIndividualGas > gasUsedBatch) {
             console.log("Gas savings with batch:", totalIndividualGas - gasUsedBatch);
@@ -1168,7 +1070,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         strategyModule.setSavingStrategy(
             alice,
             2000, // 20% savings
-            0,    // no auto increment
+            0, // no auto increment
             5000, // max 50%
             false, // no round up
             SpendSaveStorage.SavingsTokenType.INPUT,
@@ -1178,12 +1080,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         // 2. Create LP position
         vm.prank(alice);
         (uint256 tokenId, uint128 liquidity) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         assertGt(tokenId, 0, "Should create valid position");
@@ -1197,12 +1094,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         // 4. Rebalance position
         vm.prank(alice);
-        uint256 newTokenId = liquidityManager.rebalancePosition(
-            tokenId,
-            -600,
-            600,
-            block.timestamp + 3600
-        );
+        uint256 newTokenId = liquidityManager.rebalancePosition(tokenId, -600, 600, block.timestamp + 3600);
 
         assertNotEq(newTokenId, tokenId, "Should create new position after rebalancing");
         assertGt(newTokenId, 0, "New position should be valid");

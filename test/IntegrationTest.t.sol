@@ -129,24 +129,16 @@ contract IntegrationTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -293,13 +285,7 @@ contract IntegrationTest is Test, Deployers {
         // Step 1: User sets up savings strategy
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            SAVINGS_PERCENTAGE,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, SAVINGS_PERCENTAGE, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Step 2: User performs swap that triggers savings extraction
@@ -389,8 +375,15 @@ contract IntegrationTest is Test, Deployers {
         }
 
         // Step 3: Verify goal achievement detection
-        (bool enabled, uint256 dailyAmount, uint256 goalAmount, uint256 currentAmount, uint256 remainingAmount, uint256 penaltyAmount, uint256 estimatedCompletionDate) =
-            dailySavingsModule.getDailySavingsStatus(alice, address(tokenA));
+        (
+            bool enabled,
+            uint256 dailyAmount,
+            uint256 goalAmount,
+            uint256 currentAmount,
+            uint256 remainingAmount,
+            uint256 penaltyAmount,
+            uint256 estimatedCompletionDate
+        ) = dailySavingsModule.getDailySavingsStatus(alice, address(tokenA));
         if (enabled && currentAmount >= goalAmount) {
             console.log("Daily savings goal achieved!");
         }
@@ -413,8 +406,7 @@ contract IntegrationTest is Test, Deployers {
         console.log("\n=== P13 INTEGRATION: Complete Batch Operations Journey ===");
 
         // Step 1: Setup multiple operations for batch processing
-        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams =
-            new SpendSaveMulticall.SavingsBatchParams[](3);
+        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams = new SpendSaveMulticall.SavingsBatchParams[](3);
 
         savingsParams[0] = SpendSaveMulticall.SavingsBatchParams({
             token: address(tokenA),
@@ -440,7 +432,7 @@ contract IntegrationTest is Test, Deployers {
         users[1] = bob;
         users[2] = charlie;
 
-        vm.prank(owner);  // Must be called by authorized user (owner or hook)
+        vm.prank(owner); // Must be called by authorized user (owner or hook)
         multicall.batchExecuteSavings(users, savingsParams);
 
         // Step 3: Verify all operations completed successfully
@@ -449,8 +441,7 @@ contract IntegrationTest is Test, Deployers {
         assertGt(storageContract.savings(charlie, address(tokenA)), 0, "Charlie should have savings");
 
         // Step 4: Execute batch DCA operations
-        SpendSaveMulticall.DCABatchParams[] memory dcaParams =
-            new SpendSaveMulticall.DCABatchParams[](2);
+        SpendSaveMulticall.DCABatchParams[] memory dcaParams = new SpendSaveMulticall.DCABatchParams[](2);
 
         dcaParams[0] = SpendSaveMulticall.DCABatchParams({
             fromToken: address(tokenA),
@@ -523,8 +514,7 @@ contract IntegrationTest is Test, Deployers {
         );
 
         // Charlie: Batch operations + Multi-hop DCA
-        SpendSaveMulticall.SavingsBatchParams[] memory batchSavings =
-            new SpendSaveMulticall.SavingsBatchParams[](1);
+        SpendSaveMulticall.SavingsBatchParams[] memory batchSavings = new SpendSaveMulticall.SavingsBatchParams[](1);
 
         batchSavings[0] = SpendSaveMulticall.SavingsBatchParams({
             token: address(tokenA),
@@ -535,7 +525,7 @@ contract IntegrationTest is Test, Deployers {
         address[] memory charlieUser = new address[](1);
         charlieUser[0] = charlie;
 
-        vm.prank(owner);  // Must be called by authorized user
+        vm.prank(owner); // Must be called by authorized user
         multicall.batchExecuteSavings(charlieUser, batchSavings);
 
         vm.prank(charlie);

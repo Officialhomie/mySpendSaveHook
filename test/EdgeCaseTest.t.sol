@@ -124,24 +124,16 @@ contract EdgeCaseTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -279,13 +271,7 @@ contract EdgeCaseTest is Test, Deployers {
         // Test maximum savings percentage (99.99%)
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            EXTREME_SAVINGS_PERCENTAGE,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, EXTREME_SAVINGS_PERCENTAGE, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Verify strategy is set correctly
@@ -370,13 +356,7 @@ contract EdgeCaseTest is Test, Deployers {
         // Test that operations still work under high gas prices
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Verify strategy was set despite high gas price
@@ -397,13 +377,7 @@ contract EdgeCaseTest is Test, Deployers {
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(alice);
             strategyModule.setSavingStrategy(
-                alice,
-                1000 + i * 100,
-                0,
-                10000,
-                false,
-                SpendSaveStorage.SavingsTokenType.INPUT,
-                address(0)
+                alice, 1000 + i * 100, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
             );
         }
 
@@ -420,13 +394,7 @@ contract EdgeCaseTest is Test, Deployers {
         // Test that savings strategy changes are atomic and not susceptible to front-running
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Attacker tries to front-run by setting a different strategy
@@ -479,13 +447,7 @@ contract EdgeCaseTest is Test, Deployers {
 
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Verify strategy is set
@@ -504,13 +466,7 @@ contract EdgeCaseTest is Test, Deployers {
         // Test that existing user configurations remain valid after potential upgrades
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Simulate upgrade by re-deploying modules (in real scenario, this would be a contract upgrade)
@@ -532,13 +488,7 @@ contract EdgeCaseTest is Test, Deployers {
         // Test that protocol can handle future parameter values
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            1000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 1000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Test with extreme but valid parameters
@@ -556,13 +506,7 @@ contract EdgeCaseTest is Test, Deployers {
         // Setup existing data
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Simulate data migration scenario (in real upgrade, this would be handled by upgrade scripts)
@@ -584,13 +528,7 @@ contract EdgeCaseTest is Test, Deployers {
             address user = makeAddr(string(abi.encodePacked("stress_user", i)));
             vm.prank(user);
             strategyModule.setSavingStrategy(
-                user,
-                1000 + (i % 5000),
-                0,
-                10000,
-                false,
-                SpendSaveStorage.SavingsTokenType.INPUT,
-                address(0)
+                user, 1000 + (i % 5000), 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
             );
         }
 
@@ -605,13 +543,7 @@ contract EdgeCaseTest is Test, Deployers {
         // Test with extremely large amounts
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            5000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 5000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // Process large savings amounts (must be called from hook)

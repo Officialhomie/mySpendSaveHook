@@ -19,34 +19,33 @@ import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
  * @notice Quick swap test on existing pool
  */
 contract SimpleSwapTest is Script {
-    
     // Base Sepolia
     IPoolManager constant POOL_MANAGER = IPoolManager(0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408);
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    
+
     function run() external {
         console.log("=== Simple Swap Test ===");
-        
+
         vm.startBroadcast();
-        
+
         // Deploy swap router
         PoolSwapTest swapRouter = new PoolSwapTest(POOL_MANAGER);
         console.log("SwapRouter:", address(swapRouter));
-        
+
         // Add minimal liquidity first
         PoolModifyLiquidityTest liquidityRouter = new PoolModifyLiquidityTest(POOL_MANAGER);
-        
+
         // Wrap 0.001 ETH
         (bool success,) = WETH.call{value: 0.001 ether}("");
         require(success, "Wrap failed");
         console.log("Wrapped 0.001 ETH");
-        
+
         // Approve
         IERC20(WETH).approve(address(liquidityRouter), type(uint256).max);
         IERC20(USDC).approve(address(liquidityRouter), type(uint256).max);
         IERC20(USDC).approve(address(swapRouter), type(uint256).max);
-        
+
         // Pool key
         PoolKey memory key = PoolKey({
             currency0: Currency.wrap(USDC),
@@ -55,37 +54,31 @@ contract SimpleSwapTest is Script {
             tickSpacing: 60,
             hooks: IHooks(0xc4ABf9A7bf8300086BBad164b4c47B1Afbbf00Cc) // NEW SpendSave Hook
         });
-        
+
         // Add tiny liquidity (you only have 10 USDC!)
         console.log("Adding liquidity...");
         ModifyLiquidityParams memory liqParams = ModifyLiquidityParams({
-            tickLower: -887220,    // Maximum range
+            tickLower: -887220, // Maximum range
             tickUpper: 887220,
-            liquidityDelta: 1e6,  // Absolutely minimal liquidity
+            liquidityDelta: 1e6, // Absolutely minimal liquidity
             salt: 0
         });
-        
+
         liquidityRouter.modifyLiquidity(key, liqParams, "");
         console.log("Liquidity added!");
-        
+
         // Swap 0.01 USDC
         console.log("Swapping 0.01 USDC...");
-        SwapParams memory swapParams = SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1e4,
-            sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-        });
-        
-        PoolSwapTest.TestSettings memory settings = PoolSwapTest.TestSettings({
-            takeClaims: false,
-            settleUsingBurn: false
-        });
-        
+        SwapParams memory swapParams =
+            SwapParams({zeroForOne: true, amountSpecified: -1e4, sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1});
+
+        PoolSwapTest.TestSettings memory settings =
+            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
+
         BalanceDelta delta = swapRouter.swap(key, swapParams, settings, "");
         console.log("SWAP SUCCESS!");
         console.log("Delta:", BalanceDelta.unwrap(delta));
-        
+
         vm.stopBroadcast();
     }
 }
-

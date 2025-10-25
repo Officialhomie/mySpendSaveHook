@@ -1,4 +1,4 @@
-   // SPDX-License-Identifier: MIT
+    // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -121,24 +121,16 @@ contract DCAQueueManagementTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -516,7 +508,7 @@ contract DCAQueueManagementTest is Test, Deployers {
         // Test retrieval of random items
         for (uint256 i = 0; i < 10; i++) {
             uint256 randomIndex = uint256(keccak256(abi.encodePacked(block.timestamp, i))) % numOperations;
-            (address fromToken, , uint256 amount,,,,) = storageContract.getDcaQueueItem(alice, randomIndex);
+            (address fromToken,, uint256 amount,,,,) = storageContract.getDcaQueueItem(alice, randomIndex);
             assertEq(fromToken, address(tokenA), "Random item should have correct from token");
             assertTrue(amount > 0, "Random item should have non-zero amount");
         }

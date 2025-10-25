@@ -26,13 +26,9 @@ import {DailySavings} from "../src/DailySavings.sol";
 
 // ERC6909 Receiver interface for testing
 interface IERC6909Receiver {
-    function onERC6909Received(
-        address operator,
-        address from,
-        uint256 id,
-        uint256 amount,
-        bytes calldata data
-    ) external returns (bytes4);
+    function onERC6909Received(address operator, address from, uint256 id, uint256 amount, bytes calldata data)
+        external
+        returns (bytes4);
 }
 
 /**
@@ -84,7 +80,9 @@ contract TokenModuleAdvancedTest is Test, Deployers {
     uint256 public tokenDId;
 
     // Events
-    event Transfer(address caller, address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount);
+    event Transfer(
+        address caller, address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount
+    );
     event Approval(address indexed owner, address indexed spender, uint256 indexed id, uint256 amount);
     event OperatorSet(address indexed owner, address indexed operator, bool approved);
     event SavingsTokenMinted(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
@@ -143,24 +141,16 @@ contract TokenModuleAdvancedTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -378,7 +368,9 @@ contract TokenModuleAdvancedTest is Test, Deployers {
         tokenModule.batchMintSavingsTokens(alice, tokenIds, amounts);
 
         // Verify batch minting
-        assertEq(tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 50 ether, "Alice A balance should be correct");
+        assertEq(
+            tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 50 ether, "Alice A balance should be correct"
+        );
         assertEq(tokenModule.balanceOf(alice, tokenBId), 75 ether, "Alice B balance should be correct");
         assertEq(tokenModule.balanceOf(alice, tokenCId), 25 ether, "Alice C balance should be correct");
 
@@ -440,9 +432,21 @@ contract TokenModuleAdvancedTest is Test, Deployers {
         tokenModule.batchBurnSavingsTokens(alice, tokenIds, burnAmounts);
 
         // Verify batch burning reduced balances correctly
-        assertEq(tokenModule.balanceOf(alice, tokenAId), balanceABefore - 30 ether, "Alice A balance should be reduced by burn amount");
-        assertEq(tokenModule.balanceOf(alice, tokenBId), balanceBBefore - 40 ether, "Alice B balance should be reduced by burn amount");
-        assertEq(tokenModule.balanceOf(alice, tokenCId), balanceCBefore - 50 ether, "Alice C balance should be reduced by burn amount");
+        assertEq(
+            tokenModule.balanceOf(alice, tokenAId),
+            balanceABefore - 30 ether,
+            "Alice A balance should be reduced by burn amount"
+        );
+        assertEq(
+            tokenModule.balanceOf(alice, tokenBId),
+            balanceBBefore - 40 ether,
+            "Alice B balance should be reduced by burn amount"
+        );
+        assertEq(
+            tokenModule.balanceOf(alice, tokenCId),
+            balanceCBefore - 50 ether,
+            "Alice C balance should be reduced by burn amount"
+        );
 
         console.log("Batch burn successful");
         console.log("SUCCESS: Batch burn savings tokens working");
@@ -588,7 +592,9 @@ contract TokenModuleAdvancedTest is Test, Deployers {
 
         // Verify receiver got the tokens
         assertEq(tokenModule.balanceOf(address(receiver), tokenAId), 50 ether, "Receiver should have tokens");
-        assertEq(tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 50 ether, "Alice should have remaining tokens");
+        assertEq(
+            tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 50 ether, "Alice should have remaining tokens"
+        );
 
         console.log("Safe transfer with receiver successful");
         console.log("SUCCESS: Safe transfer with receiver working");
@@ -660,7 +666,9 @@ contract TokenModuleAdvancedTest is Test, Deployers {
         assertTrue(success, "Operator transfer should succeed");
 
         // Verify transfer
-        assertEq(tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 75 ether, "Alice balance should decrease");
+        assertEq(
+            tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 75 ether, "Alice balance should decrease"
+        );
         assertEq(tokenModule.balanceOf(charlie, tokenAId), 25 ether, "Charlie balance should increase");
 
         // Remove operator
@@ -718,11 +726,8 @@ contract TokenModuleAdvancedTest is Test, Deployers {
         uint256[] memory stressTokenIds = new uint256[](numOperations);
 
         for (uint256 i = 0; i < numOperations; i++) {
-            MockERC20 stressToken = new MockERC20(
-                string(abi.encodePacked("Stress Token ", i)),
-                string(abi.encodePacked("ST", i)),
-                18
-            );
+            MockERC20 stressToken =
+                new MockERC20(string(abi.encodePacked("Stress Token ", i)), string(abi.encodePacked("ST", i)), 18);
             stressTokens[i] = address(stressToken);
             stressTokenIds[i] = tokenModule.registerToken(address(stressToken));
             assertTrue(stressTokenIds[i] > 0, "Stress token should get valid ID");
@@ -807,7 +812,9 @@ contract TokenModuleAdvancedTest is Test, Deployers {
         tokenModule.batchBurnSavingsTokens(alice, burnIds, burnAmounts);
 
         // 6. Verify final state
-        assertEq(tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 25 ether, "Alice should have 25 tokenA left");
+        assertEq(
+            tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 25 ether, "Alice should have 25 tokenA left"
+        );
         assertEq(tokenModule.balanceOf(charlie, tokenAId), 25 ether, "Charlie should have 25 tokenA");
         assertEq(tokenModule.balanceOf(address(receiver), tokenBId), 50 ether, "Receiver should have 50 tokenB");
         assertEq(tokenModule.balanceOf(alice, newTokenId), 200 ether, "Alice should have all new tokens");
@@ -873,13 +880,11 @@ contract TokenModuleAdvancedTest is Test, Deployers {
 contract MockERC6909Receiver is IERC6909Receiver {
     bytes4 constant ERC6909_RECEIVED = 0x05e3242b;
 
-    function onERC6909Received(
-        address operator,
-        address from,
-        uint256 id,
-        uint256 amount,
-        bytes calldata data
-    ) external pure returns (bytes4) {
+    function onERC6909Received(address operator, address from, uint256 id, uint256 amount, bytes calldata data)
+        external
+        pure
+        returns (bytes4)
+    {
         return ERC6909_RECEIVED;
     }
 }
@@ -890,4 +895,3 @@ contract MockNonERC6909Receiver {
         revert("Not an ERC6909 receiver");
     }
 }
-

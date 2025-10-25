@@ -149,18 +149,10 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         weth9 = IWETH9(wethAddr);
 
         // Deploy PositionDescriptor
-        PositionDescriptor descriptorImpl = new PositionDescriptor(
-            manager,
-            address(weth9),
-            bytes32("ETH")
-        );
+        PositionDescriptor descriptorImpl = new PositionDescriptor(manager, address(weth9), bytes32("ETH"));
 
         // Deploy TransparentUpgradeableProxy for descriptor
-        proxy = new TransparentUpgradeableProxy(
-            address(descriptorImpl),
-            owner,
-            ""
-        );
+        proxy = new TransparentUpgradeableProxy(address(descriptorImpl), owner, "");
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
@@ -192,24 +184,16 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -219,7 +203,8 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
 
         // Deploy additional contracts AFTER storage initialization
         vm.prank(owner);
-        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
+        liquidityManager =
+            new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
 
         vm.prank(owner);
         dcaRouter = new SpendSaveDCARouter(manager, address(storageContract), address(0x01));
@@ -444,13 +429,7 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         uint256 gasBeforeStrategy = gasleft();
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
         uint256 strategyGas = gasBeforeStrategy - gasleft();
 
@@ -573,7 +552,7 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         strategyModule.setSavingStrategy(
             alice,
             2000, // 20% savings
-            0,    // no auto increment
+            0, // no auto increment
             10000, // max 100%
             false, // no round up
             SpendSaveStorage.SavingsTokenType.INPUT,
@@ -629,12 +608,7 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
 
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            10 ether,
-            100 ether,
-            500,
-            block.timestamp + 30 days
+            alice, address(tokenA), 10 ether, 100 ether, 500, block.timestamp + 30 days
         );
 
         // Benchmark daily savings execute
@@ -650,14 +624,7 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         // Benchmark liquidity convert
         uint256 gasBefore = gasleft();
         vm.prank(alice);
-        liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
-        );
+        liquidityManager.convertSavingsToLP(alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600);
         gasUsage["liquidityConvert"] = gasBefore - gasleft();
 
         operationCount["liquidityOperations"]++;
@@ -712,13 +679,7 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
             address user = makeAddr(string(abi.encodePacked("user", i)));
             vm.prank(user);
             strategyModule.setSavingStrategy(
-                user,
-                2000,
-                0,
-                10000,
-                false,
-                SpendSaveStorage.SavingsTokenType.INPUT,
-                address(0)
+                user, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
             );
         }
 
@@ -743,13 +704,7 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(users[i]);
             strategyModule.setSavingStrategy(
-                users[i],
-                percentages[i],
-                0,
-                10000,
-                false,
-                SpendSaveStorage.SavingsTokenType.INPUT,
-                address(0)
+                users[i], percentages[i], 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
             );
         }
 
@@ -787,13 +742,7 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         // Perform packed storage operations
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         gasUsage["packedStorage"] = gasBefore - gasleft();
@@ -805,16 +754,15 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
 
         // Perform individual storage operations (simulated)
         // In practice, this would use separate storage slots
-        vm.prank(owner);  // Owner-only functions
+        vm.prank(owner); // Owner-only functions
         storageContract.setTreasuryFee(100);
 
-        vm.prank(owner);  // Owner-only functions
+        vm.prank(owner); // Owner-only functions
         storageContract.setMaxSavingsPercentage(10000);
 
         gasUsage["individualStorage"] = gasBefore - gasleft();
         operationCount["individualStorage"]++;
     }
-
 
     // ==================== PERFORMANCE OPTIMIZATION TARGETS ====================
 
@@ -973,4 +921,3 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         console.log("SUCCESS: Complete performance optimization verified!");
     }
 }
-

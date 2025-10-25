@@ -8,7 +8,7 @@ contract MinimalTest is Test {
     function testStorageSetMaxSavingsPercentage() public {
         address poolManager = address(0x123);
         SpendSaveStorage storage_ = new SpendSaveStorage(poolManager);
-        
+
         // Test that our new function exists and works
         storage_.setMaxSavingsPercentage(5000); // 50%
         assertEq(storage_.maxSavingsPercentage(), 5000);

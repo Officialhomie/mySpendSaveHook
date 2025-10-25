@@ -46,12 +46,12 @@ contract ComprehensiveTests is Test, Deployers {
 
     // V4 Infrastructure
     PoolManager public poolManager;
-    
+
     // Test tokens
     MockERC20 public token0;
     MockERC20 public token1;
     MockERC20 public usdc;
-    
+
     // Test accounts
     address public owner;
     address public treasury;
@@ -61,7 +61,7 @@ contract ComprehensiveTests is Test, Deployers {
 
     // Constants
     uint256 public constant INITIAL_USER_BALANCE = 10_000 ether;
-    
+
     function setUp() public {
         // Minimal setup - only create test accounts
         // Each test will create its own isolated environment
@@ -80,12 +80,12 @@ contract ComprehensiveTests is Test, Deployers {
         // Deploy fresh V4 infrastructure
         deployFreshManagerAndRouters();
         poolManager = PoolManager(address(manager));
-        
+
         // Deploy and sort fresh tokens for each test
         MockERC20 _token0 = new MockERC20("Token0", "TK0", 18);
         MockERC20 _token1 = new MockERC20("Token1", "TK1", 18);
         usdc = new MockERC20("USD Coin", "USDC", 6);
-        
+
         if (address(_token0) < address(_token1)) {
             token0 = _token0;
             token1 = _token1;
@@ -93,31 +93,31 @@ contract ComprehensiveTests is Test, Deployers {
             token0 = _token1;
             token1 = _token0;
         }
-        
+
         // Deploy fresh protocol contracts for each test
         vm.startPrank(owner);
-        
+
         storageContract = new SpendSaveStorage(address(poolManager));
-        
+
         savingsModule = new Savings();
         strategyModule = new SavingStrategy();
         tokenModule = new Token();
         dcaModule = new DCA();
         dailySavingsModule = new DailySavings();
         slippageModule = new SlippageControl();
-        
+
         hook = new SpendSaveHook(IPoolManager(address(poolManager)), storageContract);
-        
+
         // Initialize all contracts
         storageContract.initialize(address(hook));
-        
+
         savingsModule.initialize(storageContract);
         strategyModule.initialize(storageContract);
         tokenModule.initialize(storageContract);
         dcaModule.initialize(storageContract);
         dailySavingsModule.initialize(storageContract);
         slippageModule.initialize(storageContract);
-        
+
         // Register modules in fresh storage
         storageContract.registerModule(keccak256("SAVINGS"), address(savingsModule));
         storageContract.registerModule(keccak256("STRATEGY"), address(strategyModule));
@@ -125,20 +125,20 @@ contract ComprehensiveTests is Test, Deployers {
         storageContract.registerModule(keccak256("DCA"), address(dcaModule));
         storageContract.registerModule(keccak256("DAILY_SAVINGS"), address(dailySavingsModule));
         storageContract.registerModule(keccak256("SLIPPAGE"), address(slippageModule));
-        
+
         vm.stopPrank();
-        
+
         // Fund test accounts with fresh tokens
         address[] memory users = new address[](3);
         users[0] = alice;
         users[1] = bob;
         users[2] = charlie;
-        
-        for (uint i = 0; i < users.length; i++) {
+
+        for (uint256 i = 0; i < users.length; i++) {
             token0.mint(users[i], INITIAL_USER_BALANCE);
             token1.mint(users[i], INITIAL_USER_BALANCE);
             usdc.mint(users[i], INITIAL_USER_BALANCE / 1e12);
-            
+
             vm.startPrank(users[i]);
             token0.approve(address(savingsModule), type(uint256).max);
             token1.approve(address(savingsModule), type(uint256).max);
@@ -153,7 +153,7 @@ contract ComprehensiveTests is Test, Deployers {
 
     function testStorage_Initialize() public {
         _createIsolatedEnvironment();
-        
+
         assertEq(storageContract.spendSaveHook(), address(hook));
         assertEq(storageContract.owner(), owner);
     }
@@ -163,10 +163,10 @@ contract ComprehensiveTests is Test, Deployers {
 
         bytes32 moduleId = keccak256("TEST_MODULE");
         address testModule = makeAddr("testModule");
-        
+
         vm.prank(owner);
         storageContract.registerModule(moduleId, testModule);
-        
+
         assertEq(storageContract.getModule(moduleId), testModule);
         assertTrue(storageContract.isAuthorizedModule(testModule));
     }
@@ -175,19 +175,19 @@ contract ComprehensiveTests is Test, Deployers {
         _createIsolatedEnvironment();
 
         uint256 initialNextId = storageContract.getNextTokenId();
-        
+
         vm.prank(address(tokenModule));
         uint256 currentId = storageContract.incrementNextTokenId();
-        
+
         assertEq(currentId, initialNextId);
         assertEq(storageContract.getNextTokenId(), initialNextId + 1);
-        
+
         vm.prank(address(tokenModule));
         storageContract.setIdToToken(currentId, address(token0));
-        
+
         vm.prank(address(tokenModule));
         storageContract.setTokenToId(address(token0), currentId);
-        
+
         assertEq(storageContract.idToToken(currentId), address(token0));
         assertEq(storageContract.tokenToId(address(token0)), currentId);
     }
@@ -197,15 +197,15 @@ contract ComprehensiveTests is Test, Deployers {
 
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
-        
+
         vm.prank(address(savingsModule));
         storageContract.setBalance(alice, tokenId, amount);
         assertEq(storageContract.getBalance(alice, tokenId), amount);
-        
+
         vm.prank(address(savingsModule));
         storageContract.increaseBalance(alice, tokenId, 50 ether);
         assertEq(storageContract.getBalance(alice, tokenId), amount + 50 ether);
-        
+
         vm.prank(address(savingsModule));
         storageContract.decreaseBalance(alice, tokenId, 25 ether);
         assertEq(storageContract.getBalance(alice, tokenId), amount + 25 ether);
@@ -216,13 +216,13 @@ contract ComprehensiveTests is Test, Deployers {
 
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
-        
+
         uint256 initialSupply = storageContract.getTotalSupply(tokenId);
-        
+
         vm.prank(address(tokenModule));
         storageContract.increaseTotalSupply(tokenId, amount);
         assertEq(storageContract.getTotalSupply(tokenId), initialSupply + amount);
-        
+
         vm.prank(address(tokenModule));
         storageContract.decreaseTotalSupply(tokenId, 50 ether);
         assertEq(storageContract.getTotalSupply(tokenId), initialSupply + amount - 50 ether);
@@ -262,7 +262,7 @@ contract ComprehensiveTests is Test, Deployers {
             specificSavingsToken: address(token0),
             pendingSaveAmount: 0
         });
-        
+
         vm.prank(address(strategyModule));
         storageContract.setSwapContext(alice, context);
 
@@ -272,10 +272,10 @@ contract ComprehensiveTests is Test, Deployers {
         // Note: inputAmount and inputToken are NOT stored in packed format, so they return 0/address(0)
         // This is expected behavior - only essential fields are persisted for gas efficiency
         assertEq(retrieved.roundUpSavings, context.roundUpSavings);
-        
+
         vm.prank(address(hook));
         storageContract.clearTransientSwapContext(alice);
-        
+
         SpendSaveStorage.SwapContext memory cleared = storageContract.getSwapContext(alice);
         assertEq(cleared.hasStrategy, false);
         assertEq(cleared.currentPercentage, 0);
@@ -296,15 +296,12 @@ contract ComprehensiveTests is Test, Deployers {
 
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(token0), 100 ether);
-        
+
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(token1), 50 ether);
-        
-        (
-            address[] memory tokens,
-            uint256[] memory amounts
-        ) = savingsModule.getUserSavings(alice);
-        
+
+        (address[] memory tokens, uint256[] memory amounts) = savingsModule.getUserSavings(alice);
+
         assertTrue(tokens.length > 0, "Should have savings tokens");
         assertTrue(amounts.length == tokens.length, "Arrays should have same length");
     }
@@ -320,13 +317,8 @@ contract ComprehensiveTests is Test, Deployers {
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(token0), amount);
 
-        (
-            uint256 balance,
-            uint256 totalSaved,
-            uint256 lastSaveTime,
-            bool isLocked,
-            uint256 unlockTime
-        ) = savingsModule.getSavingsDetails(alice, address(token0));
+        (uint256 balance, uint256 totalSaved, uint256 lastSaveTime, bool isLocked, uint256 unlockTime) =
+            savingsModule.getSavingsDetails(alice, address(token0));
 
         assertEq(balance, netAmount);
     }
@@ -335,7 +327,7 @@ contract ComprehensiveTests is Test, Deployers {
         _createIsolatedEnvironment();
 
         uint256 timelock = 1 days;
-        
+
         vm.prank(alice);
         savingsModule.setWithdrawalTimelock(alice, timelock);
     }
@@ -384,7 +376,7 @@ contract ComprehensiveTests is Test, Deployers {
 
         address[] memory queue = hook.getProcessingQueue(alice);
         assertEq(queue.length, 0, "Empty queue for new user");
-        
+
         uint256 queueLength = hook.getProcessingQueueLength(alice);
         assertEq(queueLength, 0, "Queue length should be 0");
     }
@@ -451,11 +443,11 @@ contract ComprehensiveTests is Test, Deployers {
 
         bytes32 moduleId = keccak256("UNAUTHORIZED_TEST");
         address testModule = makeAddr("testModule");
-        
+
         vm.prank(alice);
         vm.expectRevert(SpendSaveStorage.Unauthorized.selector);
         storageContract.registerModule(moduleId, testModule);
-        
+
         vm.prank(owner);
         storageContract.registerModule(moduleId, testModule);
         assertEq(storageContract.getModule(moduleId), testModule);
@@ -466,11 +458,11 @@ contract ComprehensiveTests is Test, Deployers {
 
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
-        
+
         vm.prank(alice);
         vm.expectRevert(SpendSaveStorage.Unauthorized.selector);
         storageContract.setBalance(alice, tokenId, amount);
-        
+
         vm.prank(address(savingsModule));
         storageContract.setBalance(alice, tokenId, amount);
         assertEq(storageContract.getBalance(alice, tokenId), amount);
@@ -482,7 +474,7 @@ contract ComprehensiveTests is Test, Deployers {
         vm.prank(alice);
         vm.expectRevert(SpendSaveStorage.Unauthorized.selector);
         storageContract.clearTransientSwapContext(alice);
-        
+
         vm.prank(address(hook));
         storageContract.clearTransientSwapContext(alice);
     }
@@ -496,7 +488,7 @@ contract ComprehensiveTests is Test, Deployers {
 
         vm.prank(address(strategyModule));
         PoolKey memory poolKey = storageContract.createPoolKey(address(token0), address(token1));
-        
+
         assertEq(Currency.unwrap(poolKey.currency0), address(token0));
         assertEq(Currency.unwrap(poolKey.currency1), address(token1));
         assertEq(poolKey.fee, 3000);
@@ -567,17 +559,17 @@ contract ComprehensiveTests is Test, Deployers {
             specificSavingsToken: address(token1),
             pendingSaveAmount: 0
         });
-        
+
         vm.prank(address(strategyModule));
         storageContract.setSwapContext(alice, context);
-        
+
         SpendSaveStorage.SwapContext memory retrieved = storageContract.getSwapContext(alice);
         assertTrue(retrieved.hasStrategy);
         assertEq(retrieved.currentPercentage, 1000);
-        
+
         vm.prank(address(hook));
         storageContract.clearTransientSwapContext(alice);
-        
+
         SpendSaveStorage.SwapContext memory cleared = storageContract.getSwapContext(alice);
         assertFalse(cleared.hasStrategy);
         assertEq(cleared.currentPercentage, 0);
@@ -593,10 +585,10 @@ contract ComprehensiveTests is Test, Deployers {
         uint256 tokenId = 1;
         uint256 initialAmount = 50 ether;
         uint256 decreaseAmount = 100 ether;
-        
+
         vm.prank(address(savingsModule));
         storageContract.setBalance(alice, tokenId, initialAmount);
-        
+
         vm.prank(address(savingsModule));
         vm.expectRevert(SpendSaveStorage.InsufficientBalance.selector);
         storageContract.decreaseBalance(alice, tokenId, decreaseAmount);
@@ -606,7 +598,7 @@ contract ComprehensiveTests is Test, Deployers {
         _createIsolatedEnvironment();
 
         bytes32 moduleId = keccak256("TEST");
-        
+
         vm.prank(owner);
         vm.expectRevert(SpendSaveStorage.InvalidInput.selector);
         storageContract.registerModule(moduleId, address(0));
@@ -628,7 +620,7 @@ contract ComprehensiveTests is Test, Deployers {
         _createIsolatedEnvironment();
 
         uint256 tokenId = tokenModule.getTokenId(address(token0));
-        
+
         if (tokenId == 0) {
             assertEq(tokenId, 0, "New token should have ID 0");
         } else {
@@ -640,12 +632,12 @@ contract ComprehensiveTests is Test, Deployers {
         _createIsolatedEnvironment();
 
         uint256 tokenId = 1;
-        
+
         vm.prank(address(tokenModule));
         storageContract.setIdToToken(tokenId, address(token0));
         vm.prank(address(tokenModule));
         storageContract.setTokenToId(address(token0), tokenId);
-        
+
         uint256 initialBalance = tokenModule.balanceOf(alice, tokenId);
         assertEq(initialBalance, 0, "Initial balance should be 0");
     }
@@ -659,12 +651,12 @@ contract ComprehensiveTests is Test, Deployers {
 
         uint256 tokenId = 1;
         uint256 amount = 100 ether;
-        
+
         uint256 gasBefore = gasleft();
         vm.prank(address(savingsModule));
         storageContract.setBalance(alice, tokenId, amount);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         console.log("setBalance gas used:", gasUsed);
         assertTrue(gasUsed < 50000, "setBalance should use reasonable gas");
     }
@@ -674,12 +666,12 @@ contract ComprehensiveTests is Test, Deployers {
 
         bytes32 moduleId = keccak256("GAS_TEST_MODULE");
         address testModule = makeAddr("gasTestModule");
-        
+
         uint256 gasBefore = gasleft();
         vm.prank(owner);
         storageContract.registerModule(moduleId, testModule);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         console.log("registerModule gas used:", gasUsed);
         assertTrue(gasUsed < 100000, "registerModule should use reasonable gas");
     }

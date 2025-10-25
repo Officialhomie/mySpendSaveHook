@@ -7,11 +7,11 @@ import {ISpendSaveModule} from "./ISpendSaveModule.sol";
 // Slippage Control Module Interface
 interface ISlippageControlModule is ISpendSaveModule {
     function setSlippageTolerance(address user, uint256 basisPoints) external;
-    
+
     function setTokenSlippageTolerance(address user, address token, uint256 basisPoints) external;
-    
+
     function setSlippageAction(address user, SpendSaveStorage.SlippageAction action) external;
-    
+
     function getMinimumAmountOut(
         address user,
         address fromToken,
@@ -19,7 +19,7 @@ interface ISlippageControlModule is ISpendSaveModule {
         uint256 amountIn,
         uint256 customSlippageTolerance
     ) external view returns (uint256);
-    
+
     function handleSlippageExceeded(
         address user,
         address fromToken,

@@ -138,24 +138,16 @@ contract SpendSaveQuoterTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -299,7 +291,7 @@ contract SpendSaveQuoterTest is Test, Deployers {
         // Using much larger liquidity delta to support test swaps
         ModifyLiquidityParams memory liquidityParams = ModifyLiquidityParams({
             tickLower: -887220, // Near full range
-            tickUpper: 887220,  // Near full range
+            tickUpper: 887220, // Near full range
             liquidityDelta: int256(100000 ether), // Large liquidity
             salt: 0
         });
@@ -341,7 +333,7 @@ contract SpendSaveQuoterTest is Test, Deployers {
         strategyModule.setSavingStrategy(
             alice,
             SAVINGS_PERCENTAGE, // 20% savings
-            0,    // no auto increment
+            0, // no auto increment
             10000, // max 100%
             false, // no round up
             SpendSaveStorage.SavingsTokenType.INPUT,
@@ -379,7 +371,9 @@ contract SpendSaveQuoterTest is Test, Deployers {
         uint256 actualRatio = (netOutput * 10000) / swapOutput;
 
         // Allow 5% tolerance for AMM price impact
-        assertApproxEqRel(actualRatio, expectedNetOutputRatio, 0.05e18, "Net output ratio should be approximately 80% of full swap");
+        assertApproxEqRel(
+            actualRatio, expectedNetOutputRatio, 0.05e18, "Net output ratio should be approximately 80% of full swap"
+        );
 
         console.log("Savings impact preview successful");
         console.log("Swap output:", swapOutput);
@@ -434,11 +428,7 @@ contract SpendSaveQuoterTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing DCA Quote ===");
 
         // Get DCA quote
-        (uint256 amountOut, uint256 gasEstimate) = quoter.getDCAQuote(
-            poolKeyAB,
-            true,
-            uint128(DCA_AMOUNT)
-        );
+        (uint256 amountOut, uint256 gasEstimate) = quoter.getDCAQuote(poolKeyAB, true, uint128(DCA_AMOUNT));
 
         // Verify quote
         assertGt(amountOut, 0, "Should get output amount");
@@ -456,11 +446,7 @@ contract SpendSaveQuoterTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing DCA Quote with Zero Amount ===");
 
         // Get DCA quote with zero amount
-        (uint256 amountOut, uint256 gasEstimate) = quoter.getDCAQuote(
-            poolKeyAB,
-            true,
-            0
-        );
+        (uint256 amountOut, uint256 gasEstimate) = quoter.getDCAQuote(poolKeyAB, true, 0);
 
         // Should handle gracefully
         assertEq(amountOut, 0, "Amount out should be 0");
@@ -495,11 +481,8 @@ contract SpendSaveQuoterTest is Test, Deployers {
         });
 
         // Preview multi-hop routing
-        (uint256 amountOut, uint256 gasEstimate) = quoter.previewMultiHopRouting(
-            Currency.wrap(address(tokenA)),
-            path,
-            uint128(SWAP_AMOUNT)
-        );
+        (uint256 amountOut, uint256 gasEstimate) =
+            quoter.previewMultiHopRouting(Currency.wrap(address(tokenA)), path, uint128(SWAP_AMOUNT));
 
         // Verify preview
         assertGt(amountOut, 0, "Should get output amount");
@@ -585,12 +568,7 @@ contract SpendSaveQuoterTest is Test, Deployers {
 
         // Should revert with PoolNotInitialized for invalid pool
         vm.expectRevert(); // Expecting PoolNotInitialized from V4 PoolManager
-        quoter.previewSavingsImpact(
-            invalidPoolKey,
-            true,
-            uint128(SWAP_AMOUNT),
-            SAVINGS_PERCENTAGE
-        );
+        quoter.previewSavingsImpact(invalidPoolKey, true, uint128(SWAP_AMOUNT), SAVINGS_PERCENTAGE);
 
         console.log("Invalid pool correctly reverts");
         console.log("SUCCESS: Invalid pool error handling working");
@@ -627,11 +605,8 @@ contract SpendSaveQuoterTest is Test, Deployers {
         });
 
         // Preview complex routing
-        (uint256 amountOut, uint256 gasEstimate) = quoter.previewMultiHopRouting(
-            Currency.wrap(address(tokenA)),
-            complexPath,
-            uint128(SWAP_AMOUNT)
-        );
+        (uint256 amountOut, uint256 gasEstimate) =
+            quoter.previewMultiHopRouting(Currency.wrap(address(tokenA)), complexPath, uint128(SWAP_AMOUNT));
 
         // Verify complex routing preview
         assertGt(amountOut, 0, "Should handle complex path");
@@ -647,11 +622,7 @@ contract SpendSaveQuoterTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Gas Estimation Accuracy ===");
 
         // Get DCA quote with gas estimation
-        (uint256 amountOut, uint256 estimatedGas) = quoter.getDCAQuote(
-            poolKeyAB,
-            true,
-            uint128(DCA_AMOUNT)
-        );
+        (uint256 amountOut, uint256 estimatedGas) = quoter.getDCAQuote(poolKeyAB, true, uint128(DCA_AMOUNT));
 
         assertGt(estimatedGas, 0, "Should provide gas estimate");
 
@@ -687,11 +658,8 @@ contract SpendSaveQuoterTest is Test, Deployers {
         });
 
         // Get multi-hop gas estimation
-        (uint256 amountOut, uint256 estimatedGas) = quoter.previewMultiHopRouting(
-            Currency.wrap(address(tokenA)),
-            path,
-            uint128(SWAP_AMOUNT)
-        );
+        (uint256 amountOut, uint256 estimatedGas) =
+            quoter.previewMultiHopRouting(Currency.wrap(address(tokenA)), path, uint128(SWAP_AMOUNT));
 
         // Multi-hop should have higher gas estimate than single hop
         (, uint256 singleHopGas) = quoter.getDCAQuote(poolKeyAB, true, uint128(SWAP_AMOUNT));
@@ -713,23 +681,15 @@ contract SpendSaveQuoterTest is Test, Deployers {
         assertEq(percentage, SAVINGS_PERCENTAGE, "User strategy should be configured");
 
         // 2. Preview savings impact using user's strategy
-        (uint256 fullSwapOutput, uint256 savedAmount, uint256 netOutput) = quoter.previewSavingsImpact(
-            poolKeyAB,
-            true,
-            uint128(SWAP_AMOUNT),
-            percentage
-        );
+        (uint256 fullSwapOutput, uint256 savedAmount, uint256 netOutput) =
+            quoter.previewSavingsImpact(poolKeyAB, true, uint128(SWAP_AMOUNT), percentage);
 
         assertGt(fullSwapOutput, 0, "Should get full swap output");
         assertGt(savedAmount, 0, "Should calculate savings");
         assertLt(netOutput, fullSwapOutput, "Net output should be reduced by savings");
 
         // 3. Get DCA quote for comparison
-        (uint256 dcaAmountOut, uint256 dcaGasEstimate) = quoter.getDCAQuote(
-            poolKeyAB,
-            true,
-            uint128(DCA_AMOUNT)
-        );
+        (uint256 dcaAmountOut, uint256 dcaGasEstimate) = quoter.getDCAQuote(poolKeyAB, true, uint128(DCA_AMOUNT));
 
         assertGt(dcaAmountOut, 0, "Should get DCA output");
         assertGt(dcaGasEstimate, 0, "Should estimate DCA gas");
@@ -751,11 +711,8 @@ contract SpendSaveQuoterTest is Test, Deployers {
             hookData: ""
         });
 
-        (uint256 multiHopOutput, uint256 multiHopGas) = quoter.previewMultiHopRouting(
-            Currency.wrap(address(tokenA)),
-            path,
-            uint128(SWAP_AMOUNT)
-        );
+        (uint256 multiHopOutput, uint256 multiHopGas) =
+            quoter.previewMultiHopRouting(Currency.wrap(address(tokenA)), path, uint128(SWAP_AMOUNT));
 
         assertGt(multiHopOutput, 0, "Should get multi-hop output");
         assertGt(multiHopGas, 0, "Should estimate multi-hop gas");
@@ -816,4 +773,3 @@ contract SpendSaveQuoterTest is Test, Deployers {
         console.log("SUCCESS: Complete SpendSaveQuoter functionality verified!");
     }
 }
-

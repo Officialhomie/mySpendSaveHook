@@ -2,32 +2,32 @@
 pragma solidity 0.8.26;
 
 import {Multicall_v4} from "lib/v4-periphery/src/base/Multicall_v4.sol";
-import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {IDCAModule} from "./interfaces/IDCAModule.sol";
 import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
 import {ISavingStrategyModule} from "./interfaces/ISavingStrategyModule.sol";
 
 /**
- * @title SpendSaveMulticall  
+ * @title SpendSaveMulticall
  * @notice Phase 2 Enhancement: Advanced multicall operations for gas-efficient batch execution
  * @dev Extends Multicall_v4 to provide:
  *      - Gas-optimized batch operations across all SpendSave modules
  *      - Atomic transaction execution with rollback on failure
  *      - Cross-module interaction batching
  *      - Emergency circuit breakers for safety
- * 
+ *
  * Key Features:
  * - Batch DCA executions across multiple users
- * - Batch savings operations (deposits, withdrawals, goal updates)  
+ * - Batch savings operations (deposits, withdrawals, goal updates)
  * - Batch liquidity management operations
  * - Gas refund mechanisms for large batches
  * - Slippage protection across batched operations
- * 
+ *
  * @author SpendSave Protocol Team
  */
 contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
-
     // ==================== EVENTS ====================
 
     /// @notice Emitted when batch operation is executed
@@ -84,7 +84,7 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
     constructor(address _storage) {
         require(_storage != address(0), "Invalid storage address");
         storage_ = SpendSaveStorage(_storage);
-        
+
         // Set initial authorized executors
         authorizedExecutors[msg.sender] = true;
     }
@@ -98,9 +98,7 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
 
     modifier onlyAuthorized() {
         require(
-            authorizedExecutors[msg.sender] || 
-            msg.sender == storage_.owner() ||
-            msg.sender == storage_.spendSaveHook(),
+            authorizedExecutors[msg.sender] || msg.sender == storage_.owner() || msg.sender == storage_.spendSaveHook(),
             "Unauthorized"
         );
         _;
@@ -114,10 +112,13 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
      * @param requireSuccess Whether all calls must succeed
      * @return results Array of return data from calls
      */
-    function batchExecuteWithRefund(
-        bytes[] calldata calls,
-        bool requireSuccess
-    ) external payable nonReentrant onlyWhenActive returns (bytes[] memory results) {
+    function batchExecuteWithRefund(bytes[] calldata calls, bool requireSuccess)
+        external
+        payable
+        nonReentrant
+        onlyWhenActive
+        returns (bytes[] memory results)
+    {
         require(calls.length > 0, "Empty batch");
         require(calls.length <= MAX_BATCH_SIZE, "Batch too large");
 
@@ -127,7 +128,7 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
 
         // Execute the multicall
         results = _batchExecute(calls, requireSuccess);
-        
+
         // Count successful calls
         for (uint256 i = 0; i < results.length; i++) {
             if (results[i].length > 0) {
@@ -143,14 +144,7 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
             gasRefund = _processGasRefund(msg.sender, gasUsed);
         }
 
-        emit BatchExecuted(
-            msg.sender,
-            batchId,
-            successfulCalls,
-            calls.length,
-            gasUsed,
-            gasRefund
-        );
+        emit BatchExecuted(msg.sender, batchId, successfulCalls, calls.length, gasUsed, gasRefund);
 
         return results;
     }
@@ -158,24 +152,23 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
     /**
      * @notice Execute batch of DCA operations across multiple users
      * @param users Array of user addresses
-     * @param dcaParams Array of DCA parameters for each user  
+     * @param dcaParams Array of DCA parameters for each user
      * @return results Array of execution results
      */
-    function batchExecuteDCA(
-        address[] calldata users,
-        DCABatchParams[] calldata dcaParams
-    ) external onlyAuthorized onlyWhenActive returns (bytes[] memory results) {
+    function batchExecuteDCA(address[] calldata users, DCABatchParams[] calldata dcaParams)
+        external
+        onlyAuthorized
+        onlyWhenActive
+        returns (bytes[] memory results)
+    {
         require(users.length == dcaParams.length, "Array length mismatch");
         require(users.length > 0, "Empty batch");
 
         bytes[] memory calls = new bytes[](users.length);
-        
+
         // Prepare DCA execution calls
         for (uint256 i = 0; i < users.length; i++) {
-            calls[i] = abi.encodeWithSelector(
-                IDCAModule.executeDCA.selector,
-                users[i]
-            );
+            calls[i] = abi.encodeWithSelector(IDCAModule.executeDCA.selector, users[i]);
         }
 
         return this.batchExecuteWithRefund(calls, false); // Allow partial success
@@ -187,15 +180,17 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
      * @param savingsParams Array of savings operation parameters
      * @return results Array of execution results
      */
-    function batchExecuteSavings(
-        address[] calldata users,
-        SavingsBatchParams[] calldata savingsParams
-    ) external onlyAuthorized onlyWhenActive returns (bytes[] memory results) {
+    function batchExecuteSavings(address[] calldata users, SavingsBatchParams[] calldata savingsParams)
+        external
+        onlyAuthorized
+        onlyWhenActive
+        returns (bytes[] memory results)
+    {
         require(users.length == savingsParams.length, "Array length mismatch");
         require(users.length > 0, "Empty batch");
 
         bytes[] memory calls = new bytes[](users.length);
-        
+
         // Prepare savings operation calls based on operation type
         for (uint256 i = 0; i < users.length; i++) {
             if (savingsParams[i].operationType == SavingsOperationType.DEPOSIT) {
@@ -235,15 +230,17 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
      * @param lpParams Array of liquidity parameters
      * @return results Array of execution results
      */
-    function batchExecuteLiquidityOperations(
-        address[] calldata users,
-        LiquidityBatchParams[] calldata lpParams
-    ) external onlyAuthorized onlyWhenActive returns (bytes[] memory results) {
+    function batchExecuteLiquidityOperations(address[] calldata users, LiquidityBatchParams[] calldata lpParams)
+        external
+        onlyAuthorized
+        onlyWhenActive
+        returns (bytes[] memory results)
+    {
         require(users.length == lpParams.length, "Array length mismatch");
         require(users.length > 0, "Empty batch");
 
         bytes[] memory calls = new bytes[](users.length);
-        
+
         // Prepare liquidity operation calls
         for (uint256 i = 0; i < users.length; i++) {
             if (lpParams[i].operationType == LiquidityOperationType.CONVERT_TO_LP) {
@@ -274,22 +271,19 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
     /**
      * @notice Internal batch execution with enhanced error handling
      */
-    function _batchExecute(
-        bytes[] calldata calls,
-        bool requireSuccess
-    ) internal returns (bytes[] memory results) {
+    function _batchExecute(bytes[] calldata calls, bool requireSuccess) internal returns (bytes[] memory results) {
         results = new bytes[](calls.length);
-        
+
         for (uint256 i = 0; i < calls.length; i++) {
             (bool success, bytes memory result) = address(this).delegatecall(calls[i]);
-            
+
             if (requireSuccess) {
                 require(success, "Batch call failed");
             }
-            
+
             results[i] = success ? result : new bytes(0);
         }
-        
+
         return results;
     }
 
@@ -298,21 +292,21 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
      */
     function _processGasRefund(address recipient, uint256 gasUsed) internal returns (uint256 refund) {
         refund = (gasUsed * tx.gasprice * GAS_REFUND_RATE) / 100;
-        
+
         if (refund > gasRefundPool) {
             refund = gasRefundPool;
         }
-        
+
         if (refund > 0) {
             gasRefundPool -= refund;
-            
+
             // Transfer refund to recipient
             (bool success,) = payable(recipient).call{value: refund}("");
             require(success, "Gas refund transfer failed");
-            
+
             emit GasRefund(recipient, refund);
         }
-        
+
         return refund;
     }
 
@@ -331,7 +325,7 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
     function withdrawFromGasRefundPool(uint256 amount) external onlyAuthorized {
         require(amount <= gasRefundPool, "Insufficient pool balance");
         gasRefundPool -= amount;
-        
+
         (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Withdrawal failed");
     }
@@ -348,12 +342,8 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
      * @notice Emergency stop mechanism
      */
     function setEmergencyStop(bool stop, string calldata reason) external {
-        require(
-            msg.sender == storage_.owner() || 
-            msg.sender == storage_.spendSaveHook(),
-            "Unauthorized"
-        );
-        
+        require(msg.sender == storage_.owner() || msg.sender == storage_.spendSaveHook(), "Unauthorized");
+
         emergencyStop = stop;
         if (stop) {
             emit EmergencyStop(msg.sender, reason);
@@ -370,11 +360,11 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
     function estimateBatchGas(bytes[] calldata calls) external view returns (uint256 estimatedGas) {
         // Simple estimation: base gas per call plus calldata cost
         estimatedGas = calls.length * 25000; // Base gas per call
-        
+
         for (uint256 i = 0; i < calls.length; i++) {
             estimatedGas += calls[i].length * 16; // Calldata cost
         }
-        
+
         return estimatedGas;
     }
 

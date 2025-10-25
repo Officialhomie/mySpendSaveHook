@@ -99,24 +99,16 @@ contract DeploymentTest is Test, Deployers {
 
         // Step 3: Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         assertEq(address(hook), hookAddress, "Hook should be deployed at mined address");
 
@@ -137,12 +129,30 @@ contract DeploymentTest is Test, Deployers {
         vm.stopPrank();
 
         // Verify all modules are registered
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Savings module should be registered");
-        assertEq(storageContract.getModule(keccak256("STRATEGY")), address(strategyModule), "Strategy module should be registered");
-        assertEq(storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Savings module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("STRATEGY")),
+            address(strategyModule),
+            "Strategy module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module should be registered"
+        );
         assertEq(storageContract.getModule(keccak256("DCA")), address(dcaModule), "DCA module should be registered");
-        assertEq(storageContract.getModule(keccak256("DAILY")), address(dailySavingsModule), "Daily module should be registered");
-        assertEq(storageContract.getModule(keccak256("SLIPPAGE")), address(slippageModule), "Slippage module should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("DAILY")),
+            address(dailySavingsModule),
+            "Daily module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("SLIPPAGE")),
+            address(slippageModule),
+            "Slippage module should be registered"
+        );
 
         // Step 6: Initialize modules
         vm.startPrank(owner);
@@ -245,24 +255,16 @@ contract DeploymentTest is Test, Deployers {
 
         // Deploy hook
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         // Initialize storage
         vm.prank(owner);
@@ -284,12 +286,28 @@ contract DeploymentTest is Test, Deployers {
         assertEq(storageContract.poolManager(), address(manager), "Pool manager should be set correctly");
 
         // Verify all modules are registered
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "All modules should be registered");
-        assertEq(storageContract.getModule(keccak256("STRATEGY")), address(strategyModule), "All modules should be registered");
-        assertEq(storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "All modules should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "All modules should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("STRATEGY")),
+            address(strategyModule),
+            "All modules should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "All modules should be registered"
+        );
         assertEq(storageContract.getModule(keccak256("DCA")), address(dcaModule), "All modules should be registered");
-        assertEq(storageContract.getModule(keccak256("DAILY")), address(dailySavingsModule), "All modules should be registered");
-        assertEq(storageContract.getModule(keccak256("SLIPPAGE")), address(slippageModule), "All modules should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("DAILY")),
+            address(dailySavingsModule),
+            "All modules should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("SLIPPAGE")),
+            address(slippageModule),
+            "All modules should be registered"
+        );
 
         console.log("Deployment sequence verification successful");
         console.log("SUCCESS: Deployment sequence verification working");
@@ -379,7 +397,9 @@ contract DeploymentTest is Test, Deployers {
 
         // Verify modules work correctly on Base mainnet
         assertTrue(storageContract.isAuthorizedModule(address(savingsModule)), "Modules should be authorized");
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Modules should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Modules should be registered"
+        );
 
         console.log("Network-specific module configuration working");
         console.log("SUCCESS: Network-specific module configuration working");
@@ -396,26 +416,18 @@ contract DeploymentTest is Test, Deployers {
 
         // Define hook flags
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         // Mine hook address
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         // Deploy hook at mined address
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         // Verify hook deployed at correct address
         assertEq(address(hook), hookAddress, "Hook should be deployed at mined address");
@@ -438,17 +450,11 @@ contract DeploymentTest is Test, Deployers {
 
         // Mine addresses for different flag combinations
         (address hookAddress1,) = HookMiner.find(
-            owner,
-            flags1,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags1, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         (address hookAddress2,) = HookMiner.find(
-            owner,
-            flags2,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags2, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         // Verify different addresses for different flags
@@ -475,24 +481,16 @@ contract DeploymentTest is Test, Deployers {
         storageContract = new SpendSaveStorage(address(manager));
 
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         // Initialize storage with hook
         vm.prank(owner);
@@ -527,34 +525,23 @@ contract DeploymentTest is Test, Deployers {
 
         // Scenario 3: Hook deployed at wrong address
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         // Deploy at wrong address (without salt)
         vm.prank(owner);
-        SpendSaveHook wrongHook = new SpendSaveHook(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        SpendSaveHook wrongHook = new SpendSaveHook(IPoolManager(address(manager)), storageContract);
 
         assertNotEq(address(wrongHook), hookAddress, "Wrong deployment should be at different address");
 
         // Correct deployment with salt
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         assertEq(address(hook), hookAddress, "Correct deployment should be at mined address");
 
@@ -570,24 +557,16 @@ contract DeploymentTest is Test, Deployers {
         storageContract = new SpendSaveStorage(address(manager));
 
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         vm.prank(owner);
         storageContract.initialize(address(hook));
@@ -623,24 +602,16 @@ contract DeploymentTest is Test, Deployers {
 
         // 3. Deploy hook with address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         // 4. Initialize storage
         vm.prank(owner);
@@ -732,4 +703,3 @@ contract DeploymentTest is Test, Deployers {
         console.log("SUCCESS: Complete deployment functionality verified!");
     }
 }
-

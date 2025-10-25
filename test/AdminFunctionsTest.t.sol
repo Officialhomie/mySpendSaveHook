@@ -123,24 +123,16 @@ contract AdminFunctionsTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -362,7 +354,9 @@ contract AdminFunctionsTest is Test, Deployers {
         vm.prank(owner);
         storageContract.setDefaultSlippageTolerance(newTolerance);
 
-        assertEq(storageContract.defaultSlippageTolerance(), newTolerance, "Default slippage tolerance should be updated");
+        assertEq(
+            storageContract.defaultSlippageTolerance(), newTolerance, "Default slippage tolerance should be updated"
+        );
 
         console.log("Default slippage tolerance working correctly");
         console.log("SUCCESS: Default slippage tolerance working");
@@ -572,13 +566,7 @@ contract AdminFunctionsTest is Test, Deployers {
         // 3. Configure user strategy
         vm.prank(alice);
         strategyModule.setSavingStrategy(
-            alice,
-            2000,
-            0,
-            10000,
-            false,
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
+            alice, 2000, 0, 10000, false, SpendSaveStorage.SavingsTokenType.INPUT, address(0)
         );
 
         // 4. Deposit savings to generate fees

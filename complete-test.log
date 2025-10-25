@@ -1,0 +1,168 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 8.44s
+Compiler run successful with warnings:
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SpendSaveStorage.sol:998:79:
+    |
+998 |     function setSwapContextWithTick(address user, SwapContext memory context, int24 currentTick) external onlyModule {
+    |                                                                               ^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SavingStrategy.sol:378:9:
+    |
+378 |         PoolKey calldata key,
+    |         ^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SavingStrategy.sol:379:9:
+    |
+379 |         SwapParams calldata params
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SavingStrategy.sol:382:30:
+    |
+382 |         (uint256 percentage, bool roundUpSavings, uint8 savingsTokenType, bool enableDCA) = 
+    |                              ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SavingStrategy.sol:382:75:
+    |
+382 |         (uint256 percentage, bool roundUpSavings, uint8 savingsTokenType, bool enableDCA) = 
+    |                                                                           ^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SavingStrategy.sol:553:47:
+    |
+553 |     function getUserSavingsGoal(address user, address token) external view returns (uint256 goalAmount) {
+    |                                               ^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:266:9:
+    |
+266 |         SpendSaveStorage.SwapContext memory context
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:306:9:
+    |
+306 |         SpendSaveStorage.PackedUserConfig memory packedConfig
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:715:9:
+    |
+715 |         uint256 totalSaved,
+    |         ^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:716:9:
+    |
+716 |         uint256 lastSaveTime,
+    |         ^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:799:65:
+    |
+799 |     function _checkGoalAchievement(address user, address token, uint256 newSavings) internal {
+    |                                                                 ^^^^^^^^^^^^^^^^^^
+
+Script ran successfully.
+
+== Logs ==
+  ========================================
+  SPENDSAVE PROTOCOL - COMPLETE END-TO-END TEST
+  ========================================
+  
+  Testing on: Base Sepolia
+  User: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  SpendSave Hook: 0x24001BD452a918e91BCAb47b9c1C0A7884B9c0cc
+  
+  Initial Balances:
+    USDC: 8009553
+    WETH: 1999999997990004
+  
+  === STEP 1: Configure Savings Strategy ===
+  Setting 10% INPUT savings for user...
+  Strategy configured successfully!
+    Verified percentage: 1000
+    Verified type: 0
+  
+  === STEP 2: Deploy Helper Contracts ===
+  SwapRouter deployed: 0xb34ce801C1e49e661484E3312d642e5254Db6d28
+  
+  LiquidityRouter deployed: 0x331489D3896731fF6CdCD0fbC6bB7785c9A79376
+  
+  === STEP 3: Initialize Pool WITH SpendSave Hook ===
+  Pool configuration:
+    Currency0: USDC
+    Currency1: WETH
+    Fee: 0.3%
+    Hook: SPENDSAVE 0x24001BD452a918e91BCAb47b9c1C0A7884B9c0cc
+  
+Pool already initialized (continuing...)
+  
+  === STEP 4: Add Liquidity to Hook Pool ===
+  Wrapped 0.001 ETH to WETH
+  Tokens approved to LiquidityRouter
+  Liquidity added successfully!
+    Delta0 (USDC): -1009970
+    Delta1 (WETH): -990129
+  
+  
+===========================================
+  SAVINGS BEFORE SWAP: 0
+  ===========================================
+
+  === STEP 5: EXECUTE SWAP WITH SPENDSAVE HOOK ===
+  Input: 0.01 USDC
+  Expected savings: 10% = 0.001 USDC
+  Expected swap amount: 90% = 0.009 USDC -> WETH
+  
+  USDC approved to SwapRouter
+  
+Balances BEFORE swap:
+    USDC: 6999583
+    WETH: 2999999996999875
+  
+Executing swap through SpendSave hook...
+  Passing user address in hookData: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  
+  SWAP EXECUTED SUCCESSFULLY!
+  
+  Swap Delta:
+    Delta0 (USDC): -10000
+    Delta1 (WETH): 8757
+  
+  Balances AFTER swap:
+    USDC: 6989583
+    WETH: 2999999997008632
+  
+  Changes:
+    USDC change: -10000
+    WETH change: 8757
+  
+  
+===========================================
+  SAVINGS AFTER SWAP: 1000
+  ===========================================
+  
+  ========================================
+             PROOF OF SAVINGS             
+  ========================================
+  Savings Before:   0
+  Savings After:    1000
+  Savings Extracted: 1000
+  
+  SUCCESS! SAVINGS EXTRACTION PROVEN!
+  Expected: ~1000 (10% of 10000)
+  Actual:   1000
+  
+  FULL PROTOCOL FUNCTIONALITY CONFIRMED!
+  ========================================
+
+## Setting up 1 EVM.
+  [3996] PoolManager::initialize(PoolKey({ currency0: 0x036CbD53842c5426634e7929541eC2318f3dCF7e, currency1: 0x4200000000000000000000000000000000000006, fee: 3000, tickSpacing: 60, hooks: 0x24001BD452a918e91BCAb47b9c1C0A7884B9c0cc }), 79228162514264337593543950336 [7.922e28])
+    └─ ← [Revert] custom error 0x7983c051
+
+Error: Simulated execution failed.

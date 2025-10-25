@@ -75,7 +75,9 @@ contract TokenModuleLifecycleTest is Test, Deployers {
     event TokenRegistered(address indexed token, uint256 indexed tokenId);
     event SavingsTokenMinted(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
     event SavingsTokenBurned(address indexed user, address indexed token, uint256 tokenId, uint256 amount);
-    event Transfer(address caller, address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount);
+    event Transfer(
+        address caller, address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount
+    );
     event Approval(address indexed owner, address indexed spender, uint256 indexed id, uint256 amount);
 
     function setUp() public {
@@ -129,24 +131,16 @@ contract TokenModuleLifecycleTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -600,7 +594,8 @@ contract TokenModuleLifecycleTest is Test, Deployers {
 
         // Register many tokens
         for (uint256 i = 0; i < numOperations; i++) {
-            MockERC20 stressToken = new MockERC20(string(abi.encodePacked("Stress Token ", i)), string(abi.encodePacked("ST", i)), 18);
+            MockERC20 stressToken =
+                new MockERC20(string(abi.encodePacked("Stress Token ", i)), string(abi.encodePacked("ST", i)), 18);
             uint256 tokenId = tokenModule.registerToken(address(stressToken));
             assertTrue(tokenId > 0, "Stress token should get valid ID");
         }

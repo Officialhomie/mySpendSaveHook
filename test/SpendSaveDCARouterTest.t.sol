@@ -102,18 +102,10 @@ contract SpendSaveDCARouterTest is Test, Deployers {
     );
 
     event BatchDCAExecuted(
-        uint256 indexed batchId,
-        uint256 successfulExecutions,
-        uint256 totalExecutions,
-        uint256 totalGasUsed
+        uint256 indexed batchId, uint256 successfulExecutions, uint256 totalExecutions, uint256 totalGasUsed
     );
 
-    event OptimalPathFound(
-        address indexed fromToken,
-        address indexed toToken,
-        PathKey[] path,
-        uint256 expectedOutput
-    );
+    event OptimalPathFound(address indexed fromToken, address indexed toToken, PathKey[] path, uint256 expectedOutput);
 
     function setUp() public {
         // Create test accounts
@@ -175,24 +167,16 @@ contract SpendSaveDCARouterTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -451,14 +435,7 @@ contract SpendSaveDCARouterTest is Test, Deployers {
 
         vm.prank(alice);
         vm.expectRevert("Insufficient output amount");
-        dcaRouter.executeDCAWithRouting(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            DCA_AMOUNT,
-            impossibleMinOutput,
-            1
-        );
+        dcaRouter.executeDCAWithRouting(alice, address(tokenA), address(tokenB), DCA_AMOUNT, impossibleMinOutput, 1);
 
         console.log("SUCCESS: Insufficient output protection working");
     }
@@ -618,12 +595,7 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         uint256 maxHops = 2;
 
         // Discover path
-        PathKey[] memory path = dcaRouter.discoverOptimalPath(
-            fromToken,
-            toToken,
-            amount,
-            maxHops
-        );
+        PathKey[] memory path = dcaRouter.discoverOptimalPath(fromToken, toToken, amount, maxHops);
 
         // Verify path was found
         assertGt(path.length, 0, "Should find a path");
@@ -665,8 +637,7 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         dcaRouter.discoverOptimalPath(address(tokenA), address(tokenC), DCA_AMOUNT, 2);
 
         // Retrieve cached path
-        (PathKey[] memory cachedPath, bool isValid) =
-            dcaRouter.getCachedOptimalPath(address(tokenA), address(tokenC));
+        (PathKey[] memory cachedPath, bool isValid) = dcaRouter.getCachedOptimalPath(address(tokenA), address(tokenC));
 
         // Verify cached path
         assertGt(cachedPath.length, 0, "Should have cached path");
@@ -686,8 +657,7 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         vm.warp(block.timestamp + dcaRouter.PATH_CACHE_VALIDITY() + 1);
 
         // Retrieve cached path (should be expired)
-        (PathKey[] memory cachedPath, bool isValid) =
-            dcaRouter.getCachedOptimalPath(address(tokenA), address(tokenC));
+        (PathKey[] memory cachedPath, bool isValid) = dcaRouter.getCachedOptimalPath(address(tokenA), address(tokenC));
 
         // Verify cache expiry
         assertFalse(isValid, "Cached path should be expired");
@@ -702,13 +672,12 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         console.log("\n=== P5 ADVANCED: Testing DCA Preview Functions ===");
 
         // Preview DCA execution
-        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) =
-            dcaRouter.previewDCAExecution(
-                address(tokenA),
-                address(tokenB),
-                DCA_AMOUNT,
-                1 // Max 1 hop
-            );
+        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) = dcaRouter.previewDCAExecution(
+            address(tokenA),
+            address(tokenB),
+            DCA_AMOUNT,
+            1 // Max 1 hop
+        );
 
         // Verify preview results
         assertGt(expectedOutput, 0, "Should estimate output");
@@ -723,13 +692,12 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         console.log("\n=== P5 ADVANCED: Testing Multi-Hop DCA Preview ===");
 
         // Preview multi-hop DCA execution
-        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) =
-            dcaRouter.previewDCAExecution(
-                address(tokenA),
-                address(tokenC),
-                DCA_AMOUNT,
-                2 // Max 2 hops
-            );
+        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) = dcaRouter.previewDCAExecution(
+            address(tokenA),
+            address(tokenC),
+            DCA_AMOUNT,
+            2 // Max 2 hops
+        );
 
         // Verify preview results for multi-hop
         assertGt(expectedOutput, 0, "Should estimate multi-hop output");
@@ -776,8 +744,7 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         dcaRouter.discoverOptimalPath(address(tokenA), address(tokenC), DCA_AMOUNT, 2);
 
         // Verify path is cached
-        (PathKey[] memory cachedPath, bool isValid) =
-            dcaRouter.getCachedOptimalPath(address(tokenA), address(tokenC));
+        (PathKey[] memory cachedPath, bool isValid) = dcaRouter.getCachedOptimalPath(address(tokenA), address(tokenC));
         assertTrue(isValid, "Path should be cached initially");
 
         // Clear cached path
@@ -876,7 +843,7 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         strategyModule.setSavingStrategy(
             alice,
             2000, // 20% savings
-            0,    // no auto increment
+            0, // no auto increment
             5000, // max 50%
             false, // no round up
             SpendSaveStorage.SavingsTokenType.INPUT,
@@ -884,35 +851,20 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         );
 
         // 2. Preview DCA execution
-        (uint256 expectedOutput,, uint256 gasEstimate) = dcaRouter.previewDCAExecution(
-            address(tokenA),
-            address(tokenC),
-            DCA_AMOUNT,
-            2
-        );
+        (uint256 expectedOutput,, uint256 gasEstimate) =
+            dcaRouter.previewDCAExecution(address(tokenA), address(tokenC), DCA_AMOUNT, 2);
 
         console.log("Preview - Expected output:", expectedOutput, "Gas estimate:", gasEstimate);
 
         // 3. Discover optimal path
-        PathKey[] memory path = dcaRouter.discoverOptimalPath(
-            address(tokenA),
-            address(tokenC),
-            DCA_AMOUNT,
-            2
-        );
+        PathKey[] memory path = dcaRouter.discoverOptimalPath(address(tokenA), address(tokenC), DCA_AMOUNT, 2);
 
         assertGt(path.length, 0, "Should discover path");
 
         // 4. Execute DCA with routing
         vm.prank(alice);
-        uint256 actualOutput = dcaRouter.executeDCAWithRouting(
-            alice,
-            address(tokenA),
-            address(tokenC),
-            DCA_AMOUNT,
-            MIN_OUTPUT,
-            2
-        );
+        uint256 actualOutput =
+            dcaRouter.executeDCAWithRouting(alice, address(tokenA), address(tokenC), DCA_AMOUNT, MIN_OUTPUT, 2);
 
         assertGt(actualOutput, MIN_OUTPUT, "Should receive minimum output");
 

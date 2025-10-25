@@ -42,7 +42,7 @@ import {SpendSaveSlippageEnhanced} from "../src/SpendSaveSlippageEnhanced.sol";
  * @dev This script deploys the complete SpendSave ecosystem with all gas optimizations enabled.
  *      The deployment process follows a carefully orchestrated sequence that ensures proper
  *      initialization of the modular architecture while maintaining security and efficiency.
- * 
+ *
  * Deployment Flow:
  * 1. Deploy SpendSaveStorage (centralized state manager)
  * 2. Deploy all module contracts
@@ -53,18 +53,17 @@ import {SpendSaveSlippageEnhanced} from "../src/SpendSaveSlippageEnhanced.sol";
  * 7. Initialize hook with module references
  * 8. Set cross-module references for advanced functionality
  * 9. Verify complete deployment and gas optimization settings
- * 
+ *
  * Network Support:
  * - Base Mainnet (Chain ID: 8453)
  * - Base Sepolia Testnet (Chain ID: 84532)
  * - Easily extensible for additional networks
- * 
+ *
  * @author SpendSave Protocol Team
  */
 contract DeploySpendSave is Script {
-    
     // ==================== NETWORK CONFIGURATION ====================
-    
+
     /// @notice Supported chain IDs for deployment
     uint256 constant CHAIN_ID_BASE = 8453;
     uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
@@ -72,7 +71,7 @@ contract DeploySpendSave is Script {
     uint256 constant CHAIN_ID_OPTIMISM = 10;
     uint256 constant CHAIN_ID_ARBITRUM = 42161;
     uint256 constant CHAIN_ID_POLYGON = 137;
-    
+
     /// @notice Network configuration struct
     struct NetworkConfig {
         string name;
@@ -82,19 +81,19 @@ contract DeploySpendSave is Script {
         address permit2;
         bool isTestnet;
     }
-    
+
     /// @notice Network configurations mapping
     mapping(uint256 => NetworkConfig) public networkConfigs;
-    
+
     /// @notice Current network configuration
     NetworkConfig public currentNetwork;
 
     // ==================== CONSTRUCTOR ====================
-    
+
     constructor() {
         _initializeNetworkConfigs();
     }
-    
+
     /**
      * @notice Initialize network configurations for all supported networks
      * @dev Sets up the networkConfigs mapping with addresses from Uniswap V4 deployments
@@ -109,7 +108,7 @@ contract DeploySpendSave is Script {
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
             isTestnet: true
         });
-        
+
         // Base Mainnet
         networkConfigs[CHAIN_ID_BASE] = NetworkConfig({
             name: "Base",
@@ -119,7 +118,7 @@ contract DeploySpendSave is Script {
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
             isTestnet: false
         });
-        
+
         // Ethereum Mainnet
         networkConfigs[CHAIN_ID_ETHEREUM] = NetworkConfig({
             name: "Ethereum",
@@ -129,7 +128,7 @@ contract DeploySpendSave is Script {
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
             isTestnet: false
         });
-        
+
         // Optimism Mainnet
         networkConfigs[CHAIN_ID_OPTIMISM] = NetworkConfig({
             name: "Optimism",
@@ -139,7 +138,7 @@ contract DeploySpendSave is Script {
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
             isTestnet: false
         });
-        
+
         // Arbitrum One
         networkConfigs[CHAIN_ID_ARBITRUM] = NetworkConfig({
             name: "Arbitrum One",
@@ -149,7 +148,7 @@ contract DeploySpendSave is Script {
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
             isTestnet: false
         });
-        
+
         // Polygon
         networkConfigs[CHAIN_ID_POLYGON] = NetworkConfig({
             name: "Polygon",
@@ -160,9 +159,9 @@ contract DeploySpendSave is Script {
             isTestnet: false
         });
     }
-    
+
     // ==================== MODULE REGISTRY CONSTANTS ====================
-    
+
     /// @notice Module identifiers for storage registry
     bytes32 constant STRATEGY_MODULE_ID = keccak256("STRATEGY");
     bytes32 constant SAVINGS_MODULE_ID = keccak256("SAVINGS");
@@ -170,7 +169,7 @@ contract DeploySpendSave is Script {
     bytes32 constant TOKEN_MODULE_ID = keccak256("TOKEN");
     bytes32 constant SLIPPAGE_MODULE_ID = keccak256("SLIPPAGE");
     bytes32 constant DAILY_MODULE_ID = keccak256("DAILY");
-    
+
     /// @notice Phase 2 Enhancement module identifiers
     bytes32 constant DCA_ROUTER_MODULE_ID = keccak256("DCA_ROUTER");
     bytes32 constant LIQUIDITY_MANAGER_MODULE_ID = keccak256("LIQUIDITY_MANAGER");
@@ -180,24 +179,22 @@ contract DeploySpendSave is Script {
     bytes32 constant SLIPPAGE_ENHANCED_MODULE_ID = keccak256("SLIPPAGE_ENHANCED");
 
     // ==================== HOOK CONFIGURATION ====================
-    
+
     /// @notice Required hook flags for SpendSave functionality
     /// @dev These flags enable beforeSwap, afterSwap, and delta return capabilities
     uint160 constant REQUIRED_HOOK_FLAGS = uint160(
-        Hooks.BEFORE_SWAP_FLAG | 
-        Hooks.AFTER_SWAP_FLAG | 
-        Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG | 
-        Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+        Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+            | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
     );
 
     // ==================== STATE VARIABLES ====================
-    
+
     /// @notice Core protocol contracts
     SpendSaveHook public spendSaveHook;
     SpendSaveStorage public spendSaveStorage;
     SpendSaveAnalytics public analytics;
     StateView public stateView;
-    
+
     /// @notice All protocol modules
     SavingStrategy public savingStrategyModule;
     Savings public savingsModule;
@@ -205,7 +202,7 @@ contract DeploySpendSave is Script {
     Token public tokenModule;
     SlippageControl public slippageControlModule;
     DailySavings public dailySavingsModule;
-    
+
     /// @notice Phase 2 Enhancement contracts
     SpendSaveDCARouter public dcaRouter;
     SpendSaveLiquidityManager public liquidityManager;
@@ -213,33 +210,33 @@ contract DeploySpendSave is Script {
     SpendSaveMulticall public multicall;
     SpendSaveQuoter public quoter;
     SpendSaveSlippageEnhanced public slippageEnhanced;
-    
+
     /// @notice Deployment configuration
     address public poolManager;
     address public deployer;
     address public owner;
     address public treasury;
-    
+
     /// @notice Hook deployment helper
     HookDeployer public hookDeployer;
 
     // ==================== EVENTS ====================
-    
+
     /// @notice Emitted when deployment starts
     event DeploymentStarted(address indexed deployer, uint256 chainId, address poolManager);
-    
+
     /// @notice Emitted when storage contract is deployed
     event StorageDeployed(address indexed storageAddress);
-    
+
     /// @notice Emitted when StateView is deployed
     event StateViewDeployed(address indexed stateViewAddress);
-    
+
     /// @notice Emitted when analytics contract is deployed
     event AnalyticsDeployed(address indexed analyticsAddress);
-    
+
     /// @notice Emitted when hook is successfully deployed with proper address
     event HookDeployed(address indexed hookAddress, bytes32 salt, uint160 flags);
-    
+
     /// @notice Emitted when all modules are deployed
     event ModulesDeployed(
         address strategyModule,
@@ -249,7 +246,7 @@ contract DeploySpendSave is Script {
         address slippageModule,
         address dailyModule
     );
-    
+
     /// @notice Emitted when Phase 2 Enhancement contracts are deployed
     event Phase2ContractsDeployed(
         address dcaRouter,
@@ -259,17 +256,14 @@ contract DeploySpendSave is Script {
         address quoter,
         address slippageEnhanced
     );
-    
+
     /// @notice Emitted when deployment completes successfully
     event DeploymentCompleted(
-        address hookAddress,
-        address storageAddress,
-        bool gasOptimizationEnabled,
-        uint256 targetAfterSwapGas
+        address hookAddress, address storageAddress, bool gasOptimizationEnabled, uint256 targetAfterSwapGas
     );
 
     // ==================== MAIN DEPLOYMENT FUNCTION ====================
-    
+
     /**
      * @notice Main deployment function that orchestrates the entire protocol deployment
      * @dev This function manages the complete deployment lifecycle with comprehensive
@@ -279,26 +273,26 @@ contract DeploySpendSave is Script {
     function run() external {
         // Initialize deployment configuration
         _initializeDeploymentConfig();
-        
+
         // Log deployment start
         console.log("=== SpendSave Protocol Deployment Starting ===");
         emit DeploymentStarted(deployer, block.chainid, poolManager);
-        
+
         // Start broadcasting transactions
         vm.startBroadcast();
-        
+
         // Execute deployment sequence
         _executeDeploymentSequence();
-        
+
         // Stop broadcasting
         vm.stopBroadcast();
-        
+
         // Final verification and logging
         _finalizeDeployment();
-        
+
         console.log("=== SpendSave Protocol Deployment Complete ===");
     }
-    
+
     /**
      * @notice Initialize deployment configuration based on network and environment
      * @dev Sets up network-specific parameters and validates deployment environment
@@ -306,14 +300,14 @@ contract DeploySpendSave is Script {
      */
     function _initializeDeploymentConfig() internal {
         uint256 chainId = block.chainid;
-        
+
         // Get network configuration
         currentNetwork = networkConfigs[chainId];
         require(currentNetwork.poolManager != address(0), "Unsupported network");
-        
+
         // Set addresses from network configuration
         poolManager = currentNetwork.poolManager;
-        
+
         // Get deployer address - supports both private key and account-based deployment
         try vm.envUint("PRIVATE_KEY") returns (uint256 deployerPrivateKey) {
             // Private key method (legacy)
@@ -324,13 +318,13 @@ contract DeploySpendSave is Script {
             deployer = msg.sender;
             console.log("Using account-based deployment method");
         }
-        
+
         // Set owner (can be different from deployer)
         owner = vm.envOr("OWNER_ADDRESS", deployer);
-        
+
         // Set treasury address
         treasury = vm.envOr("TREASURY_ADDRESS", owner);
-        
+
         // Log configuration
         console.log("Network:", currentNetwork.name);
         console.log("Pool Manager:", poolManager);
@@ -340,7 +334,7 @@ contract DeploySpendSave is Script {
         console.log("Owner:", owner);
         console.log("Treasury:", treasury);
     }
-    
+
     /**
      * @notice Execute the complete deployment sequence in proper order
      * @dev This function coordinates all deployment steps to ensure proper initialization
@@ -349,82 +343,82 @@ contract DeploySpendSave is Script {
         // Step 1: Deploy SpendSaveStorage (foundation of the system)
         console.log("\n--- Step 1: Deploying SpendSaveStorage ---");
         _deployStorage();
-        
+
         // Step 2: Deploy StateView for analytics
         console.log("\n--- Step 2: Deploying StateView ---");
         _deployStateView();
-        
+
         // Step 3: Deploy all modules
         console.log("\n--- Step 3: Deploying All Modules ---");
         _deployAllModules();
-        
+
         // Step 4: Deploy hook with proper address mining
         console.log("\n--- Step 4: Deploying SpendSaveHook ---");
         _deployHookWithAddressMining();
-        
+
         // Step 5: Deploy analytics with StateView
         console.log("\n--- Step 5: Deploying Analytics ---");
         _deployAnalytics();
-        
+
         // Step 6: Initialize storage with hook reference
         console.log("\n--- Step 6: Initializing Storage ---");
         _initializeStorage();
-        
+
         // Step 7: Deploy Phase 2 Enhancement contracts (after storage initialization)
         console.log("\n--- Step 7: Deploying Phase 2 Enhancement Contracts ---");
         _deployPhase2Contracts();
-        
+
         // Step 8: Initialize all modules
         console.log("\n--- Step 8: Initializing Modules ---");
         _initializeAllModules();
-        
+
         // Step 9: Register modules in storage registry
         console.log("\n--- Step 9: Registering Modules ---");
         _registerAllModules();
-        
+
         // Step 10: Initialize hook with module references
         console.log("\n--- Step 10: Initializing Hook ---");
         _initializeHook();
-        
+
         // Step 11: Set cross-module references
         console.log("\n--- Step 11: Setting Cross-Module References ---");
         _setModuleReferences();
-        
+
         // Step 12: Verify deployment
         console.log("\n--- Step 12: Verifying Deployment ---");
         _verifyDeployment();
     }
 
     // ==================== DEPLOYMENT STEP FUNCTIONS ====================
-    
+
     /**
      * @notice Deploy the SpendSaveStorage contract with gas-efficient configuration
      * @dev Storage contract serves as the foundation for the entire modular system
      */
     function _deployStorage() internal {
         spendSaveStorage = new SpendSaveStorage(poolManager);
-        
+
         console.log("SpendSaveStorage deployed at:", address(spendSaveStorage));
         console.log("- Pool Manager reference:", spendSaveStorage.poolManager());
         console.log("- Owner:", spendSaveStorage.owner());
         console.log("- Treasury:", spendSaveStorage.treasury());
-        
+
         emit StorageDeployed(address(spendSaveStorage));
     }
-    
+
     /**
      * @notice Deploy StateView for analytics functionality
      * @dev StateView provides gas-efficient access to pool state data
      */
     function _deployStateView() internal {
         stateView = new StateView(IPoolManager(poolManager));
-        
+
         console.log("StateView deployed at:", address(stateView));
         console.log("- Pool Manager reference:", address(stateView.poolManager()));
-        
+
         emit StateViewDeployed(address(stateView));
     }
-    
+
     /**
      * @notice Deploy all protocol modules in efficient batch
      * @dev Deploys all modules and logs their addresses for verification
@@ -433,22 +427,22 @@ contract DeploySpendSave is Script {
         // Deploy each module
         savingStrategyModule = new SavingStrategy();
         console.log("SavingStrategy deployed at:", address(savingStrategyModule));
-        
+
         savingsModule = new Savings();
         console.log("Savings deployed at:", address(savingsModule));
-        
+
         dcaModule = new DCA();
         console.log("DCA deployed at:", address(dcaModule));
-        
+
         tokenModule = new Token();
         console.log("Token deployed at:", address(tokenModule));
-        
+
         slippageControlModule = new SlippageControl();
         console.log("SlippageControl deployed at:", address(slippageControlModule));
-        
+
         dailySavingsModule = new DailySavings();
         console.log("DailySavings deployed at:", address(dailySavingsModule));
-        
+
         emit ModulesDeployed(
             address(savingStrategyModule),
             address(savingsModule),
@@ -458,44 +452,38 @@ contract DeploySpendSave is Script {
             address(dailySavingsModule)
         );
     }
-    
+
     /**
      * @notice Deploy Phase 2 Enhancement contracts
      * @dev Deploys advanced routing, liquidity management, and utility contracts
      */
     function _deployPhase2Contracts() internal {
         // Deploy DCA Router for advanced routing
-        dcaRouter = new SpendSaveDCARouter(
-            IPoolManager(poolManager),
-            address(spendSaveStorage),
-            currentNetwork.quoter
-        );
+        dcaRouter = new SpendSaveDCARouter(IPoolManager(poolManager), address(spendSaveStorage), currentNetwork.quoter);
         console.log("SpendSaveDCARouter deployed at:", address(dcaRouter));
-        
+
         // Deploy Liquidity Manager for LP position management
         liquidityManager = new SpendSaveLiquidityManager(
-            address(spendSaveStorage),
-            currentNetwork.positionManager,
-            currentNetwork.permit2
+            address(spendSaveStorage), currentNetwork.positionManager, currentNetwork.permit2
         );
         console.log("SpendSaveLiquidityManager deployed at:", address(liquidityManager));
-        
+
         // Deploy Module Registry for upgradeable module management
         moduleRegistry = new SpendSaveModuleRegistry(address(spendSaveStorage));
         console.log("SpendSaveModuleRegistry deployed at:", address(moduleRegistry));
-        
+
         // Deploy Multicall for batch operations
         multicall = new SpendSaveMulticall(address(spendSaveStorage));
         console.log("SpendSaveMulticall deployed at:", address(multicall));
-        
+
         // Deploy Quoter for price impact preview
         quoter = new SpendSaveQuoter(address(spendSaveStorage), currentNetwork.quoter);
         console.log("SpendSaveQuoter deployed at:", address(quoter));
-        
+
         // Deploy Enhanced Slippage Control
         slippageEnhanced = new SpendSaveSlippageEnhanced(address(spendSaveStorage));
         console.log("SpendSaveSlippageEnhanced deployed at:", address(slippageEnhanced));
-        
+
         emit Phase2ContractsDeployed(
             address(dcaRouter),
             address(liquidityManager),
@@ -505,98 +493,85 @@ contract DeploySpendSave is Script {
             address(slippageEnhanced)
         );
     }
-    
+
     /**
      * @notice Deploy SpendSaveHook with proper address mining for hook flags
      * @dev Uses HookMiner to ensure the hook address has the required flags in its address
      */
     function _deployHookWithAddressMining() internal {
         console.log("Mining hook address with required flags...");
-        
+
         // Deploy hook deployer helper contract
         hookDeployer = new HookDeployer();
         console.log("HookDeployer deployed at:", address(hookDeployer));
-        
+
         // Prepare constructor arguments for the hook
-        bytes memory constructorArgs = abi.encode(
-            IPoolManager(poolManager),
-            spendSaveStorage
-        );
-        
+        bytes memory constructorArgs = abi.encode(IPoolManager(poolManager), spendSaveStorage);
+
         // Mine for a valid hook address
         (address predictedHookAddress, bytes32 salt) = HookMiner.find(
             address(hookDeployer), // Deployer contract address
-            REQUIRED_HOOK_FLAGS,    // Required flags
+            REQUIRED_HOOK_FLAGS, // Required flags
             type(SpendSaveHook).creationCode,
             constructorArgs
         );
-        
+
         console.log("Found valid hook address:", predictedHookAddress);
         console.log("Salt for deployment:", vm.toString(salt));
-        
+
         // Create complete bytecode for deployment
-        bytes memory creationCode = abi.encodePacked(
-            type(SpendSaveHook).creationCode,
-            constructorArgs
-        );
-        
+        bytes memory creationCode = abi.encodePacked(type(SpendSaveHook).creationCode, constructorArgs);
+
         // Deploy using CREATE2 with the mined salt
         address deployedHookAddress = hookDeployer.deployHook(salt, creationCode);
-        
+
         // Verify deployment success
-        require(
-            deployedHookAddress == predictedHookAddress,
-            "Hook deployment address mismatch"
-        );
-        
+        require(deployedHookAddress == predictedHookAddress, "Hook deployment address mismatch");
+
         // Store hook reference
         spendSaveHook = SpendSaveHook(deployedHookAddress);
-        
+
         // Verify hook flags are correct
         uint160 actualFlags = uint160(address(spendSaveHook)) & 0xFF;
-        require(
-            (actualFlags & REQUIRED_HOOK_FLAGS) == REQUIRED_HOOK_FLAGS,
-            "Hook flags verification failed"
-        );
-        
+        require((actualFlags & REQUIRED_HOOK_FLAGS) == REQUIRED_HOOK_FLAGS, "Hook flags verification failed");
+
         console.log("SpendSaveHook deployed at:", address(spendSaveHook));
         console.log("Hook flags verified:", vm.toString(actualFlags));
-        
+
         emit HookDeployed(address(spendSaveHook), salt, actualFlags);
     }
-    
+
     /**
      * @notice Deploy SpendSaveAnalytics with StateView integration
      * @dev Analytics provides real-time portfolio tracking and pool metrics
      */
     function _deployAnalytics() internal {
         analytics = new SpendSaveAnalytics(address(spendSaveStorage), address(stateView));
-        
+
         console.log("SpendSaveAnalytics deployed at:", address(analytics));
         console.log("- Storage reference:", address(analytics.storage_()));
         console.log("- StateView reference:", address(analytics.stateView()));
         console.log("- Pool Manager reference:", address(analytics.poolManager()));
-        
+
         emit AnalyticsDeployed(address(analytics));
     }
-    
+
     /**
      * @notice Initialize SpendSaveStorage with hook reference
      * @dev This establishes the bidirectional connection between storage and hook
      */
     function _initializeStorage() internal {
         spendSaveStorage.initialize(address(spendSaveHook));
-        
+
         console.log("Storage initialized with hook reference");
         console.log("- Hook address in storage:", spendSaveStorage.spendSaveHook());
-        
+
         // Verify initialization
         require(
-            spendSaveStorage.spendSaveHook() == address(spendSaveHook),
-            "Storage hook reference verification failed"
+            spendSaveStorage.spendSaveHook() == address(spendSaveHook), "Storage hook reference verification failed"
         );
     }
-    
+
     /**
      * @notice Initialize all modules with storage references
      * @dev Each module receives a reference to the centralized storage contract
@@ -605,23 +580,23 @@ contract DeploySpendSave is Script {
         // Initialize each module with storage reference
         savingStrategyModule.initialize(spendSaveStorage);
         console.log("SavingStrategy module initialized");
-        
+
         savingsModule.initialize(spendSaveStorage);
         console.log("Savings module initialized");
-        
+
         dcaModule.initialize(spendSaveStorage);
         console.log("DCA module initialized");
-        
+
         tokenModule.initialize(spendSaveStorage);
         console.log("Token module initialized");
-        
+
         slippageControlModule.initialize(spendSaveStorage);
         console.log("SlippageControl module initialized");
-        
+
         dailySavingsModule.initialize(spendSaveStorage);
         console.log("DailySavings module initialized");
     }
-    
+
     /**
      * @notice Register all modules in the storage registry system
      * @dev This enables the gas-efficient module lookup system
@@ -634,7 +609,7 @@ contract DeploySpendSave is Script {
         spendSaveStorage.registerModule(TOKEN_MODULE_ID, address(tokenModule));
         spendSaveStorage.registerModule(SLIPPAGE_MODULE_ID, address(slippageControlModule));
         spendSaveStorage.registerModule(DAILY_MODULE_ID, address(dailySavingsModule));
-        
+
         // Register Phase 2 Enhancement modules
         spendSaveStorage.registerModule(DCA_ROUTER_MODULE_ID, address(dcaRouter));
         spendSaveStorage.registerModule(LIQUIDITY_MANAGER_MODULE_ID, address(liquidityManager));
@@ -642,9 +617,9 @@ contract DeploySpendSave is Script {
         spendSaveStorage.registerModule(MULTICALL_MODULE_ID, address(multicall));
         spendSaveStorage.registerModule(QUOTER_MODULE_ID, address(quoter));
         spendSaveStorage.registerModule(SLIPPAGE_ENHANCED_MODULE_ID, address(slippageEnhanced));
-        
+
         console.log("All modules registered in storage registry");
-        
+
         // Verify core module registrations
         require(
             spendSaveStorage.getModule(STRATEGY_MODULE_ID) == address(savingStrategyModule),
@@ -654,14 +629,8 @@ contract DeploySpendSave is Script {
             spendSaveStorage.getModule(SAVINGS_MODULE_ID) == address(savingsModule),
             "Savings module registration failed"
         );
-        require(
-            spendSaveStorage.getModule(DCA_MODULE_ID) == address(dcaModule),
-            "DCA module registration failed"
-        );
-        require(
-            spendSaveStorage.getModule(TOKEN_MODULE_ID) == address(tokenModule),
-            "Token module registration failed"
-        );
+        require(spendSaveStorage.getModule(DCA_MODULE_ID) == address(dcaModule), "DCA module registration failed");
+        require(spendSaveStorage.getModule(TOKEN_MODULE_ID) == address(tokenModule), "Token module registration failed");
         require(
             spendSaveStorage.getModule(SLIPPAGE_MODULE_ID) == address(slippageControlModule),
             "Slippage module registration failed"
@@ -670,7 +639,7 @@ contract DeploySpendSave is Script {
             spendSaveStorage.getModule(DAILY_MODULE_ID) == address(dailySavingsModule),
             "Daily module registration failed"
         );
-        
+
         // Verify Phase 2 module registrations
         require(
             spendSaveStorage.getModule(DCA_ROUTER_MODULE_ID) == address(dcaRouter),
@@ -688,16 +657,13 @@ contract DeploySpendSave is Script {
             spendSaveStorage.getModule(MULTICALL_MODULE_ID) == address(multicall),
             "Multicall module registration failed"
         );
-        require(
-            spendSaveStorage.getModule(QUOTER_MODULE_ID) == address(quoter),
-            "Quoter module registration failed"
-        );
+        require(spendSaveStorage.getModule(QUOTER_MODULE_ID) == address(quoter), "Quoter module registration failed");
         require(
             spendSaveStorage.getModule(SLIPPAGE_ENHANCED_MODULE_ID) == address(slippageEnhanced),
             "Slippage Enhanced module registration failed"
         );
     }
-    
+
     /**
      * @notice Initialize hook with references to all modules
      * @dev This enables the hook to coordinate with all modules during swap execution
@@ -705,16 +671,13 @@ contract DeploySpendSave is Script {
     function _initializeHook() internal {
         // Note: Modules are already initialized in step 7, so we don't need to call initializeModules
         // The hook will use the module registry to access modules
-        
+
         console.log("Hook ready to coordinate with all modules via registry");
-        
+
         // Verify hook can access modules through registry
-        require(
-            spendSaveHook.checkModulesInitialized(),
-            "Hook module access verification failed"
-        );
+        require(spendSaveHook.checkModulesInitialized(), "Hook module access verification failed");
     }
-    
+
     /**
      * @notice Set cross-module references for advanced functionality
      * @dev Enables modules to interact with each other for complex operations
@@ -722,40 +685,40 @@ contract DeploySpendSave is Script {
     function _setModuleReferences() internal {
         // Set references for SavingStrategy module
         savingStrategyModule.setModuleReferences(
-            address(savingStrategyModule),  // self-reference
-            address(savingsModule),         // savings module
-            address(dcaModule),            // DCA module
+            address(savingStrategyModule), // self-reference
+            address(savingsModule), // savings module
+            address(dcaModule), // DCA module
             address(slippageControlModule), // slippage control module
-            address(tokenModule),          // token module
-            address(dailySavingsModule)    // daily savings module
-        );        
-        
+            address(tokenModule), // token module
+            address(dailySavingsModule) // daily savings module
+        );
+
         // Set references for Savings module
         savingsModule.setModuleReferences(
             address(savingStrategyModule), // strategy module
-            address(savingsModule),        // self reference
-            address(dcaModule),            // dca module
+            address(savingsModule), // self reference
+            address(dcaModule), // dca module
             address(slippageControlModule), // slippage module
-            address(tokenModule),          // token module
-            address(dailySavingsModule)    // daily savings module
+            address(tokenModule), // token module
+            address(dailySavingsModule) // daily savings module
         );
-        
+
         console.log("Cross-module references configured");
     }
-    
+
     /**
      * @notice Comprehensive deployment verification
      * @dev Verifies all aspects of the deployment including gas optimization settings
      */
     function _verifyDeployment() internal view {
         console.log("Running comprehensive deployment verification...");
-        
+
         // Verify core contract deployment
         require(address(spendSaveStorage) != address(0), "Storage not deployed");
         require(address(spendSaveHook) != address(0), "Hook not deployed");
         require(address(stateView) != address(0), "StateView not deployed");
         require(address(analytics) != address(0), "Analytics not deployed");
-        
+
         // Verify module deployment
         require(address(savingStrategyModule) != address(0), "SavingStrategy not deployed");
         require(address(savingsModule) != address(0), "Savings not deployed");
@@ -763,39 +726,29 @@ contract DeploySpendSave is Script {
         require(address(tokenModule) != address(0), "Token not deployed");
         require(address(slippageControlModule) != address(0), "SlippageControl not deployed");
         require(address(dailySavingsModule) != address(0), "DailySavings not deployed");
-        
+
         // Verify storage initialization
-        require(
-            spendSaveStorage.spendSaveHook() == address(spendSaveHook),
-            "Storage hook reference invalid"
-        );
-        
+        require(spendSaveStorage.spendSaveHook() == address(spendSaveHook), "Storage hook reference invalid");
+
         // Verify module registrations
         require(
             spendSaveStorage.getModule(STRATEGY_MODULE_ID) == address(savingStrategyModule),
             "Strategy module not registered"
         );
         require(
-            spendSaveStorage.getModule(SAVINGS_MODULE_ID) == address(savingsModule),
-            "Savings module not registered"
+            spendSaveStorage.getModule(SAVINGS_MODULE_ID) == address(savingsModule), "Savings module not registered"
         );
-        
+
         // Verify hook initialization
-        require(
-            spendSaveHook.checkModulesInitialized(),
-            "Hook modules not initialized"
-        );
-        
+        require(spendSaveHook.checkModulesInitialized(), "Hook modules not initialized");
+
         // Verify hook flags
         uint160 actualFlags = uint160(address(spendSaveHook)) & 0xFF;
-        require(
-            (actualFlags & REQUIRED_HOOK_FLAGS) == REQUIRED_HOOK_FLAGS,
-            "Hook flags invalid"
-        );
-        
+        require((actualFlags & REQUIRED_HOOK_FLAGS) == REQUIRED_HOOK_FLAGS, "Hook flags invalid");
+
         console.log("All deployment verifications passed");
     }
-    
+
     /**
      * @notice Finalize deployment with comprehensive logging
      * @dev Provides complete deployment summary and configuration details
@@ -807,12 +760,12 @@ contract DeploySpendSave is Script {
             true, // Gas optimization enabled
             50000 // Target afterSwap gas
         );
-        
+
         _logComprehensiveDeploymentSummary();
     }
 
     // ==================== UTILITY FUNCTIONS ====================
-    
+
     /**
      * @notice Get human-readable network name for logging
      * @return networkName The name of the current network
@@ -820,7 +773,7 @@ contract DeploySpendSave is Script {
     function _getNetworkName() internal view returns (string memory networkName) {
         return currentNetwork.name;
     }
-    
+
     /**
      * @notice Check if current network is supported
      * @return isSupported True if network is supported
@@ -828,7 +781,7 @@ contract DeploySpendSave is Script {
     function _isNetworkSupported() internal view returns (bool isSupported) {
         return currentNetwork.poolManager != address(0);
     }
-    
+
     /**
      * @notice Get network configuration for a specific chain ID
      * @param chainId The chain ID to get configuration for
@@ -837,11 +790,11 @@ contract DeploySpendSave is Script {
     function getNetworkConfig(uint256 chainId) external view returns (NetworkConfig memory config) {
         return networkConfigs[chainId];
     }
-    
+
     /**
-    * @notice Log comprehensive deployment summary
-    * @dev Provides detailed information about the deployed protocol
-    */
+     * @notice Log comprehensive deployment summary
+     * @dev Provides detailed information about the deployed protocol
+     */
     function _logComprehensiveDeploymentSummary() internal view {
         console.log("===========================================================");
         console.log("                 SPENDSAVE DEPLOYMENT SUMMARY              ");
@@ -895,8 +848,8 @@ contract DeploySpendSave is Script {
         bytes32 value = bytes32(uint256(uint160(_addr)));
         bytes memory alphabet = "0123456789abcdef";
         bytes memory str = new bytes(42);
-        str[0] = '0';
-        str[1] = 'x';
+        str[0] = "0";
+        str[1] = "x";
         for (uint256 i = 0; i < 20; i++) {
             str[2 + i * 2] = alphabet[uint8(value[i + 12] >> 4)];
             str[3 + i * 2] = alphabet[uint8(value[i + 12] & 0x0f)];
@@ -911,10 +864,9 @@ contract DeploySpendSave is Script {
  * @dev This contract enables precise control over hook address generation for flag compliance
  */
 contract HookDeployer {
-    
     /// @notice Emitted when hook is successfully deployed
     event HookDeployed(address indexed hookAddress, bytes32 salt);
-    
+
     /**
      * @notice Deploy contract using CREATE2 with specific salt
      * @param salt The salt for CREATE2 deployment
@@ -926,13 +878,11 @@ contract HookDeployer {
         assembly {
             // Deploy using CREATE2 with provided salt
             deployedAddress := create2(0, add(creationCode, 0x20), mload(creationCode), salt)
-            
+
             // Verify deployment succeeded
-            if iszero(extcodesize(deployedAddress)) {
-                revert(0, 0)
-            }
+            if iszero(extcodesize(deployedAddress)) { revert(0, 0) }
         }
-        
+
         emit HookDeployed(deployedAddress, salt);
         return deployedAddress;
     }
