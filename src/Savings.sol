@@ -269,6 +269,13 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         uint256 treasuryFee = storage_.treasuryFee();
         uint256 feeAmount = (amount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
         netAmount = amount - feeAmount;
+
+        // Update savings in storage (this applies the treasury fee internally)
+        storage_.increaseSavings(user, token, amount);
+
+        // Mint ERC6909 savings tokens for the net amount
+        _mintSavingsToken(user, token, netAmount);
+
         _registerTokenIfNeeded(token);
         _checkGoalAchievement(user, token, netAmount);
         emit SavingsProcessed(user, token, amount, netAmount, feeAmount);
@@ -302,6 +309,13 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         uint256 treasuryFee = storage_.treasuryFee();
         uint256 feeAmount = (amount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
         netAmount = amount - feeAmount;
+
+        // Update savings in storage (this applies the treasury fee internally)
+        storage_.increaseSavings(user, token, amount);
+
+        // Mint ERC6909 savings tokens for the net amount
+        _mintSavingsToken(user, token, netAmount);
+
         _registerTokenIfNeeded(token);
         emit SavingsProcessed(user, token, amount, netAmount, feeAmount);
         return netAmount;
@@ -618,24 +632,22 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         // Transfer tokens from user to Storage contract (central custody)
         IERC20(token).safeTransferFrom(user, address(storage_), amount);
 
-        // Calculate treasury fee and net amount
-        uint256 treasuryFee = storage_.treasuryFee();
-        uint256 feeAmount = (amount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
-        uint256 netAmount = amount - feeAmount;
-
         // Update savings in storage (this applies the treasury fee internally)
-        storage_.increaseSavings(user, token, amount);
+        uint256 netSavings = storage_.batchUpdateUserSavings(user, token, amount);
 
         // Mint ERC6909 savings tokens for the net amount
-        _mintSavingsToken(user, token, netAmount);
+        _mintSavingsToken(user, token, netSavings);
 
         // Register token if needed
         _registerTokenIfNeeded(token);
 
         // Check for goal achievement
-        _checkGoalAchievement(user, token, netAmount);
+        _checkGoalAchievement(user, token, netSavings);
 
-        emit SavingsProcessed(user, token, amount, netAmount, feeAmount);
+        // Calculate fee for event
+        uint256 feeAmount = amount - netSavings;
+
+        emit SavingsProcessed(user, token, amount, netSavings, feeAmount);
     }
 
     // ==================== VIEW FUNCTIONS ====================
