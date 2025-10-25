@@ -114,8 +114,8 @@ contract DeploySpendSave is Script {
         networkConfigs[CHAIN_ID_BASE] = NetworkConfig({
             name: "Base",
             poolManager: 0x498581fF718922c3f8e6A244956aF099B2652b2b,
-            positionManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
-            quoter: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            positionManager: 0x7C5f5A4bBd8fD63184577525326123B519429bDc,
+            quoter: 0x0d5e0F971ED27FBfF6c2837bf31316121532048D,
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
             isTestnet: false
         });
