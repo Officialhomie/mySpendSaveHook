@@ -733,10 +733,11 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         
         // Action 3: CLOSE_CURRENCY for currency1
         params[2] = abi.encode(poolKey.currency1);
-        
+
         // Execute using production PositionManager pattern
-        positionManager.modifyLiquiditiesWithoutUnlock(actions, params);
-        
+        // Must use modifyLiquidities (not WithoutUnlock) to unlock the pool manager
+        positionManager.modifyLiquidities(abi.encode(actions, params), block.timestamp + 3600);
+
         // Calculate collected fees from balance changes (production verification method)
         fees0 = Currency.unwrap(poolKey.currency0) != address(0) ? 
                 IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) - balance0Before : 0;
@@ -816,12 +817,13 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         // Action 2: CLOSE_CURRENCY for currency0
         params[1] = abi.encode(poolKey.currency0);
         
-        // Action 3: CLOSE_CURRENCY for currency1  
+        // Action 3: CLOSE_CURRENCY for currency1
         params[2] = abi.encode(poolKey.currency1);
-        
+
         // Execute using production PositionManager pattern
-        positionManager.modifyLiquiditiesWithoutUnlock(actions, params);
-        
+        // Must use modifyLiquidities (not WithoutUnlock) to unlock the pool manager
+        positionManager.modifyLiquidities(abi.encode(actions, params), deadline);
+
         // Calculate removed amounts from balance changes (production method)
         amount0 = Currency.unwrap(poolKey.currency0) != address(0) ? 
                   IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) - balance0Before : 0;
