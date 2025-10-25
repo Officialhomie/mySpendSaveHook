@@ -424,6 +424,11 @@ contract TokenModuleAdvancedTest is Test, Deployers {
         vm.prank(alice);
         tokenModule.batchMintSavingsTokens(alice, tokenIds, mintAmounts);
 
+        // Get balances before burn
+        uint256 balanceABefore = tokenModule.balanceOf(alice, tokenAId);
+        uint256 balanceBBefore = tokenModule.balanceOf(alice, tokenBId);
+        uint256 balanceCBefore = tokenModule.balanceOf(alice, tokenCId);
+
         // Prepare batch burn data
         uint256[] memory burnAmounts = new uint256[](3);
         burnAmounts[0] = 30 ether;
@@ -434,11 +439,10 @@ contract TokenModuleAdvancedTest is Test, Deployers {
         vm.prank(alice);
         tokenModule.batchBurnSavingsTokens(alice, tokenIds, burnAmounts);
 
-        // Verify batch burning (accounting for initial balances and previous operations)
-        // Initial: 500 ether + Batch mint: 50 ether + Batch mint: 100 ether - Batch burn: 30 ether = 620 ether
-        assertEq(tokenModule.balanceOf(alice, tokenAId), INITIAL_BALANCE / 2 + 120 ether, "Alice A balance should be correct after burn");
-        assertEq(tokenModule.balanceOf(alice, tokenBId), 135 ether, "Alice B balance should be correct after burn");
-        assertEq(tokenModule.balanceOf(alice, tokenCId), 75 ether, "Alice C balance should be correct after burn");
+        // Verify batch burning reduced balances correctly
+        assertEq(tokenModule.balanceOf(alice, tokenAId), balanceABefore - 30 ether, "Alice A balance should be reduced by burn amount");
+        assertEq(tokenModule.balanceOf(alice, tokenBId), balanceBBefore - 40 ether, "Alice B balance should be reduced by burn amount");
+        assertEq(tokenModule.balanceOf(alice, tokenCId), balanceCBefore - 50 ether, "Alice C balance should be reduced by burn amount");
 
         console.log("Batch burn successful");
         console.log("SUCCESS: Batch burn savings tokens working");

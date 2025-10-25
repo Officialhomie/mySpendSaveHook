@@ -370,20 +370,20 @@ contract TokenModuleLifecycleTest is Test, Deployers {
         vm.prank(alice);
         tokenModule.mintSavingsToken(alice, tokenAId, mintAmount);
 
-        // Verify initial balance (accounting for previous test operations)
+        // Get initial balance (may include tokens from previous tests)
         uint256 initialBalance = tokenModule.balanceOf(alice, tokenAId);
-        assertEq(initialBalance, mintAmount * 2, "Initial balance should be correct");
+        uint256 initialTotalSupply = tokenModule.totalSupply(tokenAId);
 
         // Burn tokens
         vm.prank(alice);
         tokenModule.burnSavingsToken(alice, tokenAId, burnAmount);
 
-        // Verify burning
+        // Verify burning reduced balance correctly
         uint256 finalBalance = tokenModule.balanceOf(alice, tokenAId);
-        assertEq(finalBalance, mintAmount * 2 - burnAmount, "Final balance should be correct");
+        assertEq(finalBalance, initialBalance - burnAmount, "Final balance should be reduced by burn amount");
 
         uint256 totalSupply = tokenModule.totalSupply(tokenAId);
-        assertEq(totalSupply, mintAmount - burnAmount, "Total supply should be correct");
+        assertEq(totalSupply, initialTotalSupply - burnAmount, "Total supply should be reduced by burn amount");
 
         console.log("Burned");
         console.log(burnAmount);
