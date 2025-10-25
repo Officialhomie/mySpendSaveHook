@@ -11,6 +11,7 @@ import {BeforeSwapDelta, toBeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/s
 import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
+import {IERC20Minimal} from "lib/v4-periphery/lib/v4-core/src/interfaces/external/IERC20Minimal.sol";
 
 import {ISavingStrategyModule} from "./interfaces/ISavingStrategyModule.sol";
 import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
@@ -369,10 +370,24 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             roundUpSavings,
             enableDCA
         );
-        
+
         // Calculate and return delta modification for input token savings
         BeforeSwapDelta delta = _calculateBeforeSwapDelta(savingsTokenType, params, saveAmount);
-        
+
+        // CRITICAL FIX: Use poolManager.take() to receive tokens, then we hold them for afterSwap
+        // When we return a positive delta, we TAKE tokens from the PoolManager
+        // The swap router handles getting tokens from user to PoolManager
+        // We intercept some of those tokens by taking them to the hook for savings
+        if (savingsTokenType == 0 && saveAmount > 0) {
+            // Determine which token we're saving (input token)
+            Currency savingsToken = params.zeroForOne ? key.currency0 : key.currency1;
+
+            // Take savings tokens from PoolManager to hook
+            // This works because user has approved SwapRouter which settles to PoolManager
+            // We take our share before the main swap executes
+            poolManager.take(savingsToken, address(this), saveAmount);
+        }
+
         return (IHooks.beforeSwap.selector, delta, 0);
     }
     
@@ -543,14 +558,16 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         int128 unspecifiedDelta = 0;
         
         // Adjust delta based on swap direction and exact input/output
+        // POSITIVE delta = hook takes tokens from PoolManager
+        // NEGATIVE delta = hook settles tokens to PoolManager
         if (params.amountSpecified < 0) {
-            // Exact input swap - take additional amount for savings (negative delta)
-            specifiedDelta = -int128(uint128(saveAmount));
+            // Exact input swap - take savings amount (POSITIVE delta)
+            specifiedDelta = int128(uint128(saveAmount));
         } else {
-            // Exact output swap - take additional amount for savings (positive delta)
+            // Exact output swap - take savings amount (POSITIVE delta)
             unspecifiedDelta = int128(uint128(saveAmount));
         }
-        
+
         return toBeforeSwapDelta(specifiedDelta, unspecifiedDelta);
     }
     
