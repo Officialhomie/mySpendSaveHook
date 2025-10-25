@@ -230,4 +230,34 @@ contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
         // Otherwise use the contract default
         return storage_.defaultSlippageTolerance();
     }
+
+    // ==================== PUBLIC READ FUNCTIONS ====================
+
+    /**
+     * @notice Get a user's global slippage tolerance setting
+     * @param user The user address to query
+     * @return basisPoints The slippage tolerance in basis points (0 if not set)
+     */
+    function getUserSlippageTolerance(address user) external view override returns (uint256) {
+        return storage_.userSlippageTolerance(user);
+    }
+
+    /**
+     * @notice Get a user's token-specific slippage tolerance setting
+     * @param user The user address to query
+     * @param token The token address to query
+     * @return basisPoints The token-specific slippage tolerance in basis points (0 if not set)
+     */
+    function getTokenSlippageTolerance(address user, address token) external view override returns (uint256) {
+        return storage_.tokenSlippageTolerance(user, token);
+    }
+
+    /**
+     * @notice Get a user's slippage action preference
+     * @param user The user address to query
+     * @return action The slippage action enum value
+     */
+    function getSlippageAction(address user) external view override returns (SpendSaveStorage.SlippageAction) {
+        return storage_.slippageExceededAction(user);
+    }
 }

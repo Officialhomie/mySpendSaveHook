@@ -28,4 +28,10 @@ interface ISlippageControlModule is ISpendSaveModule {
         uint256 receivedAmount,
         uint256 expectedMinimum
     ) external returns (bool);
+
+    function getUserSlippageTolerance(address user) external view returns (uint256);
+
+    function getTokenSlippageTolerance(address user, address token) external view returns (uint256);
+
+    function getSlippageAction(address user) external view returns (SpendSaveStorage.SlippageAction);
 }
