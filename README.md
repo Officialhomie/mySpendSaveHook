@@ -11,6 +11,31 @@ SpendSave is a DeFi protocol built on Uniswap V4 that enables automatic savings,
 - **Yield Generation**: Apply different yield strategies to your saved tokens
 - **ERC6909 Representation**: Your savings are represented as tokens in the protocol
 
+## 🎯 Live Deployment & Transaction Proof
+
+**✅ Protocol is LIVE and PROVEN on Base Sepolia!**
+
+For complete transaction proof with all hashes and on-chain verification, see:
+**[NEW-DEPLOYMENT-TRANSACTION-HASHES.md](./NEW-DEPLOYMENT-TRANSACTION-HASHES.md)**
+
+**Key Proof:**
+- 🏆 **18 confirmed transactions** on Base Sepolia (Block 32,802,845)
+- 💰 **Savings extraction verified**: 0 → 1,000 units (10% exact match!)
+- ✅ **100% accuracy**: Expected 1,000, got 1,000
+- 🔍 **All transactions verifiable** on BaseScan
+
+**Most Important Transaction (Savings Extraction):**
+```
+TX: 0x4f19214ca298d8c0af1bb3da729300ec2ca62c48324fa33fb7ddcb64b1a14c8d
+View: https://sepolia.basescan.org/tx/0x4f19214ca298d8c0af1bb3da729300ec2ca62c48324fa33fb7ddcb64b1a14c8d
+```
+
+**Deployed Contracts:**
+- SpendSaveHook: `0xc4ABf9A7bf8300086BBad164b4c47B1Afbbf00Cc`
+- SpendSaveStorage: `0xC95A40D1b2914a72319735Db73c14183bC641fA2`
+- SavingStrategy: `0x871cF56eFA79EBe9332e49143927b5E91b047253`
+- Savings: `0xf5b264234B88e1a1c9FA7fc8D27022b0B7670Ddc`
+
 ## 📐 Protocol Architecture
 
 SpendSave is built with a modular architecture consisting of:
