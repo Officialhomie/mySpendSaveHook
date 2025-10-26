@@ -72,11 +72,15 @@ contract DailySavingsAdvancedTest is Test, Deployers {
     uint256 public tokenCId;
 
     // Events
-    event DailySavingsConfigured(address indexed user, address indexed token, uint256 dailyAmount, uint256 goalAmount, uint256 endTime);
+    event DailySavingsConfigured(
+        address indexed user, address indexed token, uint256 dailyAmount, uint256 goalAmount, uint256 endTime
+    );
     event DailySavingsDisabled(address indexed user, address indexed token);
     event DailySavingsExecuted(address indexed user, address indexed token, uint256 amount, uint256 gasUsed);
     event DailySavingsExecutionSkipped(address indexed user, address indexed token, string reason);
-    event DailySavingsWithdrawn(address indexed user, address indexed token, uint256 amount, uint256 penalty, bool goalReached);
+    event DailySavingsWithdrawn(
+        address indexed user, address indexed token, uint256 amount, uint256 penalty, bool goalReached
+    );
     event DailySavingsGoalReached(address indexed user, address indexed token, uint256 totalAmount);
 
     function setUp() public {
@@ -129,24 +133,16 @@ contract DailySavingsAdvancedTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -305,17 +301,19 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         // Configure daily savings for Alice
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Verify configuration
-        (bool enabled, uint256 lastExecutionTime, , uint256 goalAmount, uint256 currentAmount, uint256 penaltyBps, uint256 configEndTime) =
-            storageContract.getDailySavingsConfig(alice, address(tokenA));
+        (
+            bool enabled,
+            uint256 lastExecutionTime,
+            ,
+            uint256 goalAmount,
+            uint256 currentAmount,
+            uint256 penaltyBps,
+            uint256 configEndTime
+        ) = storageContract.getDailySavingsConfig(alice, address(tokenA));
 
         assertTrue(enabled, "Daily savings should be enabled");
         assertEq(goalAmount, GOAL_AMOUNT, "Goal amount should match");
@@ -324,7 +322,9 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         assertEq(configEndTime, endTime, "End time should match");
 
         // Verify daily amount is stored
-        assertEq(storageContract.dailySavingsAmounts(alice, address(tokenA)), DAILY_AMOUNT, "Daily amount should be stored");
+        assertEq(
+            storageContract.dailySavingsAmounts(alice, address(tokenA)), DAILY_AMOUNT, "Daily amount should be stored"
+        );
 
         console.log("Daily savings configuration successful");
         console.log("SUCCESS: Basic daily savings configuration working");
@@ -342,12 +342,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         // Configure daily savings
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Verify configuration includes existing savings
@@ -372,25 +367,13 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         vm.prank(alice);
         vm.expectRevert(DailySavings.InvalidToken.selector);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(0),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            futureEndTime
+            alice, address(0), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, futureEndTime
         );
 
         // Test zero daily amount
         vm.prank(alice);
         vm.expectRevert(DailySavings.InvalidAmount.selector);
-        dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            0,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            futureEndTime
-        );
+        dailySavingsModule.configureDailySavings(alice, address(tokenA), 0, GOAL_AMOUNT, PENALTY_BPS, futureEndTime);
 
         // Test excessive penalty
         vm.prank(alice);
@@ -408,12 +391,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         vm.prank(alice);
         vm.expectRevert(DailySavings.InvalidEndTime.selector);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            pastEndTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, pastEndTime
         );
 
         console.log("SUCCESS: Invalid parameter protection working");
@@ -427,22 +405,12 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         // Configure daily savings for multiple tokens
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenB),
-            DAILY_AMOUNT * 2,
-            GOAL_AMOUNT * 2,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenB), DAILY_AMOUNT * 2, GOAL_AMOUNT * 2, PENALTY_BPS, endTime
         );
 
         // Verify both configurations exist
@@ -453,8 +421,14 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         // Just verify the configs exist (amounts may vary depending on previous tests)
         assertTrue(currentAmountA >= 0, "Token A config should exist");
         assertTrue(currentAmountB >= 0, "Token B config should exist");
-        assertEq(storageContract.dailySavingsAmounts(alice, address(tokenA)), DAILY_AMOUNT, "Token A daily amount correct");
-        assertEq(storageContract.dailySavingsAmounts(alice, address(tokenB)), DAILY_AMOUNT * 2, "Token B daily amount correct");
+        assertEq(
+            storageContract.dailySavingsAmounts(alice, address(tokenA)), DAILY_AMOUNT, "Token A daily amount correct"
+        );
+        assertEq(
+            storageContract.dailySavingsAmounts(alice, address(tokenB)),
+            DAILY_AMOUNT * 2,
+            "Token B daily amount correct"
+        );
 
         console.log("Multi-token daily savings configuration successful");
         console.log("SUCCESS: Multi-token daily savings configuration working");
@@ -469,12 +443,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         uint256 initialBalance = tokenA.balanceOf(alice);
@@ -499,7 +468,11 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 treasuryFee = storageContract.treasuryFee();
         uint256 expectedFee = (DAILY_AMOUNT * treasuryFee) / 10000;
         uint256 expectedNetSavings = DAILY_AMOUNT - expectedFee;
-        assertEq(storageContract.savings(alice, address(tokenA)), initialSavings + expectedNetSavings, "Savings should increase by net amount after fee");
+        assertEq(
+            storageContract.savings(alice, address(tokenA)),
+            initialSavings + expectedNetSavings,
+            "Savings should increase by net amount after fee"
+        );
 
         console.log("Automated execution timing working correctly");
         console.log("SUCCESS: Automated execution timing working");
@@ -513,22 +486,12 @@ contract DailySavingsAdvancedTest is Test, Deployers {
 
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenB),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenB), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Warp time to next day
@@ -558,12 +521,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Reduce Alice's token balance to less than daily amount
@@ -595,14 +553,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
 
         vm.prank(alice);
-        dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            smallGoal,
-            PENALTY_BPS,
-            endTime
-        );
+        dailySavingsModule.configureDailySavings(alice, address(tokenA), DAILY_AMOUNT, smallGoal, PENALTY_BPS, endTime);
 
         // Execute daily savings multiple times to reach goal
         uint256 executionTime = block.timestamp;
@@ -638,12 +589,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Execute until goal is reached (accounting for treasury fees)
@@ -660,13 +606,18 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         }
 
         // Verify final state
-        (bool enabled, , , uint256 goalAmount, uint256 currentAmount, , ) =
+        (bool enabled,,, uint256 goalAmount, uint256 currentAmount,,) =
             storageContract.getDailySavingsConfig(alice, address(tokenA));
 
         assertTrue(enabled, "Should still be enabled");
         // With fees, we should be very close to the goal (within 0.5%)
         assertApproxEqRel(currentAmount, goalAmount, 0.005e18, "Should have approximately reached goal amount");
-        assertApproxEqRel(storageContract.savings(alice, address(tokenA)), goalAmount, 0.005e18, "Savings should approximately reach goal");
+        assertApproxEqRel(
+            storageContract.savings(alice, address(tokenA)),
+            goalAmount,
+            0.005e18,
+            "Savings should approximately reach goal"
+        );
 
         console.log("Goal achievement automatic completion working");
         console.log("SUCCESS: Goal achievement automatic completion working");
@@ -681,12 +632,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Verify it's enabled
@@ -715,12 +661,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Execute some daily savings
@@ -743,7 +684,9 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         assertEq(netAmount, expectedNet, "Net amount should be correct");
 
         // Verify balances
-        assertEq(storageContract.savings(alice, address(tokenA)), savingsBefore - withdrawAmount, "Savings should decrease");
+        assertEq(
+            storageContract.savings(alice, address(tokenA)), savingsBefore - withdrawAmount, "Savings should decrease"
+        );
         assertEq(tokenA.balanceOf(alice), aliceBalanceBefore + expectedNet, "Alice should receive net amount");
 
         console.log("Withdrawal with penalty working correctly");
@@ -757,12 +700,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Execute until goal is reached
@@ -784,10 +722,14 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 netAmount = dailySavingsModule.withdrawDailySavings(alice, address(tokenA), withdrawAmount);
 
         // Goal is approximately reached due to fees, so penalty should be 0 or very small
-        assertApproxEqAbs(netAmount, withdrawAmount, withdrawAmount / 20, "Should receive approximately full amount (minimal penalty)");
+        assertApproxEqAbs(
+            netAmount, withdrawAmount, withdrawAmount / 20, "Should receive approximately full amount (minimal penalty)"
+        );
 
         // Verify balances
-        assertEq(storageContract.savings(alice, address(tokenA)), savingsBefore - withdrawAmount, "Savings should decrease");
+        assertEq(
+            storageContract.savings(alice, address(tokenA)), savingsBefore - withdrawAmount, "Savings should decrease"
+        );
         assertApproxEqAbs(tokenA.balanceOf(alice), aliceBalanceBefore + netAmount, 1, "Alice should receive net amount");
 
         console.log("Withdrawal after goal reached working correctly");
@@ -804,32 +746,17 @@ contract DailySavingsAdvancedTest is Test, Deployers {
 
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenB),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenB), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenC),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenC), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Warp time to next day
@@ -862,12 +789,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Execute normally (gas management handled by EVM)
@@ -886,12 +808,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Check status immediately (should not be ready)
@@ -905,8 +822,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         // Warp time and check again
         vm.warp(block.timestamp + ONE_DAY);
 
-        (canExecute, daysPassed, amountToSave) =
-            dailySavingsModule.getDailyExecutionStatus(alice, address(tokenA));
+        (canExecute, daysPassed, amountToSave) = dailySavingsModule.getDailyExecutionStatus(alice, address(tokenA));
 
         assertTrue(canExecute, "Should be ready after one day");
         assertEq(daysPassed, 1, "Should have 1 day passed");
@@ -923,18 +839,19 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Get comprehensive status
-        (bool enabled, uint256 dailyAmount, uint256 goalAmount, uint256 currentAmount,
-         uint256 remainingAmount, uint256 penaltyAmount, uint256 estimatedCompletionDate) =
-            dailySavingsModule.getDailySavingsStatus(alice, address(tokenA));
+        (
+            bool enabled,
+            uint256 dailyAmount,
+            uint256 goalAmount,
+            uint256 currentAmount,
+            uint256 remainingAmount,
+            uint256 penaltyAmount,
+            uint256 estimatedCompletionDate
+        ) = dailySavingsModule.getDailySavingsStatus(alice, address(tokenA));
 
         assertTrue(enabled, "Should be enabled");
         assertEq(dailyAmount, DAILY_AMOUNT, "Daily amount should match");
@@ -957,12 +874,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // Still no pending (not enough time passed)
@@ -987,12 +899,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         uint256 endTime = block.timestamp + 30 days;
         vm.prank(alice);
         dailySavingsModule.configureDailySavings(
-            alice,
-            address(tokenA),
-            DAILY_AMOUNT,
-            GOAL_AMOUNT,
-            PENALTY_BPS,
-            endTime
+            alice, address(tokenA), DAILY_AMOUNT, GOAL_AMOUNT, PENALTY_BPS, endTime
         );
 
         // 2. Execute daily savings multiple times
@@ -1038,7 +945,9 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         vm.prank(alice);
         uint256 finalWithdraw = dailySavingsModule.withdrawDailySavings(alice, address(tokenA), finalCurrentAmount);
 
-        assertApproxEqRel(finalWithdraw, finalCurrentAmount, 0.06e18, "Should receive approximately full amount after goal reached");
+        assertApproxEqRel(
+            finalWithdraw, finalCurrentAmount, 0.06e18, "Should receive approximately full amount after goal reached"
+        );
 
         console.log("Complete daily savings workflow successful");
         console.log("SUCCESS: Complete daily savings workflow verified");
@@ -1091,4 +1000,3 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         console.log("SUCCESS: Complete DailySavings functionality verified!");
     }
 }
-

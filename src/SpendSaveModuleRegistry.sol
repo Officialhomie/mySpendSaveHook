@@ -8,9 +8,8 @@ import {SpendSaveStorage} from "./SpendSaveStorage.sol";
  * @notice Upgradeable module management system
  */
 contract SpendSaveModuleRegistry {
-    
     SpendSaveStorage public immutable storage_;
-    
+
     // Module versioning
     mapping(string => address) public modules;
     mapping(string => uint256) public moduleVersions;
@@ -25,27 +24,20 @@ contract SpendSaveModuleRegistry {
     }
 
     modifier onlyAuthorized() {
-        require(
-            authorizedUpgraders[msg.sender] || 
-            msg.sender == storage_.owner(),
-            "Unauthorized"
-        );
+        require(authorizedUpgraders[msg.sender] || msg.sender == storage_.owner(), "Unauthorized");
         _;
     }
 
     /**
      * @notice Upgrade a module to new implementation
      */
-    function upgradeModule(
-        string calldata moduleName,
-        address newImplementation
-    ) external onlyAuthorized {
+    function upgradeModule(string calldata moduleName, address newImplementation) external onlyAuthorized {
         require(newImplementation != address(0), "Invalid implementation");
-        
+
         address oldImplementation = modules[moduleName];
         modules[moduleName] = newImplementation;
         moduleVersions[moduleName]++;
-        
+
         emit ModuleUpgraded(moduleName, oldImplementation, newImplementation, moduleVersions[moduleName]);
     }
 

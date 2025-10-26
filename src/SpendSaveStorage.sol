@@ -4,9 +4,11 @@ pragma solidity 0.8.26;
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
-import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {ITokenModule} from "./interfaces/ITokenModule.sol";
 import {ERC6909} from "lib/v4-periphery/lib/v4-core/lib/solmate/src/tokens/ERC6909.sol";
@@ -23,19 +25,20 @@ import {PoolId} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
  * - Complete ERC6909 multi-token standard implementation
  * @author SpendSave Protocol Team
  */
+
 contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ==================== CONSTANTS ====================
-    
+
     /// @notice Default fee tier for pool creation (0.3%)
     uint24 private constant DEFAULT_FEE_TIER = 3000;
-    
+
     /// @notice Default tick spacing for pool creation
     int24 private constant DEFAULT_TICK_SPACING = 60;
 
     // ==================== PACKED STORAGE OPTIMIZATION STRUCTS ====================
-    
+
     /**
      * @notice Packed user configuration optimized for single storage slot access
      * @dev Layout fits exactly in 256 bits for gas efficiency:
@@ -48,130 +51,126 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * - reserved: 184 bits (future expansion space)
      */
     struct PackedUserConfig {
-        uint16 percentage;        // Savings percentage in basis points (0-10000)
-        uint16 autoIncrement;     // Auto-increment value in basis points
-        uint16 maxPercentage;     // Maximum percentage cap in basis points
-        uint8 roundUpSavings;     // Round up flag (0 or 1)
-        uint8 enableDCA;          // DCA enabled flag (0 or 1)
-        uint8 savingsTokenType;   // Token type: 0=INPUT, 1=OUTPUT, 2=SPECIFIC
-        uint184 reserved;         // Reserved for future use
+        uint16 percentage; // Savings percentage in basis points (0-10000)
+        uint16 autoIncrement; // Auto-increment value in basis points
+        uint16 maxPercentage; // Maximum percentage cap in basis points
+        uint8 roundUpSavings; // Round up flag (0 or 1)
+        uint8 enableDCA; // DCA enabled flag (0 or 1)
+        uint8 savingsTokenType; // Token type: 0=INPUT, 1=OUTPUT, 2=SPECIFIC
+        uint184 reserved; // Reserved for future use
     }
-    
+
     /**
      * @notice Packed swap context for transient storage optimization
      * @dev Used for efficient communication between beforeSwap and afterSwap
      * Designed to minimize gas costs during swap execution
      */
     struct PackedSwapContext {
-        uint128 pendingSaveAmount;    // Amount pending to be saved (128 bits sufficient for most tokens)
-        uint16 currentPercentage;     // Active percentage for this specific swap
-        uint8 hasStrategy;            // Strategy active flag (0 or 1)
-        uint8 savingsTokenType;       // Token type for this swap
-        uint8 roundUpSavings;         // Round up flag for this swap
-        uint8 enableDCA;              // DCA flag for this swap
-        uint96 reserved;              // Future expansion space
+        uint128 pendingSaveAmount; // Amount pending to be saved (128 bits sufficient for most tokens)
+        uint16 currentPercentage; // Active percentage for this specific swap
+        uint8 hasStrategy; // Strategy active flag (0 or 1)
+        uint8 savingsTokenType; // Token type for this swap
+        uint8 roundUpSavings; // Round up flag for this swap
+        uint8 enableDCA; // DCA flag for this swap
+        uint96 reserved; // Future expansion space
     }
 
     // ==================== CORE STATE VARIABLES ====================
-    
+
     /// @notice Immutable reference to Uniswap V4 pool manager
     address public immutable poolManager;
-    
+
     /// @notice Core protocol contract addresses
     address public spendSaveHook;
     address public owner;
     address public treasury;
-    
+
     /// @notice Treasury fee in basis points (0-10000, where 10000 = 100%)
     uint256 public treasuryFee;
-    
+
     /// @notice Maximum savings percentage allowed globally (in basis points)
     uint256 public maxSavingsPercentage;
 
     // ==================== OPTIMIZED STORAGE MAPPINGS ====================
-    
+
     /// @notice Packed user configurations for gas-efficient access
     mapping(address => PackedUserConfig) private _packedUserConfigs;
-    
+
     /// @notice User savings balances by token address (user => token => amount)
     mapping(address => mapping(address => uint256)) public _savings;
-    
+
     /// @notice Specific savings token per user (for SPECIFIC token type)
     mapping(address => address) public specificSavingsToken;
-    
+
     /// @notice Savings goals per user
     mapping(address => uint256) public savingsGoals;
 
     /// @notice Daily savings amounts per user per token
     mapping(address => mapping(address => uint256)) public dailySavingsAmounts;
 
-    /// @notice Daily savings configuration parameters per user per token  
+    /// @notice Daily savings configuration parameters per user per token
     mapping(address => mapping(address => DailySavingsConfigParams)) public dailySavingsConfigParams;
 
     /// @notice Daily savings yield strategies per user per token
     mapping(address => mapping(address => YieldStrategy)) public dailySavingsYieldStrategies;
-    
+
     /// @notice Transient storage for swap contexts (EIP-1153 compatible)
     mapping(address => PackedSwapContext) private _transientSwapContexts;
 
     // ==================== MODULE MANAGEMENT ====================
-    
+
     /// @notice Authorized modules for access control
     mapping(address => bool) public authorizedModules;
-    
+
     /// @notice Module registry for efficient lookup by ID
     mapping(bytes32 => address) public moduleRegistry;
 
     // ==================== ERC6909 TOKEN IMPLEMENTATION ====================
-    
+
     /// @notice ERC6909 balances mapping (owner => id => balance)
     mapping(address => mapping(uint256 => uint256)) private _balances;
-    
+
     /// @notice ERC6909 allowances mapping (owner => spender => id => allowance)
     mapping(address => mapping(address => mapping(uint256 => uint256))) private _allowances;
-    
+
     /// @notice Token information storage
     mapping(address => TokenInfo) private _tokenInfo;
-    
+
     /// @notice Token ID to address mapping
     mapping(uint256 => address) private _tokenIdToAddress;
-    
+
     /// @notice Address to token ID mapping
     mapping(address => uint256) private _tokenToId;
-    
+
     /// @notice Next available token ID counter
     uint256 private _nextTokenId = 1;
-    
+
     /// @notice Total supply tracking for each token ID
     mapping(uint256 => uint256) private _totalSupply;
 
     // ==================== COMPREHENSIVE DATA STRUCTURES ====================
-    
-    
+
     /// @notice User slippage tolerance settings
     mapping(address => uint256) public userSlippageTolerance;
 
-    
     /// @notice Token-specific slippage tolerance
     mapping(address => mapping(address => uint256)) public tokenSlippageTolerance;
-    
+
     /// @notice Slippage exceeded action per user
     mapping(address => SlippageAction) public slippageExceededAction;
-    
+
     /// @notice Default slippage tolerance
     uint256 public defaultSlippageTolerance;
-    
+
     /// @notice Daily savings configuration per user
     mapping(address => DailySavingsConfig) public dailySavingsConfigs;
 
-    
-    
     /// @notice Daily execution records
     mapping(address => mapping(address => DailySavingsExecution)) public dailyExecutions;
-    
+
     /// @notice Pool keys for trading pair management
     mapping(bytes32 => PoolKey) private _poolKeys;
-    
+
     /// @notice Pool initialization status
     mapping(bytes32 => bool) public poolInitialized;
 
@@ -189,186 +188,199 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     mapping(address => DCAQueue) public dcaQueues;
 
     // ==================== DCA MANAGEMENT MAPPINGS ====================
-    
+
     /// @notice DCA tick strategies per user
     mapping(address => DCATickStrategy) public dcaTickStrategies;
-    
+
     /// @notice DCA target tokens per user
     mapping(address => address) public dcaTargetTokens;
-    
+
     /// @notice DCA minimum amounts per user
     mapping(address => uint256) public dcaMinAmounts;
-    
+
     /// @notice Enhanced DCA queues with detailed information
     mapping(address => EnhancedDCAQueue) private enhancedDcaQueues;
-    
+
     /// @notice Pool ticks for price tracking
     mapping(PoolId => int24) private _poolTicks;
 
     // Add mapping for last DCA execution tick per user and pool
     mapping(address => mapping(bytes32 => int24)) private _lastDcaExecutionTick;
-    
+
     /// @notice DCA execution history tracking
     mapping(address => DCAExecution[]) private _dcaExecutionHistory;
 
     // ==================== ENUMS AND STRUCTS ====================
-    
+
     /// @notice Token types for savings strategy
-    enum SavingsTokenType { INPUT, OUTPUT, SPECIFIC }
-    
+    enum SavingsTokenType {
+        INPUT,
+        OUTPUT,
+        SPECIFIC
+    }
+
     /// @notice Yield strategy options
-    enum YieldStrategy { NONE, COMPOUND, AAVE, COMPOUND_V3 }
-    
+    enum YieldStrategy {
+        NONE,
+        COMPOUND,
+        AAVE,
+        COMPOUND_V3
+    }
+
     /// @notice Slippage exceeded actions
-    enum SlippageAction { REVERT, SKIP, REDUCE }
+    enum SlippageAction {
+        REVERT,
+        SKIP,
+        REDUCE
+    }
 
     /// @notice Daily savings configuration parameters
     struct DailySavingsConfigParams {
-        bool enabled;                 // Configuration enabled status
-        uint256 lastExecutionTime;    // Last execution timestamp - ADDED
-        uint256 startTime;            // Start time for the savings period - ADDED
-        uint256 goalAmount;           // Target goal amount
-        uint256 currentAmount;        // Current accumulated amount
-        uint256 penaltyBps;           // Penalty in basis points
-        uint256 endTime;              // End time for the savings period
+        bool enabled; // Configuration enabled status
+        uint256 lastExecutionTime; // Last execution timestamp - ADDED
+        uint256 startTime; // Start time for the savings period - ADDED
+        uint256 goalAmount; // Target goal amount
+        uint256 currentAmount; // Current accumulated amount
+        uint256 penaltyBps; // Penalty in basis points
+        uint256 endTime; // End time for the savings period
     }
-    
+
     /// @notice Token information structure
     struct TokenInfo {
-        uint256 tokenId;          // ERC6909 token ID
-        bool isRegistered;        // Registration status
+        uint256 tokenId; // ERC6909 token ID
+        bool isRegistered; // Registration status
     }
-    
+
     /// @notice Complete saving strategy configuration
     struct SavingStrategy {
-        uint256 percentage;                    // Savings percentage (0-10000)
-        uint256 autoIncrement;                 // Auto increment value
-        uint256 maxPercentage;                 // Maximum percentage cap
-        uint256 goalAmount;                    // Savings goal amount
-        bool roundUpSavings;                   // Round up flag
-        bool enableDCA;                        // DCA enabled flag
-        SavingsTokenType savingsTokenType;     // Token type for savings
-        address specificSavingsToken;          // Specific token address (if applicable)
+        uint256 percentage; // Savings percentage (0-10000)
+        uint256 autoIncrement; // Auto increment value
+        uint256 maxPercentage; // Maximum percentage cap
+        uint256 goalAmount; // Savings goal amount
+        bool roundUpSavings; // Round up flag
+        bool enableDCA; // DCA enabled flag
+        SavingsTokenType savingsTokenType; // Token type for savings
+        address specificSavingsToken; // Specific token address (if applicable)
     }
-    
+
     /// @notice Swap context for transaction processing
     struct SwapContext {
-        bool hasStrategy;                      // Strategy exists flag
-        uint256 currentPercentage;             // Current active percentage
-        uint256 inputAmount;                   // Input amount for swap
-        address inputToken;                    // Input token address
-        bool roundUpSavings;                   // Round up flag
-        bool enableDCA;                        // DCA enabled flag
-        address dcaTargetToken;                // DCA target token
-        int24 currentTick;                     // Current pool tick
-        SavingsTokenType savingsTokenType;     // Savings token type
-        address specificSavingsToken;          // Specific savings token
-        uint256 pendingSaveAmount;             // Pending save amount
+        bool hasStrategy; // Strategy exists flag
+        uint256 currentPercentage; // Current active percentage
+        uint256 inputAmount; // Input amount for swap
+        address inputToken; // Input token address
+        bool roundUpSavings; // Round up flag
+        bool enableDCA; // DCA enabled flag
+        address dcaTargetToken; // DCA target token
+        int24 currentTick; // Current pool tick
+        SavingsTokenType savingsTokenType; // Savings token type
+        address specificSavingsToken; // Specific savings token
+        uint256 pendingSaveAmount; // Pending save amount
     }
-    
+
     /// @notice DCA queue structure
     struct DCAQueue {
-        uint256[] amounts;        // Amounts to DCA
-        address[] tokens;         // Target tokens
+        uint256[] amounts; // Amounts to DCA
+        address[] tokens; // Target tokens
         uint256[] executionTimes; // Execution timestamps
-        bool isActive;            // Queue active status
+        bool isActive; // Queue active status
     }
-    
+
     /// @notice DCA execution record
     struct DCAExecution {
-        uint256 amount;           // Executed amount
-        address token;            // Target token
-        uint256 executionTime;    // Execution timestamp
-        uint256 price;            // Execution price
-        bool successful;          // Execution success flag
+        uint256 amount; // Executed amount
+        address token; // Target token
+        uint256 executionTime; // Execution timestamp
+        uint256 price; // Execution price
+        bool successful; // Execution success flag
     }
-    
+
     /// @notice Daily savings configuration
     struct DailySavingsConfig {
-        uint256 dailyAmount;      // Daily savings amount
-        address[] tokens;         // Target tokens
-        uint256 lastExecution;    // Last execution timestamp
-        bool isActive;            // Configuration active status
+        uint256 dailyAmount; // Daily savings amount
+        address[] tokens; // Target tokens
+        uint256 lastExecution; // Last execution timestamp
+        bool isActive; // Configuration active status
     }
-    
+
     /// @notice Daily savings execution record
     struct DailySavingsExecution {
-        uint256 amount;           // Executed amount
-        uint256 timestamp;        // Execution timestamp
-        bool successful;          // Execution success flag
+        uint256 amount; // Executed amount
+        uint256 timestamp; // Execution timestamp
+        bool successful; // Execution success flag
     }
 
     // ==================== DCA STRUCTURES ====================
-    
+
     /// @notice DCA tick strategy configuration
     struct DCATickStrategy {
-        int24 tickDelta;              // Tick movement threshold
-        uint256 tickExpiryTime;       // Strategy expiry timestamp
-        bool onlyImprovePrice;        // Only execute on price improvement
-        int24 minTickImprovement;     // Minimum tick improvement required
-        bool dynamicSizing;           // Enable dynamic DCA sizing
+        int24 tickDelta; // Tick movement threshold
+        uint256 tickExpiryTime; // Strategy expiry timestamp
+        bool onlyImprovePrice; // Only execute on price improvement
+        int24 minTickImprovement; // Minimum tick improvement required
+        bool dynamicSizing; // Enable dynamic DCA sizing
         uint256 customSlippageTolerance; // Custom slippage tolerance
     }
-    
+
     /// @notice DCA queue item with detailed information
     struct DCAQueueItem {
-        address fromToken;            // Source token
-        address toToken;              // Target token
-        uint256 amount;               // DCA amount
-        int24 executionTick;          // Target execution tick
-        uint256 deadline;             // Execution deadline
+        address fromToken; // Source token
+        address toToken; // Target token
+        uint256 amount; // DCA amount
+        int24 executionTick; // Target execution tick
+        uint256 deadline; // Execution deadline
         uint256 customSlippageTolerance; // Custom slippage
-        bool executed;                // Execution status
+        bool executed; // Execution status
     }
-    
+
     /// @notice Enhanced DCA queue with detailed tracking
     struct EnhancedDCAQueue {
-        DCAQueueItem[] items;         // Queue items
+        DCAQueueItem[] items; // Queue items
         mapping(uint256 => bool) executed; // Execution tracking
-        bool isActive;                // Queue active status
+        bool isActive; // Queue active status
     }
 
     // ==================== EVENTS ====================
-    
+
     /// @notice Emitted when storage is initialized
     event StorageInitialized(address indexed poolManager, address indexed spendSaveHook);
-    
+
     /// @notice Emitted when user configuration is updated
     event UserConfigUpdated(address indexed user, PackedUserConfig config);
-    
+
     /// @notice Emitted when savings amount is increased
     event SavingsIncreased(address indexed user, address indexed token, uint256 amount);
-    
+
     /// @notice Emitted when module is registered
     event ModuleRegistered(bytes32 indexed moduleId, address indexed moduleAddress);
-    
+
     /// @notice Emitted when saving strategy is set
     event SavingStrategySet(address indexed user, SavingStrategy strategy);
-    
+
     /// @notice Emitted when DCA is added to queue
     event DCAQueued(address indexed user, uint256 amount, address indexed token, uint256 executionTime);
-    
+
     /// @notice Emitted when slippage tolerance is updated
     event SlippageToleranceUpdated(address indexed user, uint256 tolerance);
-    
+
     /// @notice Emitted when daily savings are configured
     event DailySavingsConfigured(address indexed user, DailySavingsConfig config);
-    
+
     /// @notice Emitted when DCA tick strategy is set
     event DCATickStrategySet(address indexed user, int24 tickDelta, uint256 tickExpiryTime, bool onlyImprovePrice);
-    
+
     /// @notice Emitted when DCA target token is set
     event DCATargetTokenSet(address indexed user, address indexed token);
-    
+
     /// @notice Emitted when DCA order is executed
     event DCAExecuted(address indexed user, uint256 indexed index);
-    
+
     /// @notice Emitted when tokens are released for LP operations
     event TokensReleasedForLP(address indexed token, uint256 amount, address indexed recipient);
-    
+
     /// @notice Emitted when intermediary tokens are updated
     event IntermediaryTokensUpdated(address[] tokens);
-    
+
     /// @notice Emitted when pool tick is updated
     event PoolTickUpdated(PoolId indexed poolId, int24 tick);
 
@@ -376,39 +388,39 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     event DailySavingsYieldStrategyUpdated(address indexed user, address indexed token, YieldStrategy strategy);
 
     // ==================== ERRORS ====================
-    
+
     /// @notice Error when insufficient balance for operation
     error InsufficientBalance();
-    
+
     /// @notice Error when unauthorized access is attempted
     error Unauthorized();
-    
+
     /// @notice Error when invalid input is provided
     error InvalidInput();
-    
+
     /// @notice Error when module is not found
     error ModuleNotFound();
-    
+
     /// @notice Error when already initialized
     error AlreadyInitialized();
-    
+
     /// @notice Error when index is out of bounds
     error IndexOutOfBounds();
 
     // ==================== MODIFIERS ====================
-    
+
     /// @notice Restricts access to contract owner
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
         _;
     }
-    
+
     /// @notice Restricts access to authorized modules
     modifier onlyModule() {
         if (!authorizedModules[msg.sender]) revert Unauthorized();
         _;
     }
-    
+
     /// @notice Restricts access to the hook contract
     modifier onlyHook() {
         if (msg.sender != spendSaveHook) revert Unauthorized();
@@ -416,7 +428,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== CONSTRUCTOR ====================
-    
+
     /**
      * @notice Initialize the storage contract with required dependencies
      * @param _poolManager The Uniswap V4 pool manager address
@@ -424,7 +436,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     constructor(address _poolManager) {
         if (_poolManager == address(0)) revert InvalidInput();
-        
+
         poolManager = _poolManager;
         owner = msg.sender;
         treasury = msg.sender;
@@ -433,7 +445,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== INITIALIZATION ====================
-    
+
     /**
      * @notice Initialize the hook contract reference
      * @param _spendSaveHook The SpendSaveHook contract address
@@ -442,13 +454,13 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function initialize(address _spendSaveHook) external onlyOwner {
         if (_spendSaveHook == address(0)) revert InvalidInput();
         if (spendSaveHook != address(0)) revert AlreadyInitialized();
-        
+
         spendSaveHook = _spendSaveHook;
         emit StorageInitialized(poolManager, _spendSaveHook);
     }
 
     // ==================== OPTIMIZED STORAGE FUNCTIONS ====================
-    
+
     /**
      * @notice Get packed user configuration in a single storage read
      * @param user The user address to query
@@ -458,20 +470,15 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return enableDCA Whether DCA is enabled
      * @dev This function enables the gas optimization by reading all user config in one SLOAD
      */
-    function getPackedUserConfig(address user) 
-        external 
-        view 
-        returns (uint256 percentage, bool roundUpSavings, uint8 savingsTokenType, bool enableDCA) 
+    function getPackedUserConfig(address user)
+        external
+        view
+        returns (uint256 percentage, bool roundUpSavings, uint8 savingsTokenType, bool enableDCA)
     {
         PackedUserConfig memory config = _packedUserConfigs[user];
-        return (
-            config.percentage,
-            config.roundUpSavings == 1,
-            config.savingsTokenType,
-            config.enableDCA == 1
-        );
+        return (config.percentage, config.roundUpSavings == 1, config.savingsTokenType, config.enableDCA == 1);
     }
-    
+
     /**
      * @notice Set packed user configuration with single storage write
      * @param user The user address
@@ -497,7 +504,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             revert InvalidInput();
         }
         if (savingsTokenType > 2) revert InvalidInput(); // 0, 1, or 2 only
-        
+
         // Pack configuration into single storage slot
         PackedUserConfig memory config = PackedUserConfig({
             percentage: percentage,
@@ -508,11 +515,11 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             savingsTokenType: savingsTokenType,
             reserved: 0
         });
-        
+
         _packedUserConfigs[user] = config;
         emit UserConfigUpdated(user, config);
     }
-    
+
     /**
      * @notice Store swap context in transient storage for gas efficiency
      * @param user The user address
@@ -543,7 +550,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             reserved: 0
         });
     }
-    
+
     /**
      * @notice Get swap context from transient storage
      * @param user The user address
@@ -554,16 +561,16 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return enableDCA Whether DCA is enabled
      * @dev Gas-efficient single read from transient storage
      */
-    function getTransientSwapContext(address user) 
-        external 
-        view 
+    function getTransientSwapContext(address user)
+        external
+        view
         returns (
             uint128 pendingSaveAmount,
             uint128 currentPercentage,
             uint8 savingsTokenType,
             bool roundUpSavings,
             bool enableDCA
-        ) 
+        )
     {
         PackedSwapContext memory context = _transientSwapContexts[user];
         return (
@@ -574,7 +581,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             context.enableDCA == 1
         );
     }
-    
+
     /**
      * @notice Clear swap context after processing
      * @param user The user address
@@ -583,7 +590,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function clearTransientSwapContext(address user) external onlyHook {
         delete _transientSwapContexts[user];
     }
-    
+
     /**
      * @notice Batch update user savings data in a single transaction
      * @param user The user address
@@ -592,11 +599,10 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return netSavings The net savings amount after fees
      * @dev Optimized function that performs multiple related updates in one call to minimize gas
      */
-    function batchUpdateUserSavings(
-        address user,
-        address token,
-        uint256 savingsAmount
-    ) external returns (uint256 netSavings) {
+    function batchUpdateUserSavings(address user, address token, uint256 savingsAmount)
+        external
+        returns (uint256 netSavings)
+    {
         // Allow both hook and modules to call this function
         if (msg.sender != spendSaveHook && !authorizedModules[msg.sender]) {
             revert Unauthorized();
@@ -604,19 +610,19 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         // Calculate fee and net savings
         uint256 feeAmount = (savingsAmount * treasuryFee) / 10000;
         netSavings = savingsAmount - feeAmount;
-        
+
         // Update user savings balance
         _savings[user][token] += netSavings;
-        
+
         // Update treasury fees if applicable
         if (feeAmount > 0) {
             _savings[treasury][token] += feeAmount;
         }
-        
+
         emit SavingsIncreased(user, token, netSavings);
         return netSavings;
     }
-    
+
     /**
      * @notice Get user tokens eligible for daily savings processing
      * @param user The user address
@@ -632,7 +638,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== MODULE REGISTRY FUNCTIONS ====================
-    
+
     /**
      * @notice Register a module in the registry with authorization
      * @param moduleId The unique module identifier (e.g., keccak256("STRATEGY"))
@@ -641,13 +647,13 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function registerModule(bytes32 moduleId, address moduleAddress) external onlyOwner {
         if (moduleAddress == address(0)) revert InvalidInput();
-        
+
         moduleRegistry[moduleId] = moduleAddress;
         authorizedModules[moduleAddress] = true;
-        
+
         emit ModuleRegistered(moduleId, moduleAddress);
     }
-    
+
     /**
      * @notice Get module address by identifier
      * @param moduleId The module identifier
@@ -660,7 +666,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== ERC6909 TOKEN IMPLEMENTATION ====================
-    
+
     /**
      * @notice Get token balance for ERC6909 compliance
      * @param tokenOwner The token owner address
@@ -670,7 +676,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function getBalance(address tokenOwner, uint256 id) external view returns (uint256 balance) {
         return _balances[tokenOwner][id];
     }
-    
+
     /**
      * @notice Set token balance (module access only)
      * @param user The user address
@@ -681,7 +687,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setBalance(address user, uint256 id, uint256 amount) external onlyModule {
         _balances[user][id] = amount;
     }
-    
+
     /**
      * @notice Increase token balance (module access only)
      * @param user The user address
@@ -692,7 +698,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function increaseBalance(address user, uint256 id, uint256 amount) external onlyModule {
         _balances[user][id] += amount;
     }
-    
+
     /**
      * @notice Decrease token balance with validation (module access only)
      * @param user The user address
@@ -704,7 +710,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         if (_balances[user][id] < amount) revert InsufficientBalance();
         _balances[user][id] -= amount;
     }
-    
+
     /**
      * @notice Get allowance for ERC6909 compliance
      * @param tokenOwner The token owner address
@@ -715,7 +721,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function getAllowance(address tokenOwner, address spender, uint256 id) external view returns (uint256 allowance) {
         return _allowances[tokenOwner][spender][id];
     }
-    
+
     /**
      * @notice Set allowance for ERC6909 compliance (module access only)
      * @param tokenOwner The token owner address
@@ -726,7 +732,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setAllowance(address tokenOwner, address spender, uint256 id, uint256 amount) external onlyModule {
         _allowances[tokenOwner][spender][id] = amount;
     }
-    
+
     /**
      * @notice Get token address from ID
      * @param id The token ID
@@ -735,7 +741,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function idToToken(uint256 id) external view returns (address tokenAddress) {
         return _tokenIdToAddress[id];
     }
-    
+
     /**
      * @notice Set token ID to address mapping (module access only)
      * @param id The token ID
@@ -744,7 +750,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setIdToToken(uint256 id, address token) external onlyModule {
         _tokenIdToAddress[id] = token;
     }
-    
+
     /**
      * @notice Get token ID from address
      * @param token The token address
@@ -753,7 +759,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function tokenToId(address token) external view returns (uint256 tokenId) {
         return _tokenToId[token];
     }
-    
+
     /**
      * @notice Set token address to ID mapping (module access only)
      * @param token The token address
@@ -762,7 +768,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setTokenToId(address token, uint256 id) external onlyModule {
         _tokenToId[token] = id;
     }
-    
+
     /**
      * @notice Get next available token ID
      * @return nextId The next token ID to be assigned
@@ -770,7 +776,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function getNextTokenId() external view returns (uint256 nextId) {
         return _nextTokenId;
     }
-    
+
     /**
      * @notice Increment and return the next token ID (module access only)
      * @return currentId The ID that was just incremented (old value)
@@ -781,7 +787,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         _nextTokenId++;
         return currentId;
     }
-    
+
     /**
      * @notice Get total supply for a token ID
      * @param tokenId The token ID
@@ -790,7 +796,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function getTotalSupply(uint256 tokenId) external view returns (uint256 totalSupply) {
         return _totalSupply[tokenId];
     }
-    
+
     /**
      * @notice Increase total supply for a token ID (module access only)
      * @param tokenId The token ID
@@ -799,7 +805,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function increaseTotalSupply(uint256 tokenId, uint256 amount) external onlyModule {
         _totalSupply[tokenId] += amount;
     }
-    
+
     /**
      * @notice Decrease total supply for a token ID (module access only)
      * @param tokenId The token ID
@@ -811,7 +817,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== SAVINGS MANAGEMENT FUNCTIONS ====================
-    
+
     /**
      * @notice Set user saving strategy (comprehensive configuration)
      * @param user The user address
@@ -824,7 +830,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         setPackedUserConfig(
             user,
             uint16(strategy.percentage),
-            uint16(strategy.autoIncrement), 
+            uint16(strategy.autoIncrement),
             uint16(strategy.maxPercentage),
             strategy.roundUpSavings,
             strategy.enableDCA,
@@ -838,17 +844,17 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         savingsGoals[user] = strategy.goalAmount;
         emit SavingStrategySet(user, strategy);
     }
-    
+
     /**
-    * @notice Get user saving strategy
-    * @param user The user address
-    * @return strategy The complete saving strategy configuration
-    * @dev Now uses only packed storage - no more legacy fallbacks
-    */
+     * @notice Get user saving strategy
+     * @param user The user address
+     * @return strategy The complete saving strategy configuration
+     * @dev Now uses only packed storage - no more legacy fallbacks
+     */
     function getUserSavingStrategy(address user) external view returns (SavingStrategy memory strategy) {
         // Get from packed storage only
         PackedUserConfig memory packed = _packedUserConfigs[user];
-        
+
         // Construct strategy from packed storage and individual mappings
         strategy = SavingStrategy({
             percentage: packed.percentage,
@@ -861,7 +867,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             specificSavingsToken: specificSavingsToken[user]
         });
     }
-    
+
     /**
      * @notice Increase savings balance with fee handling
      * @param user The user address
@@ -872,50 +878,57 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function increaseSavings(address user, address token, uint256 amount) external onlyModule {
         uint256 fee = (amount * treasuryFee) / 10000;
         uint256 netAmount = amount - fee;
-        
+
         // Add token to user's savings tokens list if it's the first time
         if (_savings[user][token] == 0) {
             userSavingsTokens[user].push(token);
         }
-        
+
         _savings[user][token] += netAmount;
         if (fee > 0) {
             _savings[treasury][token] += fee;
         }
-        
+
         emit SavingsIncreased(user, token, netAmount);
     }
 
     /**
-    * @notice Set daily savings amount for user and token
-    * @param user The user address
-    * @param token The token address
-    * @param amount The daily savings amount
-    */
+     * @notice Set daily savings amount for user and token
+     * @param user The user address
+     * @param token The token address
+     * @param amount The daily savings amount
+     */
     function setDailySavingsAmount(address user, address token, uint256 amount) external onlyModule {
         dailySavingsAmounts[user][token] = amount;
     }
 
     /**
-    * @notice Set daily savings configuration parameters
-    * @param user The user address
-    * @param token The token address
-    * @param params The configuration parameters
-    */
-    function setDailySavingsConfig(address user, address token, DailySavingsConfigParams memory params) external onlyModule {
+     * @notice Set daily savings configuration parameters
+     * @param user The user address
+     * @param token The token address
+     * @param params The configuration parameters
+     */
+    function setDailySavingsConfig(address user, address token, DailySavingsConfigParams memory params)
+        external
+        onlyModule
+    {
         dailySavingsConfigParams[user][token] = params;
     }
 
     /**
-    * @notice Get daily savings configuration parameters
-    * @param user The user address
-    * @param token The token address
-    * @return params The configuration parameters
-    */
-    function getDailySavingsConfigParams(address user, address token) external view returns (DailySavingsConfigParams memory params) {
+     * @notice Get daily savings configuration parameters
+     * @param user The user address
+     * @param token The token address
+     * @return params The configuration parameters
+     */
+    function getDailySavingsConfigParams(address user, address token)
+        external
+        view
+        returns (DailySavingsConfigParams memory params)
+    {
         return dailySavingsConfigParams[user][token];
     }
-    
+
     /**
      * @notice Get user savings balance for a specific token
      * @param user The user address
@@ -936,13 +949,17 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return isLocked Whether withdrawals are currently locked
      * @return _withdrawalTimelock Timestamp when withdrawals will be unlocked
      */
-    function getSavingsDetails(address user, address token) external view returns (
-        uint256 balance,
-        uint256 _totalSaved,
-        uint256 _lastSaveTime,
-        bool isLocked,
-        uint256 _withdrawalTimelock
-    ) {
+    function getSavingsDetails(address user, address token)
+        external
+        view
+        returns (
+            uint256 balance,
+            uint256 _totalSaved,
+            uint256 _lastSaveTime,
+            bool isLocked,
+            uint256 _withdrawalTimelock
+        )
+    {
         balance = _savings[user][token];
         _totalSaved = totalSaved[user][token];
         _lastSaveTime = lastSaveTime[user][token];
@@ -981,7 +998,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             enableDCA: context.enableDCA ? 1 : 0,
             reserved: 0
         });
-        
+
         // Store additional fields that don't fit in packed format
         if (context.dcaTargetToken != address(0)) {
             dcaTargetTokens[user] = context.dcaTargetToken;
@@ -998,9 +1015,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setSwapContextWithTick(address user, SwapContext memory context, int24 currentTick) external onlyModule {
         // Set the basic swap context
         setSwapContext(user, context);
-        
+
         // Store the current tick in a separate mapping for DCA operations
-        // Note: This is a temporary solution - in a full implementation, 
+        // Note: This is a temporary solution - in a full implementation,
         // you might want to store this in the transient context or pass it directly
     }
 
@@ -1040,12 +1057,12 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function addToDcaQueue(address user, uint256 amount, address token, uint256 executionTime) external onlyModule {
         DCAQueue storage queue = dcaQueues[user];
-        
+
         queue.amounts.push(amount);
         queue.tokens.push(token);
         queue.executionTimes.push(executionTime);
         queue.isActive = true;
-        
+
         emit DCAQueued(user, amount, token, executionTime);
     }
 
@@ -1070,9 +1087,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return dynamicSizing Dynamic sizing enabled flag
      * @return customSlippageTolerance Custom slippage tolerance
      */
-    function getDcaTickStrategy(address user) 
-        external 
-        view 
+    function getDcaTickStrategy(address user)
+        external
+        view
         returns (
             int24 tickDelta,
             uint256 tickExpiryTime,
@@ -1080,7 +1097,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             int24 minTickImprovement,
             bool dynamicSizing,
             uint256 customSlippageTolerance
-        ) 
+        )
     {
         DCATickStrategy storage strategy = dcaTickStrategies[user];
         return (
@@ -1120,7 +1137,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             dynamicSizing: dynamicSizing,
             customSlippageTolerance: customSlippageTolerance
         });
-        
+
         emit DCATickStrategySet(user, tickDelta, tickExpiryTime, onlyImprovePrice);
     }
 
@@ -1130,11 +1147,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @param lowerTick Lower tick bound for DCA execution
      * @param upperTick Upper tick bound for DCA execution
      */
-    function setDcaTickStrategy(
-        address user,
-        int24 lowerTick,
-        int24 upperTick
-    ) external onlyModule {
+    function setDcaTickStrategy(address user, int24 lowerTick, int24 upperTick) external onlyModule {
         // Convert bounds to delta-based strategy
         int24 tickDelta = upperTick - lowerTick;
         uint256 tickExpiryTime = 1 days; // Default expiry
@@ -1142,7 +1155,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         int24 minTickImprovement = 0; // No minimum improvement
         bool dynamicSizing = false; // Default to fixed sizing
         uint256 customSlippageTolerance = 0; // Use default slippage
-        
+
         dcaTickStrategies[user] = DCATickStrategy({
             tickDelta: tickDelta,
             tickExpiryTime: tickExpiryTime,
@@ -1151,7 +1164,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             dynamicSizing: dynamicSizing,
             customSlippageTolerance: customSlippageTolerance
         });
-        
+
         emit DCATickStrategySet(user, tickDelta, tickExpiryTime, onlyImprovePrice);
     }
 
@@ -1198,27 +1211,29 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         uint256 customSlippageTolerance
     ) external onlyModule {
         EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
-        
+
         // Add to enhanced queue
-        queue.items.push(DCAQueueItem({
-            fromToken: fromToken,
-            toToken: toToken,
-            amount: amount,
-            executionTick: executionTick,
-            deadline: deadline,
-            customSlippageTolerance: customSlippageTolerance,
-            executed: false
-        }));
-        
+        queue.items.push(
+            DCAQueueItem({
+                fromToken: fromToken,
+                toToken: toToken,
+                amount: amount,
+                executionTick: executionTick,
+                deadline: deadline,
+                customSlippageTolerance: customSlippageTolerance,
+                executed: false
+            })
+        );
+
         queue.isActive = true;
-        
+
         // Also maintain compatibility with existing simple queue
         DCAQueue storage simpleQueue = dcaQueues[user];
         simpleQueue.amounts.push(amount);
         simpleQueue.tokens.push(toToken);
         simpleQueue.executionTimes.push(deadline);
         simpleQueue.isActive = true;
-        
+
         emit DCAQueued(user, amount, toToken, deadline);
     }
 
@@ -1243,9 +1258,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return executed Execution status
      * @return customSlippageTolerance Custom slippage tolerance
      */
-    function getDcaQueueItem(address user, uint256 index) 
-        external 
-        view 
+    function getDcaQueueItem(address user, uint256 index)
+        external
+        view
         returns (
             address fromToken,
             address toToken,
@@ -1254,10 +1269,10 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             uint256 deadline,
             bool executed,
             uint256 customSlippageTolerance
-        ) 
+        )
     {
         if (index >= enhancedDcaQueues[user].items.length) revert IndexOutOfBounds();
-        
+
         DCAQueueItem storage item = enhancedDcaQueues[user].items[index];
         return (
             item.fromToken,
@@ -1277,11 +1292,11 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function markDcaExecuted(address user, uint256 index) external onlyModule {
         if (index >= enhancedDcaQueues[user].items.length) revert IndexOutOfBounds();
-        
+
         EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
         queue.items[index].executed = true;
         queue.executed[index] = true;
-        
+
         emit DCAExecuted(user, index);
     }
 
@@ -1344,13 +1359,13 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function hasPendingDCAOrders(address user) external view returns (bool hasPending) {
         EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
-        
+
         for (uint256 i = 0; i < queue.items.length; i++) {
             if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -1359,13 +1374,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @param user The user address
      * @return pendingOrders Array of pending DCA orders
      */
-    function getPendingDCAOrders(address user) 
-        external 
-        view 
-        returns (DCAQueueItem[] memory pendingOrders) 
-    {
+    function getPendingDCAOrders(address user) external view returns (DCAQueueItem[] memory pendingOrders) {
         EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
-        
+
         // Count pending orders
         uint256 pendingCount = 0;
         for (uint256 i = 0; i < queue.items.length; i++) {
@@ -1373,23 +1384,23 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
                 pendingCount++;
             }
         }
-        
+
         // Create array of pending orders
         pendingOrders = new DCAQueueItem[](pendingCount);
         uint256 pendingIndex = 0;
-        
+
         for (uint256 i = 0; i < queue.items.length; i++) {
             if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
                 pendingOrders[pendingIndex] = queue.items[i];
                 pendingIndex++;
             }
         }
-        
+
         return pendingOrders;
     }
 
     // ==================== SLIPPAGE CONTROL FUNCTIONS ====================
-    
+
     /**
      * @notice Set user's slippage tolerance
      * @param user The user address
@@ -1399,7 +1410,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         userSlippageTolerance[user] = tolerance;
         emit SlippageToleranceUpdated(user, tolerance);
     }
-    
+
     /**
      * @notice Set token-specific slippage tolerance
      * @param user The user address
@@ -1409,7 +1420,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setTokenSlippageTolerance(address user, address token, uint256 tolerance) external onlyModule {
         tokenSlippageTolerance[user][token] = tolerance;
     }
-    
+
     /**
      * @notice Set slippage exceeded action
      * @param user The user address
@@ -1418,7 +1429,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setSlippageExceededAction(address user, SlippageAction action) external onlyModule {
         slippageExceededAction[user] = action;
     }
-    
+
     /**
      * @notice Set default slippage tolerance
      * @param tolerance The default tolerance in basis points
@@ -1428,7 +1439,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== DAILY SAVINGS FUNCTIONS ====================
-    
+
     /**
      * @notice Configure daily savings for a user
      * @param user The user address
@@ -1438,7 +1449,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         dailySavingsConfigs[user] = config;
         emit DailySavingsConfigured(user, config);
     }
-    
+
     /**
      * @notice Get daily savings configuration
      * @param user The user address
@@ -1460,15 +1471,19 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return penaltyBps Penalty in basis points
      * @return endTime End time for the savings period
      */
-    function getDailySavingsConfig(address user, address token) external view returns (
-        bool enabled,
-        uint256 lastExecutionTime,
-        uint256 startTime,
-        uint256 goalAmount,
-        uint256 currentAmount,
-        uint256 penaltyBps,
-        uint256 endTime
-    ) {
+    function getDailySavingsConfig(address user, address token)
+        external
+        view
+        returns (
+            bool enabled,
+            uint256 lastExecutionTime,
+            uint256 startTime,
+            uint256 goalAmount,
+            uint256 currentAmount,
+            uint256 penaltyBps,
+            uint256 endTime
+        )
+    {
         DailySavingsConfigParams memory params = dailySavingsConfigParams[user][token];
         return (
             params.enabled,
@@ -1483,25 +1498,17 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     /// @notice Emitted when daily savings execution is updated
     event DailySavingsExecutionUpdated(
-        address indexed user,
-        address indexed token,
-        uint256 amount,
-        uint256 newCurrentAmount,
-        uint256 timestamp
+        address indexed user, address indexed token, uint256 amount, uint256 newCurrentAmount, uint256 timestamp
     );
 
     /**
      * @notice Update daily savings execution tracking
      * @param user The user address
-     * @param token The token address  
+     * @param token The token address
      * @param amount The amount that was saved in this execution
      * @dev Updates both currentAmount and lastExecutionTime for accurate tracking
      */
-    function updateDailySavingsExecution(
-        address user, 
-        address token, 
-        uint256 amount
-    ) external onlyModule {
+    function updateDailySavingsExecution(address user, address token, uint256 amount) external onlyModule {
         // Get reference to storage (not memory copy)
         DailySavingsConfigParams storage params = dailySavingsConfigParams[user][token];
         // Update the current accumulated amount
@@ -1536,7 +1543,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== POOL MANAGEMENT FUNCTIONS ====================
-    
+
     /**
      * @notice Create and store a pool key (5-parameter version)
      * @param token0 The first token address
@@ -1547,13 +1554,11 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return key The created pool key
      * @dev CHANGE: external → public (to allow internal calls from 2-parameter version)
      */
-    function createPoolKey(
-        address token0,
-        address token1,
-        uint24 fee,
-        int24 tickSpacing,
-        address hooks
-    ) public onlyModule returns (PoolKey memory key) {
+    function createPoolKey(address token0, address token1, uint24 fee, int24 tickSpacing, address hooks)
+        public
+        onlyModule
+        returns (PoolKey memory key)
+    {
         key = PoolKey({
             currency0: Currency.wrap(token0),
             currency1: Currency.wrap(token1),
@@ -1561,14 +1566,14 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             tickSpacing: tickSpacing,
             hooks: IHooks(hooks)
         });
-        
+
         bytes32 keyHash = keccak256(abi.encode(key));
         _poolKeys[keyHash] = key;
         poolInitialized[keyHash] = true;
-        
+
         return key;
     }
-    
+
     /**
      * @notice Get stored pool key by hash
      * @param keyHash The pool key hash
@@ -1579,7 +1584,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== ADMINISTRATIVE FUNCTIONS ====================
-    
+
     /**
      * @notice Update treasury address (owner only)
      * @param newTreasury The new treasury address
@@ -1588,7 +1593,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         if (newTreasury == address(0)) revert InvalidInput();
         treasury = newTreasury;
     }
-    
+
     /**
      * @notice Update treasury fee (owner only)
      * @param newFee The new treasury fee in basis points
@@ -1597,7 +1602,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         if (newFee > 1000) revert InvalidInput(); // Max 10% fee
         treasuryFee = newFee;
     }
-    
+
     /**
      * @notice Set maximum savings percentage allowed globally (owner only)
      * @param newMaxPercentage The new maximum savings percentage in basis points
@@ -1606,7 +1611,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         if (newMaxPercentage > 10000) revert InvalidInput(); // Max 100%
         maxSavingsPercentage = newMaxPercentage;
     }
-    
+
     /**
      * @notice Transfer ownership (owner only)
      * @param newOwner The new owner address
@@ -1615,7 +1620,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         if (newOwner == address(0)) revert InvalidInput();
         owner = newOwner;
     }
-    
+
     /**
      * @notice Emergency pause function (owner only)
      * @dev Implementation depends on specific emergency requirements
@@ -1657,7 +1662,6 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function getUserSavingsTokens(address user) external view returns (address[] memory) {
         return userSavingsTokens[user];
     }
-
 
     // ==================== INTERMEDIARY TOKENS CONFIGURATION ====================
     address[] private intermediaryTokens;
@@ -1723,22 +1727,26 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @param limit Maximum number of records to return (0 = no limit)
      * @return history Array of DCA execution records
      */
-    function getDcaExecutionHistory(address user, uint256 limit) external view returns (DCAExecution[] memory history) {
+    function getDcaExecutionHistory(address user, uint256 limit)
+        external
+        view
+        returns (DCAExecution[] memory history)
+    {
         DCAExecution[] storage userHistory = _dcaExecutionHistory[user];
         uint256 totalCount = userHistory.length;
-        
+
         if (totalCount == 0) {
             return new DCAExecution[](0);
         }
-        
+
         uint256 returnCount = limit == 0 || limit > totalCount ? totalCount : limit;
         history = new DCAExecution[](returnCount);
-        
+
         // Return most recent executions first
         for (uint256 i = 0; i < returnCount; i++) {
             history[i] = userHistory[totalCount - 1 - i];
         }
-        
+
         return history;
     }
 
@@ -1804,9 +1812,9 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @return lowerTick Lower tick bound for DCA execution
      * @return upperTick Upper tick bound for DCA execution
      */
-    function getUserDcaConfig(address user) 
-        external 
-        view 
+    function getUserDcaConfig(address user)
+        external
+        view
         returns (
             bool enabled,
             address targetToken,
@@ -1814,15 +1822,15 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
             uint256 maxSlippage,
             int24 lowerTick,
             int24 upperTick
-        ) 
+        )
     {
         // Get DCA enabled status from packed user config
         PackedUserConfig memory config = _packedUserConfigs[user];
         enabled = config.enableDCA == 1;
-        
+
         // Get target token
         targetToken = dcaTargetTokens[user];
-        
+
         // Get tick strategy for min/max amounts and slippage
         DCATickStrategy storage strategy = dcaTickStrategies[user];
         minAmount = 0; // Default minimum amount
@@ -1858,7 +1866,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function removeExecutedDcaItems(address user) external onlyModule {
         EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
-        
+
         // Count non-executed items
         uint256 nonExecutedCount = 0;
         for (uint256 i = 0; i < queue.items.length; i++) {
@@ -1866,21 +1874,21 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
                 nonExecutedCount++;
             }
         }
-        
+
         // Create new array with only non-executed items
         DCAQueueItem[] memory newItems = new DCAQueueItem[](nonExecutedCount);
         uint256 newIndex = 0;
-        
+
         for (uint256 i = 0; i < queue.items.length; i++) {
             if (!queue.items[i].executed) {
                 newItems[newIndex] = queue.items[i];
                 newIndex++;
             }
         }
-        
+
         // Replace the items array
         queue.items = newItems;
-        
+
         // Clear the executed mapping
         for (uint256 i = 0; i < queue.items.length; i++) {
             delete queue.executed[i];
@@ -1888,7 +1896,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     // ==================== MODULE ACCESSOR FUNCTIONS ====================
-    
+
     /**
      * @notice Get DCA module address
      * @return dcaAddress The DCA module address
@@ -1896,15 +1904,15 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function dcaModule() external view returns (address dcaAddress) {
         return getModule(keccak256("DCA"));
     }
-    
+
     /**
-     * @notice Get savings module address  
+     * @notice Get savings module address
      * @return savingsAddress The savings module address
      */
     function savingsModule() external view returns (address savingsAddress) {
         return getModule(keccak256("SAVINGS"));
     }
-    
+
     /**
      * @notice Get savings strategy module address
      * @return strategyAddress The savings strategy module address

@@ -122,24 +122,16 @@ contract DCATickLogicTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -437,7 +429,7 @@ contract DCATickLogicTest is Test, Deployers {
         console.log("\n=== P3 CORE: Testing Tick Strategy Configuration ===");
 
         // Test Alice's tick strategy (price improvement only)
-        (int24 tickDelta1, uint256 tickExpiryTime1, bool onlyImprovePrice1, int24 minTickImprovement1, , ) =
+        (int24 tickDelta1, uint256 tickExpiryTime1, bool onlyImprovePrice1, int24 minTickImprovement1,,) =
             storageContract.getDcaTickStrategy(alice);
 
         assertEq(tickDelta1, TICK_DELTA, "Alice should have correct tick delta");
@@ -445,7 +437,7 @@ contract DCATickLogicTest is Test, Deployers {
         assertEq(minTickImprovement1, MIN_TICK_IMPROVEMENT, "Alice should have correct min improvement");
 
         // Test Bob's tick strategy (any movement)
-        (int24 tickDelta2, uint256 tickExpiryTime2, bool onlyImprovePrice2, int24 minTickImprovement2, , ) =
+        (int24 tickDelta2, uint256 tickExpiryTime2, bool onlyImprovePrice2, int24 minTickImprovement2,,) =
             storageContract.getDcaTickStrategy(bob);
 
         assertEq(tickDelta2, TICK_DELTA, "Bob should have correct tick delta");
@@ -482,7 +474,7 @@ contract DCATickLogicTest is Test, Deployers {
         console.log("\n=== P3 CORE: Testing Dynamic Sizing Integration ===");
 
         // Test Charlie's dynamic sizing configuration
-        (int24 tickDelta3, , bool onlyImprovePrice3, int24 minTickImprovement3, bool dynamicSizing3, ) =
+        (int24 tickDelta3,, bool onlyImprovePrice3, int24 minTickImprovement3, bool dynamicSizing3,) =
             storageContract.getDcaTickStrategy(charlie);
 
         assertTrue(dynamicSizing3, "Charlie should have dynamic sizing enabled");
@@ -503,20 +495,20 @@ contract DCATickLogicTest is Test, Deployers {
         int24[] memory testTicks = new int24[](10);
         testTicks[0] = -200; // Far below
         testTicks[1] = -100; // Below
-        testTicks[2] = -50;  // Just below
-        testTicks[3] = 0;    // At base
-        testTicks[4] = 25;   // Just above
-        testTicks[5] = 50;   // Above
-        testTicks[6] = 100;  // Well above
-        testTicks[7] = 200;  // Far above
-        testTicks[8] = 500;  // Very far
+        testTicks[2] = -50; // Just below
+        testTicks[3] = 0; // At base
+        testTicks[4] = 25; // Just above
+        testTicks[5] = 50; // Above
+        testTicks[6] = 100; // Well above
+        testTicks[7] = 200; // Far above
+        testTicks[8] = 500; // Very far
         testTicks[9] = -500; // Very far below
 
         for (uint256 i = 0; i < testTicks.length; i++) {
             int24 tick = testTicks[i];
 
             // Test shouldExecuteDCA with different ticks
-            (bool shouldExecute, ) = dcaModule.shouldExecuteDCA(alice, poolKey);
+            (bool shouldExecute,) = dcaModule.shouldExecuteDCA(alice, poolKey);
 
             // Test shouldExecuteDCAAtTick with different ticks
             bool shouldExecuteAtTick = dcaModule.shouldExecuteDCAAtTickPublic(alice, 0, tick);

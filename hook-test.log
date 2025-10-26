@@ -1,0 +1,90 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 5.79s
+Compiler run successful with warnings:
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SpendSaveStorage.sol:998:79:
+    |
+998 |     function setSwapContextWithTick(address user, SwapContext memory context, int24 currentTick) external onlyModule {
+    |                                                                               ^^^^^^^^^^^^^^^^^
+
+Script ran successfully.
+
+== Logs ==
+  === FULL PROTOCOL TEST WITH SPENDSAVE HOOK ===
+  User: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  SpendSave Hook: 0x24001BD452a918e91BCAb47b9c1C0A7884B9c0cc
+  SpendSave Storage: 0x0cA5e6cecA2F11b0490e1F3E0db34f1687b8Ea26
+  
+Your USDC balance: 9019553
+  
+=== Step 1: Deploy Helpers ===
+  Helpers deployed!
+  
+=== Step 2: Create Pool WITH SpendSave Hook ===
+  Pool configuration:
+    Currency0: USDC
+    Currency1: WETH
+    Fee: 0.3%
+    Hook: SpendSaveHook 0x24001BD452a918e91BCAb47b9c1C0A7884B9c0cc
+  
+Initializing pool with SpendSave hook...
+  Pool initialized! Tick: 0
+  
+=== Step 3: Configure Savings Strategy ===
+  Setting 10% INPUT savings...
+  Savings configured: 10% of INPUT tokens
+  
+=== Step 4: Prepare Tokens ===
+  Wrapped 0.001 ETH to WETH
+  Tokens approved
+  
+=== Step 5: Add Liquidity ===
+  Liquidity added!
+    Delta0: -1000000
+    Delta1: -1000000
+  
+=== Step 6: EXECUTE SWAP WITH SPENDSAVE HOOK ===
+  This swap should trigger savings extraction!
+  Swapping 0.01 USDC -> WETH with 10% savings...
+  
+SWAP WITH SPENDSAVE HOOK SUCCESSFUL!
+  Delta0: -10000
+  Delta1: 9871
+  
+Balance changes:
+    USDC: before 8019553 after 8009553
+    WETH: before 1999999997980133 after 1999999997990004
+  
+=== Step 7: Verify Savings ===
+  Checking if savings were extracted by hook...
+  Expected: 0.001 USDC (10% of 0.01) saved
+  Note: Savings extraction happens in hook's beforeSwap/afterSwap
+  If no revert occurred, hook executed successfully!
+  
+Protocol integration with Uniswap V4 pool: CONFIRMED!
+  
+=== SUCCESS! ===
+  Pool with SpendSave hook created and swap executed!
+  Your protocol is WORKING on Base Sepolia!
+  
+=== Test Complete ===
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 84532
+
+Estimated gas price: 0.001000129 gwei
+
+Estimated total gas used for script: 3871972
+
+Estimated amount required: 0.000003872471484388 ETH
+
+==========================
+
+Transactions saved to: /Users/mac/mySpendSaveHook/broadcast/TestWithSpendSaveHook.s.sol/84532/run-latest.json
+
+Sensitive values saved to: /Users/mac/mySpendSaveHook/cache/TestWithSpendSaveHook.s.sol/84532/run-latest.json
+
+Error: Device not configured (os error 6)

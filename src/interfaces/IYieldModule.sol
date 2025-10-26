@@ -7,6 +7,6 @@ import {ISpendSaveModule} from "./ISpendSaveModule.sol";
 // Yield Module Interface
 interface IYieldModule is ISpendSaveModule {
     function setYieldStrategy(address user, address token, SpendSaveStorage.YieldStrategy strategy) external;
-    
+
     function applyYieldStrategy(address user, address token) external;
 }

@@ -12,8 +12,10 @@ import {FullMath} from "lib/v4-periphery/lib/v4-core/src/libraries/FullMath.sol"
 import {FixedPoint96} from "lib/v4-periphery/lib/v4-core/src/libraries/FixedPoint96.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {SafeERC20} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 import {IPositionManager} from "lib/v4-periphery/src/interfaces/IPositionManager.sol";
 import {PositionInfo, PositionInfoLibrary} from "lib/v4-periphery/src/libraries/PositionInfoLibrary.sol";
@@ -29,16 +31,16 @@ import {SpendSaveStorage} from "./SpendSaveStorage.sol";
  * @notice Phase 2 Enhancement: Converts user savings into Uniswap V4 LP positions automatically
  * @dev Integrates with PositionManager to provide:
  *      - Auto-LP conversion for accumulated savings
- *      - ERC-721 NFT representation of LP positions  
+ *      - ERC-721 NFT representation of LP positions
  *      - Fee collection and compounding
  *      - Position management and rebalancing
- * 
+ *
  * Key Benefits:
  * - Users earn LP fees on their savings
  * - Positions are represented as tradeable NFTs
  * - Automated position management
  * - Gas-efficient batch operations via multicall
- * 
+ *
  * @author SpendSave Protocol Team
  */
 contract SpendSaveLiquidityManager is ReentrancyGuard {
@@ -61,12 +63,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     );
 
     /// @notice Emitted when LP fees are collected and compounded
-    event FeesCollected(
-        address indexed user,
-        uint256 indexed tokenId,
-        uint256 amount0,
-        uint256 amount1
-    );
+    event FeesCollected(address indexed user, uint256 indexed tokenId, uint256 amount0, uint256 amount1);
 
     /// @notice Emitted when position is rebalanced
     event PositionRebalanced(
@@ -108,7 +105,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
 
     /// @notice Minimum amounts required for LP conversion to prevent dust
     mapping(address token => uint256 minAmount) public minConversionAmounts;
-    
+
     /// @notice Default minimum amount for tokens not explicitly configured
     uint256 public defaultMinAmount;
 
@@ -126,11 +123,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @param _positionManager Uniswap V4 PositionManager address
      * @param _permit2 Permit2 contract address for token approvals
      */
-    constructor(
-        address _storage,
-        address _positionManager,
-        address _permit2
-    ) {
+    constructor(address _storage, address _positionManager, address _permit2) {
         require(_storage != address(0), "Invalid storage address");
         require(_positionManager != address(0), "Invalid position manager address");
         require(_permit2 != address(0), "Invalid permit2 address");
@@ -158,7 +151,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @notice Convert user's accumulated savings into LP position
      * @param user The user whose savings to convert
      * @param token0 First token in the pair
-     * @param token1 Second token in the pair  
+     * @param token1 Second token in the pair
      * @param tickLower Lower tick for LP position
      * @param tickUpper Upper tick for LP position
      * @param deadline Deadline for the transaction
@@ -175,7 +168,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     ) external nonReentrant returns (uint256 tokenId, uint128 liquidity) {
         require(user != address(0), "Invalid user address");
         require(block.timestamp <= deadline, "Transaction deadline passed");
-        
+
         // Validate tick range
         require(tickLower < tickUpper, "Invalid tick range");
         require(tickUpper - tickLower >= DEFAULT_TICK_RANGE / 2, "Tick range too narrow");
@@ -213,14 +206,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         _transferSavingsForLP(user, token0, token1, optimalAmount0, optimalAmount1);
 
         // Create LP position
-        tokenId = _createLPPosition(
-            poolKey,
-            tickLower,
-            tickUpper,
-            optimalAmount0,
-            optimalAmount1,
-            deadline
-        );
+        tokenId = _createLPPosition(poolKey, tickLower, tickUpper, optimalAmount0, optimalAmount1, deadline);
 
         // Update tracking
         userPositions[user].push(tokenId);
@@ -229,15 +215,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         // Update user savings (subtract converted amounts)
         _updateUserSavingsAfterConversion(user, token0, token1, optimalAmount0, optimalAmount1);
 
-        emit SavingsConvertedToLP(
-            user,
-            tokenId,
-            token0,
-            token1,
-            optimalAmount0,
-            optimalAmount1,
-            liquidityToAdd
-        );
+        emit SavingsConvertedToLP(user, tokenId, token0, token1, optimalAmount0, optimalAmount1, liquidityToAdd);
 
         return (tokenId, liquidityToAdd);
     }
@@ -248,22 +226,15 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @param params Array of conversion parameters for each user
      * @param deadline Deadline for all transactions
      */
-    function batchConvertSavingsToLP(
-        address[] calldata users,
-        ConversionParams[] calldata params,
-        uint256 deadline
-    ) external {
+    function batchConvertSavingsToLP(address[] calldata users, ConversionParams[] calldata params, uint256 deadline)
+        external
+    {
         require(users.length == params.length, "Array length mismatch");
         require(users.length > 0, "Empty arrays");
 
         for (uint256 i = 0; i < users.length; i++) {
             try this.convertSavingsToLP(
-                users[i],
-                params[i].token0,
-                params[i].token1,
-                params[i].tickLower,
-                params[i].tickUpper,
-                deadline
+                users[i], params[i].token0, params[i].token1, params[i].tickLower, params[i].tickUpper, deadline
             ) returns (uint256 tokenId, uint128 liquidity) {
                 // Successful conversion
                 continue;
@@ -282,10 +253,10 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @return totalFees0 Total token0 fees collected
      * @return totalFees1 Total token1 fees collected
      */
-    function collectAndCompoundFees(address user) 
-        external 
-        nonReentrant 
-        returns (uint256 totalFees0, uint256 totalFees1) 
+    function collectAndCompoundFees(address user)
+        external
+        nonReentrant
+        returns (uint256 totalFees0, uint256 totalFees1)
     {
         uint256[] memory tokenIds = userPositions[user];
         require(tokenIds.length > 0, "No positions found");
@@ -314,12 +285,11 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @param deadline Transaction deadline
      * @return newTokenId The new position token ID
      */
-    function rebalancePosition(
-        uint256 tokenId,
-        int24 newTickLower,
-        int24 newTickUpper,
-        uint256 deadline
-    ) external nonReentrant returns (uint256 newTokenId) {
+    function rebalancePosition(uint256 tokenId, int24 newTickLower, int24 newTickUpper, uint256 deadline)
+        external
+        nonReentrant
+        returns (uint256 newTokenId)
+    {
         address user = positionOwner[tokenId];
         require(user == msg.sender, "Not position owner");
         require(newTickLower < newTickUpper, "Invalid tick range");
@@ -327,21 +297,14 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         // Get current position info
         (PoolKey memory poolKey, PositionInfo positionInfo) = positionManager.getPoolAndPositionInfo(tokenId);
         uint128 currentLiquidity = positionManager.getPositionLiquidity(tokenId);
-        
+
         require(currentLiquidity > 0, "Position has no liquidity");
 
         // Remove liquidity from old position
         (uint256 amount0, uint256 amount1) = _removeLiquidityFromPosition(tokenId, currentLiquidity, deadline);
 
         // Create new position with collected tokens
-        newTokenId = _createLPPosition(
-            poolKey,
-            newTickLower,
-            newTickUpper,
-            amount0,
-            amount1,
-            deadline
-        );
+        newTokenId = _createLPPosition(poolKey, newTickLower, newTickUpper, amount0, amount1, deadline);
 
         // Update tracking
         _updatePositionTracking(user, tokenId, newTokenId);
@@ -369,10 +332,10 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @return positionInfo Packed position information
      * @return liquidity Current liquidity amount
      */
-    function getPositionDetails(uint256 tokenId) 
-        external 
-        view 
-        returns (PoolKey memory poolKey, PositionInfo positionInfo, uint128 liquidity) 
+    function getPositionDetails(uint256 tokenId)
+        external
+        view
+        returns (PoolKey memory poolKey, PositionInfo positionInfo, uint128 liquidity)
     {
         (poolKey, positionInfo) = positionManager.getPoolAndPositionInfo(tokenId);
         liquidity = positionManager.getPositionLiquidity(tokenId);
@@ -387,19 +350,17 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @param tickLower Lower tick for calculation
      * @param tickUpper Upper tick for calculation
      * @return amount0 Optimal token0 amount
-     * @return amount1 Optimal token1 amount  
+     * @return amount1 Optimal token1 amount
      * @return liquidity Estimated liquidity
      */
-    function previewSavingsToLP(
-        address user,
-        address token0,
-        address token1,
-        int24 tickLower,
-        int24 tickUpper
-    ) external view returns (uint256 amount0, uint256 amount1, uint128 liquidity) {
+    function previewSavingsToLP(address user, address token0, address token1, int24 tickLower, int24 tickUpper)
+        external
+        view
+        returns (uint256 amount0, uint256 amount1, uint128 liquidity)
+    {
         uint256 savings0 = storage_.savings(user, token0);
         uint256 savings1 = storage_.savings(user, token1);
-        
+
         if (savings0 == 0 && savings1 == 0) {
             return (0, 0, 0);
         }
@@ -443,33 +404,24 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     ) internal view returns (uint256 amount0, uint256 amount1, uint128 liquidity) {
         // Get current pool state - same as PositionManager production code
         (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
-        
+
         // Calculate sqrt prices for tick range
         uint160 sqrtPriceLowerX96 = TickMath.getSqrtPriceAtTick(tickLower);
         uint160 sqrtPriceUpperX96 = TickMath.getSqrtPriceAtTick(tickUpper);
-        
+
         // Use production pattern: getLiquidityForAmounts handles price-aware logic automatically
         // This is exactly how PositionManager calculates optimal liquidity
         liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtPriceX96,
-            sqrtPriceLowerX96,
-            sqrtPriceUpperX96,
-            maxAmount0,
-            maxAmount1
+            sqrtPriceX96, sqrtPriceLowerX96, sqrtPriceUpperX96, maxAmount0, maxAmount1
         );
-        
+
         // Calculate actual required amounts for this liquidity
         // This ensures we know exactly how much of each token is needed
-        (amount0, amount1) = _getAmountsForLiquidity(
-            sqrtPriceX96,
-            sqrtPriceLowerX96,
-            sqrtPriceUpperX96,
-            liquidity
-        );
+        (amount0, amount1) = _getAmountsForLiquidity(sqrtPriceX96, sqrtPriceLowerX96, sqrtPriceUpperX96, liquidity);
 
         return (amount0, amount1, liquidity);
     }
-    
+
     /**
      * @notice Calculate token amounts needed for given liquidity
      * @dev Production implementation matching LiquidityAmounts library pattern
@@ -496,55 +448,49 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
             amount1 = _getAmount1ForLiquidity(sqrtPriceAX96, sqrtPriceBX96, liquidity);
         }
     }
-    
+
     /**
      * @notice Calculate amount0 for given liquidity
      */
-    function _getAmount0ForLiquidity(
-        uint160 sqrtPriceAX96,
-        uint160 sqrtPriceBX96,
-        uint128 liquidity
-    ) internal pure returns (uint256 amount0) {
+    function _getAmount0ForLiquidity(uint160 sqrtPriceAX96, uint160 sqrtPriceBX96, uint128 liquidity)
+        internal
+        pure
+        returns (uint256 amount0)
+    {
         if (sqrtPriceAX96 > sqrtPriceBX96) {
             (sqrtPriceAX96, sqrtPriceBX96) = (sqrtPriceBX96, sqrtPriceAX96);
         }
-        
+
         return FullMath.mulDiv(
-            uint256(liquidity) << FixedPoint96.RESOLUTION,
-            sqrtPriceBX96 - sqrtPriceAX96,
-            sqrtPriceBX96
+            uint256(liquidity) << FixedPoint96.RESOLUTION, sqrtPriceBX96 - sqrtPriceAX96, sqrtPriceBX96
         ) / sqrtPriceAX96;
     }
-    
+
     /**
-     * @notice Calculate amount1 for given liquidity  
+     * @notice Calculate amount1 for given liquidity
      */
-    function _getAmount1ForLiquidity(
-        uint160 sqrtPriceAX96,
-        uint160 sqrtPriceBX96,
-        uint128 liquidity
-    ) internal pure returns (uint256 amount1) {
+    function _getAmount1ForLiquidity(uint160 sqrtPriceAX96, uint160 sqrtPriceBX96, uint128 liquidity)
+        internal
+        pure
+        returns (uint256 amount1)
+    {
         if (sqrtPriceAX96 > sqrtPriceBX96) {
             (sqrtPriceAX96, sqrtPriceBX96) = (sqrtPriceBX96, sqrtPriceAX96);
         }
-        
+
         return FullMath.mulDiv(liquidity, sqrtPriceBX96 - sqrtPriceAX96, FixedPoint96.Q96);
     }
 
     /**
      * @notice Transfer savings from storage for LP conversion
      */
-    function _transferSavingsForLP(
-        address user,
-        address token0,
-        address token1,
-        uint256 amount0,
-        uint256 amount1
-    ) internal {
+    function _transferSavingsForLP(address user, address token0, address token1, uint256 amount0, uint256 amount1)
+        internal
+    {
         // Validate user has sufficient savings in storage
         require(storage_.savings(user, token0) >= amount0, "Insufficient token0 savings");
         require(storage_.savings(user, token1) >= amount1, "Insufficient token1 savings");
-        
+
         // Decrease user's savings in storage (this is the real transfer from savings)
         // Only decrease if amount > 0 (pool might be outside range needing only one token)
         if (amount0 > 0) {
@@ -559,7 +505,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
             _requestTokensFromStorage(token1, amount1);
         }
     }
-    
+
     /**
      * @notice Request tokens from storage contract for LP operations
      * @dev Production implementation with proper authorization and error handling
@@ -567,20 +513,20 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     function _requestTokensFromStorage(address token, uint256 amount) internal {
         require(token != address(0), "Invalid token address");
         require(amount > 0, "Invalid amount");
-        
+
         // Check if storage contract has sufficient balance
         uint256 storageBalance = IERC20(token).balanceOf(address(storage_));
         require(storageBalance >= amount, "Insufficient storage balance");
-        
+
         // Record balance before transfer
         uint256 balanceBefore = IERC20(token).balanceOf(address(this));
-        
+
         // Use the storage contract's release function for authorized operations
         try storage_.releaseTokensForLP(token, amount, address(this)) {
             // Verify the transfer was successful
             uint256 balanceAfter = IERC20(token).balanceOf(address(this));
             require(balanceAfter >= balanceBefore + amount, "Token transfer failed");
-            
+
             emit TokensRequestedFromStorage(token, amount, balanceAfter - balanceBefore);
         } catch Error(string memory reason) {
             revert(string(abi.encodePacked("Token release failed: ", reason)));
@@ -607,11 +553,7 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         uint160 sqrtPriceUpperX96 = TickMath.getSqrtPriceAtTick(tickUpper);
 
         uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtPriceX96,
-            sqrtPriceLowerX96,
-            sqrtPriceUpperX96,
-            amount0,
-            amount1
+            sqrtPriceX96, sqrtPriceLowerX96, sqrtPriceUpperX96, amount0, amount1
         );
 
         // Approve tokens for PositionManager via Permit2
@@ -628,25 +570,12 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         }
 
         // Then approve PositionManager through Permit2
-        permit2.approve(
-            token0,
-            address(positionManager),
-            type(uint160).max,
-            type(uint48).max
-        );
-        permit2.approve(
-            token1,
-            address(positionManager),
-            type(uint160).max,
-            type(uint48).max
-        );
+        permit2.approve(token0, address(positionManager), type(uint160).max, type(uint48).max);
+        permit2.approve(token1, address(positionManager), type(uint160).max, type(uint48).max);
 
         // Build V4 action sequence: MINT_POSITION + CLOSE_CURRENCY (x2)
-        bytes memory actions = abi.encodePacked(
-            uint8(Actions.MINT_POSITION),
-            uint8(Actions.CLOSE_CURRENCY),
-            uint8(Actions.CLOSE_CURRENCY)
-        );
+        bytes memory actions =
+            abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY));
 
         bytes[] memory params = new bytes[](3);
 
@@ -655,11 +584,11 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
             poolKey,
             tickLower,
             tickUpper,
-            liquidity,              // Use liquidity, not amounts
-            type(uint128).max,      // amount0Max (max slippage)
-            type(uint128).max,      // amount1Max (max slippage)
-            address(this),          // recipient (this contract receives NFT)
-            bytes("")               // hookData
+            liquidity, // Use liquidity, not amounts
+            type(uint128).max, // amount0Max (max slippage)
+            type(uint128).max, // amount1Max (max slippage)
+            address(this), // recipient (this contract receives NFT)
+            bytes("") // hookData
         );
 
         // Action 2: CLOSE_CURRENCY for token0
@@ -701,48 +630,51 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     function _collectFeesFromPosition(uint256 tokenId) internal returns (uint256 fees0, uint256 fees1) {
         // Get position information
         (PoolKey memory poolKey, PositionInfo positionInfo) = positionManager.getPoolAndPositionInfo(tokenId);
-        
+
         // Record balances before fee collection
-        uint256 balance0Before = Currency.unwrap(poolKey.currency0) != address(0) ? 
-                                IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) : 0;
-        uint256 balance1Before = Currency.unwrap(poolKey.currency1) != address(0) ?
-                                IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) : 0;
-        
+        uint256 balance0Before = Currency.unwrap(poolKey.currency0) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this))
+            : 0;
+        uint256 balance1Before = Currency.unwrap(poolKey.currency1) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this))
+            : 0;
+
         // Build actions array: DECREASE_LIQUIDITY + 2x CLOSE_CURRENCY (production pattern)
         // Each action must be encoded as uint8
         bytes memory actions = abi.encodePacked(
-            uint8(Actions.DECREASE_LIQUIDITY),
-            uint8(Actions.CLOSE_CURRENCY),
-            uint8(Actions.CLOSE_CURRENCY)
+            uint8(Actions.DECREASE_LIQUIDITY), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY)
         );
-        
+
         bytes[] memory params = new bytes[](3);
-        
+
         // Action 1: DECREASE_LIQUIDITY with 0 liquidity (collect fees only)
         // This is the EXACT pattern from V4 periphery getCollectEncoded()
         params[0] = abi.encode(
             tokenId,
             uint128(0), // liquidity to decrease = 0 (fees only)
             uint128(0), // amount0Min = 0 (for fee collection)
-            uint128(0), // amount1Min = 0 (for fee collection)  
-            bytes("")   // empty hookData
+            uint128(0), // amount1Min = 0 (for fee collection)
+            bytes("") // empty hookData
         );
-        
+
         // Action 2: CLOSE_CURRENCY for currency0
         params[1] = abi.encode(poolKey.currency0);
-        
+
         // Action 3: CLOSE_CURRENCY for currency1
         params[2] = abi.encode(poolKey.currency1);
-        
+
         // Execute using production PositionManager pattern
-        positionManager.modifyLiquiditiesWithoutUnlock(actions, params);
-        
+        // Must use modifyLiquidities (not WithoutUnlock) to unlock the pool manager
+        positionManager.modifyLiquidities(abi.encode(actions, params), block.timestamp + 3600);
+
         // Calculate collected fees from balance changes (production verification method)
-        fees0 = Currency.unwrap(poolKey.currency0) != address(0) ? 
-                IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) - balance0Before : 0;
-        fees1 = Currency.unwrap(poolKey.currency1) != address(0) ?
-                IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) - balance1Before : 0;
-        
+        fees0 = Currency.unwrap(poolKey.currency0) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) - balance0Before
+            : 0;
+        fees1 = Currency.unwrap(poolKey.currency1) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) - balance1Before
+            : 0;
+
         return (fees0, fees1);
     }
 
@@ -752,21 +684,21 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     function _addFeesToSavings(address user, uint256 fees0, uint256 fees1, uint256 tokenId) internal {
         if (fees0 > 0 || fees1 > 0) {
             (PoolKey memory poolKey,) = positionManager.getPoolAndPositionInfo(tokenId);
-            
+
             address token0 = Currency.unwrap(poolKey.currency0);
             address token1 = Currency.unwrap(poolKey.currency1);
-            
+
             // Add fees to user's savings for compounding
             if (fees0 > 0) {
                 storage_.increaseSavings(user, token0, fees0);
-                
+
                 // Track the user's token if not already tracked
                 storage_.addUserSavingsToken(user, token0);
             }
-            
+
             if (fees1 > 0) {
                 storage_.increaseSavings(user, token1, fees1);
-                
+
                 // Track the user's token if not already tracked
                 storage_.addUserSavingsToken(user, token1);
             }
@@ -777,59 +709,61 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
      * @notice Remove liquidity from position using PRODUCTION V4 periphery patterns
      * @dev Based on actual V4 periphery DECREASE_LIQUIDITY implementation
      */
-    function _removeLiquidityFromPosition(
-        uint256 tokenId,
-        uint128 liquidity,
-        uint256 deadline
-    ) internal returns (uint256 amount0, uint256 amount1) {
+    function _removeLiquidityFromPosition(uint256 tokenId, uint128 liquidity, uint256 deadline)
+        internal
+        returns (uint256 amount0, uint256 amount1)
+    {
         require(liquidity > 0, "Zero liquidity");
         require(deadline >= block.timestamp, "Deadline passed");
-        
+
         // Get position information
         (PoolKey memory poolKey, PositionInfo positionInfo) = positionManager.getPoolAndPositionInfo(tokenId);
-        
+
         // Record balances before liquidity removal
-        uint256 balance0Before = Currency.unwrap(poolKey.currency0) != address(0) ? 
-                                IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) : 0;
-        uint256 balance1Before = Currency.unwrap(poolKey.currency1) != address(0) ?
-                                IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) : 0;
-        
+        uint256 balance0Before = Currency.unwrap(poolKey.currency0) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this))
+            : 0;
+        uint256 balance1Before = Currency.unwrap(poolKey.currency1) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this))
+            : 0;
+
         // Build actions: DECREASE_LIQUIDITY + CLOSE_CURRENCY (production pattern)
         // Each action must be encoded as uint8
         bytes memory actions = abi.encodePacked(
-            uint8(Actions.DECREASE_LIQUIDITY),
-            uint8(Actions.CLOSE_CURRENCY),
-            uint8(Actions.CLOSE_CURRENCY)
+            uint8(Actions.DECREASE_LIQUIDITY), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY)
         );
-        
+
         bytes[] memory params = new bytes[](3);
-        
+
         // Action 1: DECREASE_LIQUIDITY with actual liquidity amount
         params[0] = abi.encode(
             tokenId,
-            liquidity,  // liquidity to decrease
+            liquidity, // liquidity to decrease
             uint128(0), // amount0Min (handle slippage at higher level)
             uint128(0), // amount1Min (handle slippage at higher level)
-            bytes("")   // empty hookData
+            bytes("") // empty hookData
         );
-        
+
         // Action 2: CLOSE_CURRENCY for currency0
         params[1] = abi.encode(poolKey.currency0);
-        
-        // Action 3: CLOSE_CURRENCY for currency1  
+
+        // Action 3: CLOSE_CURRENCY for currency1
         params[2] = abi.encode(poolKey.currency1);
-        
+
         // Execute using production PositionManager pattern
-        positionManager.modifyLiquiditiesWithoutUnlock(actions, params);
-        
+        // Must use modifyLiquidities (not WithoutUnlock) to unlock the pool manager
+        positionManager.modifyLiquidities(abi.encode(actions, params), deadline);
+
         // Calculate removed amounts from balance changes (production method)
-        amount0 = Currency.unwrap(poolKey.currency0) != address(0) ? 
-                  IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) - balance0Before : 0;
-        amount1 = Currency.unwrap(poolKey.currency1) != address(0) ?
-                  IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) - balance1Before : 0;
-        
+        amount0 = Currency.unwrap(poolKey.currency0) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency0)).balanceOf(address(this)) - balance0Before
+            : 0;
+        amount1 = Currency.unwrap(poolKey.currency1) != address(0)
+            ? IERC20(Currency.unwrap(poolKey.currency1)).balanceOf(address(this)) - balance1Before
+            : 0;
+
         require(amount0 > 0 || amount1 > 0, "No liquidity removed");
-        
+
         return (amount0, amount1);
     }
 
@@ -846,10 +780,10 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
                 break;
             }
         }
-        
+
         // Add new token ID
         positions.push(newTokenId);
-        
+
         // Update reverse mapping
         delete positionOwner[oldTokenId];
         positionOwner[newTokenId] = user;
@@ -862,19 +796,19 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
     function _setDefaultMinAmounts() internal {
         // Set minimum amounts based on token decimals and gas efficiency
         // These prevent dust positions and ensure gas-efficient operations
-        
+
         // WETH (18 decimals) - minimum 0.001 ETH worth (~$2)
         minConversionAmounts[address(0x4200000000000000000000000000000000000006)] = 1e15; // 0.001 ETH
-        
+
         // USDC (6 decimals) - minimum $10 worth
         minConversionAmounts[address(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)] = 10e6; // $10 USDC
-        
-        // USDbC (6 decimals) - minimum $10 worth  
+
+        // USDbC (6 decimals) - minimum $10 worth
         minConversionAmounts[address(0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA)] = 10e6; // $10 USDbC
-        
+
         // DAI (18 decimals) - minimum $10 worth
         minConversionAmounts[address(0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb)] = 10e18; // $10 DAI
-        
+
         // cbETH (18 decimals) - minimum 0.001 ETH worth
         minConversionAmounts[address(0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22)] = 1e15; // 0.001 cbETH
 

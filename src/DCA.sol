@@ -11,7 +11,8 @@ import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {TickMath} from "lib/v4-periphery/lib/v4-core/src/libraries/TickMath.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
-import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 import {IUnlockCallback} from "lib/v4-periphery/lib/v4-core/src/interfaces/callback/IUnlockCallback.sol";
 import {CurrencyDelta} from "lib/v4-periphery/lib/v4-core/src/libraries/CurrencyDelta.sol";
@@ -29,7 +30,7 @@ import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
 contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
-    
+
     // Constants
     uint24 private constant DEFAULT_FEE_TIER = 3000; // 0.3%
     int24 private constant DEFAULT_TICK_SPACING = 60;
@@ -45,12 +46,12 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         uint256 receivedAmount;
         bool success;
     }
-    
+
     struct TickMovement {
         int24 delta;
         bool isPositive;
     }
-    
+
     /// @notice Data structure for unlock callback communication
     struct SwapCallbackData {
         PoolKey poolKey;
@@ -64,15 +65,15 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
 
     // Storage reference
     SpendSaveStorage public storage_;
-    
+
     // Module references
     ITokenModule public tokenModule;
     ISlippageControlModule public slippageModule;
     ISavingsModule public savingsModule;
-    
+
     // Pool manager reference for tick operations
     IPoolManager public poolManager;
-    
+
     // Standardized module references
     address internal _savingStrategyModule;
     address internal _savingsModule;
@@ -80,7 +81,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     address internal _slippageModule;
     address internal _tokenModule;
     address internal _dailySavingsModule;
-    
+
     // Events
     event DCAEnabled(address indexed user, address indexed targetToken, bool enabled);
     event DCADisabled(address indexed user);
@@ -102,12 +103,9 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     );
 
     event SpecificTokenSwapFailed(
-        address indexed user,
-        address indexed fromToken,
-        address indexed toToken,
-        string reason
+        address indexed user, address indexed fromToken, address indexed toToken, string reason
     );
-    
+
     // Custom errors
     error DCANotEnabled();
     error NoTargetTokenSet();
@@ -121,7 +119,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     error UnauthorizedCaller();
     error TokenTransferFailed();
     error InvalidTickBounds();
-    
+
     // Constructor is empty since module will be initialized via initialize()
     constructor() {}
 
@@ -131,22 +129,22 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         }
         _;
     }
-    
+
     modifier onlyOwner() {
         if (msg.sender != storage_.owner()) {
             revert OnlyOwner();
         }
         _;
     }
-    
+
     // Helper for authorization check
     function _isAuthorizedCaller(address user) internal view returns (bool) {
-        return (msg.sender == user ||
-                msg.sender == address(storage_) ||
-                msg.sender == storage_.spendSaveHook() ||
-                storage_.isAuthorizedModule(msg.sender));
+        return (
+            msg.sender == user || msg.sender == address(storage_) || msg.sender == storage_.spendSaveHook()
+                || storage_.isAuthorizedModule(msg.sender)
+        );
     }
-    
+
     // Initialize module with storage reference
     function initialize(SpendSaveStorage _storage) external override nonReentrant {
         if (address(storage_) != address(0)) {
@@ -155,7 +153,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         storage_ = _storage;
         emit ModuleInitialized(address(_storage));
     }
-    
+
     // Set references to other modules
     function setModuleReferences(
         address _savingStrategy,
@@ -171,31 +169,35 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         _slippageModule = _slippage;
         _tokenModule = _token;
         _dailySavingsModule = _dailySavings;
-        
+
         // Set the typed references for backward compatibility
         tokenModule = ITokenModule(_token);
         slippageModule = ISlippageControlModule(_slippage);
         savingsModule = ISavingsModule(_savings);
-        
+
         // Set pool manager reference from storage
         poolManager = IPoolManager(storage_.poolManager());
-        
+
         emit ModuleReferencesSet(_tokenModule, _slippageModule, _savingsModule);
     }
-    
+
     // Helper function to get current strategy parameters
-    function _getCurrentStrategyParams(address user) internal view returns (
-        uint256 percentage,
-        uint256 autoIncrement,
-        uint256 maxPercentage,
-        uint256 goalAmount,
-        bool roundUpSavings,
-        SpendSaveStorage.SavingsTokenType savingsTokenType,
-        address specificSavingsToken
-    ) {
+    function _getCurrentStrategyParams(address user)
+        internal
+        view
+        returns (
+            uint256 percentage,
+            uint256 autoIncrement,
+            uint256 maxPercentage,
+            uint256 goalAmount,
+            bool roundUpSavings,
+            SpendSaveStorage.SavingsTokenType savingsTokenType,
+            address specificSavingsToken
+        )
+    {
         // Instead of destructuring, get the whole struct and access fields directly
         SpendSaveStorage.SavingStrategy memory strategy = storage_.getUserSavingStrategy(user);
-        
+
         // Then access the fields you need directly from the struct:
         percentage = strategy.percentage;
         autoIncrement = strategy.autoIncrement;
@@ -205,25 +207,19 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         // Note: we ignore enableDCA here as it's not needed for this function
         savingsTokenType = strategy.savingsTokenType;
         specificSavingsToken = strategy.specificSavingsToken;
-        
+
         return (
-            percentage,
-            autoIncrement,
-            maxPercentage,
-            goalAmount,
-            roundUpSavings,
-            savingsTokenType,
-            specificSavingsToken
+            percentage, autoIncrement, maxPercentage, goalAmount, roundUpSavings, savingsTokenType, specificSavingsToken
         );
     }
 
     // Enable DCA into a target token
-    function enableDCA(
-        address user,
-        address targetToken,
-        uint256 minAmount,
-        uint256 maxSlippage
-    ) external override onlyAuthorized(user) nonReentrant {
+    function enableDCA(address user, address targetToken, uint256 minAmount, uint256 maxSlippage)
+        external
+        override
+        onlyAuthorized(user)
+        nonReentrant
+    {
         // Get current strategy parameters
         (
             uint256 percentage,
@@ -234,7 +230,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             SpendSaveStorage.SavingsTokenType savingsTokenType,
             address specificSavingsToken
         ) = _getCurrentStrategyParams(user);
-        
+
         // Update the strategy with the new enableDCA value
         _updateSavingStrategy(
             user,
@@ -248,24 +244,24 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             specificSavingsToken,
             targetToken
         );
-        
+
         // Store DCA-specific configuration
         storage_.setDcaTargetToken(user, targetToken);
 
         // Store DCA parameters in tick strategy (using custom slippage tolerance field)
         storage_.setDcaTickStrategy(
             user,
-            0,          // tickDelta (default)
-            1 days,     // tickExpiryTime (default)
-            true,       // onlyImprovePrice (default)
-            0,          // minTickImprovement (default)
-            false,      // dynamicSizing (default)
+            0, // tickDelta (default)
+            1 days, // tickExpiryTime (default)
+            true, // onlyImprovePrice (default)
+            0, // minTickImprovement (default)
+            false, // dynamicSizing (default)
             maxSlippage // customSlippageTolerance
         );
-        
+
         emit DCAEnabled(user, targetToken);
     }
-    
+
     // Helper to update saving strategy
     function _updateSavingStrategy(
         address user,
@@ -286,59 +282,56 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             maxPercentage: maxPercentage,
             goalAmount: goalAmount,
             roundUpSavings: roundUpSavings,
-            enableDCA: enableDCAFlag,  // This is the DCA setting we're updating
+            enableDCA: enableDCAFlag, // This is the DCA setting we're updating
             savingsTokenType: savingsTokenType,
-            specificSavingsToken: specificSavingsToken  // Keep the original specific token
+            specificSavingsToken: specificSavingsToken // Keep the original specific token
         });
-        
+
         // Then call the method that actually exists in SpendSaveStorage
         storage_.setSavingStrategy(user, newStrategy);
-        
+
         // Note: DCA target token is handled separately in the DCA module
         // The targetToken parameter is used for DCA execution, not for the savings strategy
     }
 
     // Helper function to get the current custom slippage tolerance
     function _getCurrentCustomSlippageTolerance(address user) internal view returns (uint256) {
-        (,,,,,uint256 customSlippageTolerance) = storage_.getDcaTickStrategy(user);
+        (,,,,, uint256 customSlippageTolerance) = storage_.getDcaTickStrategy(user);
         return customSlippageTolerance;
     }
- 
+
     // Set DCA tick strategy
-    function setDCATickStrategy(
-        address user,
-        int24 lowerTick,
-        int24 upperTick
-    ) external override onlyAuthorized(user) nonReentrant {
+    function setDCATickStrategy(address user, int24 lowerTick, int24 upperTick)
+        external
+        override
+        onlyAuthorized(user)
+        nonReentrant
+    {
         // Validate tick bounds
         if (lowerTick >= upperTick) revert InvalidTickBounds();
-        
+
         // Update the strategy in storage
-        storage_.setDcaTickStrategy(
-            user,
-            lowerTick,
-            upperTick
-        );
-        
+        storage_.setDcaTickStrategy(user, lowerTick, upperTick);
+
         emit TickStrategySet(user, lowerTick, upperTick);
     }
-    
+
     // Queue DCA from a savings token generated in a swap
-    function queueDCAFromSwap(
-        address user,
-        address fromToken,
-        SpendSaveStorage.SwapContext memory context
-    ) external onlyAuthorized(user) nonReentrant {
+    function queueDCAFromSwap(address user, address fromToken, SpendSaveStorage.SwapContext memory context)
+        external
+        onlyAuthorized(user)
+        nonReentrant
+    {
         // Validate conditions for DCA queue
         if (!_shouldQueueDCA(context, fromToken)) return;
-        
+
         // Get savings amount for this token
         uint256 amount = storage_.savings(user, fromToken);
         if (amount == 0) return;
-        
+
         // Create the pool key and queue the DCA execution
         PoolKey memory poolKey = storage_.createPoolKey(fromToken, context.dcaTargetToken);
-        
+
         _queueDCAExecutionInternal(
             user,
             fromToken,
@@ -349,31 +342,32 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             0 // No custom slippage, use default
         );
     }
-    
+
     // Helper to check if DCA should be queued
-    function _shouldQueueDCA(SpendSaveStorage.SwapContext memory context, address fromToken) internal pure returns (bool) {
-        return context.enableDCA && 
-               context.dcaTargetToken != address(0) && 
-               fromToken != context.dcaTargetToken;
+    function _shouldQueueDCA(SpendSaveStorage.SwapContext memory context, address fromToken)
+        internal
+        pure
+        returns (bool)
+    {
+        return context.enableDCA && context.dcaTargetToken != address(0) && fromToken != context.dcaTargetToken;
     }
 
     // Helper function to determine whether the swap is zeroForOne
-      function _isZeroForOne(address fromToken, address toToken) internal pure returns (bool) {
+    function _isZeroForOne(address fromToken, address toToken) internal pure returns (bool) {
         return fromToken < toToken;
     }
 
     // Helper to get execution tick and deadline
-    function _getExecutionDetails(
-        address user,
-        PoolKey memory poolKey, 
-        int24 currentTick, 
-        bool zeroForOne
-    ) internal view returns (int24 executionTick, uint256 deadline) {
+    function _getExecutionDetails(address user, PoolKey memory poolKey, int24 currentTick, bool zeroForOne)
+        internal
+        view
+        returns (int24 executionTick, uint256 deadline)
+    {
         executionTick = calculateDCAExecutionTick(user, poolKey, currentTick, zeroForOne);
-        
+
         // Get tick expiry time
-        (,uint256 tickExpiryTime,,,,) = storage_.getDcaTickStrategy(user);
-        
+        (, uint256 tickExpiryTime,,,,) = storage_.getDcaTickStrategy(user);
+
         deadline = block.timestamp + tickExpiryTime;
         return (executionTick, deadline);
     }
@@ -386,12 +380,12 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @param toToken The token to convert to
      * @param amount The amount to queue
      */
-    function queueDCAExecution(
-        address user,
-        address fromToken,
-        address toToken,
-        uint256 amount
-    ) external override onlyAuthorized(user) nonReentrant {
+    function queueDCAExecution(address user, address fromToken, address toToken, uint256 amount)
+        external
+        override
+        onlyAuthorized(user)
+        nonReentrant
+    {
         // Create pool key for the token pair
         PoolKey memory poolKey = PoolKey({
             currency0: Currency.wrap(fromToken < toToken ? fromToken : toToken),
@@ -400,10 +394,10 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             hooks: IHooks(address(0)),
             tickSpacing: DEFAULT_TICK_SPACING
         });
-        
+
         // Get current tick from pool manager using StateLibrary
-        (,int24 currentTick,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
-        
+        (, int24 currentTick,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
+
         // Call the internal implementation with default slippage
         _queueDCAExecutionInternal(
             user,
@@ -415,7 +409,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             0 // Use default slippage
         );
     }
-    
+
     // Internal implementation for queueDCAExecution with full parameters
     function _queueDCAExecutionInternal(
         address user,
@@ -428,48 +422,35 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal {
         // Determine swap direction
         bool zeroForOne = _isZeroForOne(fromToken, toToken);
-        
+
         // Get execution tick and deadline
-        (int24 executionTick, uint256 deadline) = _getExecutionDetails(
-            user, 
-            poolKey, 
-            currentTick, 
-            zeroForOne
-        );
-        
+        (int24 executionTick, uint256 deadline) = _getExecutionDetails(user, poolKey, currentTick, zeroForOne);
+
         // Add to queue
-        storage_.addToDcaQueue(
-            user,
-            fromToken,
-            toToken,
-            amount,
-            executionTick,
-            deadline,
-            customSlippageTolerance
-        );
-        
+        storage_.addToDcaQueue(user, fromToken, toToken, amount, executionTick, deadline, customSlippageTolerance);
+
         emit DCAQueued(user, fromToken, toToken, amount, executionTick);
     }
 
     // Helper function to validate DCA prerequisites
-    function _validateDCAPrerequisites(
-        address user, 
-        address fromToken, 
-        uint256 amount
-    ) internal view returns (address targetToken) {
+    function _validateDCAPrerequisites(address user, address fromToken, uint256 amount)
+        internal
+        view
+        returns (address targetToken)
+    {
         // Check if DCA is enabled
         SpendSaveStorage.SavingStrategy memory strategy = storage_.getUserSavingStrategy(user);
         bool isDCAEnabled = strategy.enableDCA;
         if (!isDCAEnabled) revert DCANotEnabled();
-        
+
         targetToken = storage_.dcaTargetToken(user);
         if (targetToken == address(0)) revert NoTargetTokenSet();
-        
+
         uint256 userSavings = storage_.savings(user, fromToken);
         if (userSavings < amount) {
             revert InsufficientSavings(fromToken, amount, userSavings);
         }
-        
+
         return targetToken;
     }
 
@@ -483,8 +464,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         if (queueLength == 0) return (false, 0);
 
         // Get user's DCA config
-        (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) = 
-            storage_.getUserDcaConfig(user);
+        (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) = storage_.getUserDcaConfig(user);
 
         if (!enabled) return (false, 0);
 
@@ -513,7 +493,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
                     amount,
                     customSlippageTolerance > 0 ? customSlippageTolerance : maxSlippage
                 );
-                
+
                 if (amountOut > 0) {
                     totalAmount += amountOut;
                     executed = true;
@@ -537,18 +517,14 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @notice Batch execute DCA for multiple users
      * @dev Gas-efficient implementation for keeper operations
      */
-    function batchExecuteDCA(address[] calldata users) 
-        external 
-        override 
-        returns (DCAExecution[] memory executions) 
-    {
+    function batchExecuteDCA(address[] calldata users) external override returns (DCAExecution[] memory executions) {
         // First, count total executions for array sizing
         uint256 totalExecutions = 0;
         for (uint256 u = 0; u < users.length; u++) {
             address user = users[u];
             uint256 queueLength = storage_.getDcaQueueLength(user);
             (bool enabled,,,,,) = storage_.getUserDcaConfig(user);
-            
+
             if (enabled) {
                 for (uint256 i = 0; i < queueLength; i++) {
                     (,,,,, bool itemExecuted, uint256 deadline) = storage_.getDcaQueueItem(user, i);
@@ -565,7 +541,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         for (uint256 u = 0; u < users.length; u++) {
             address user = users[u];
             uint256 queueLength = storage_.getDcaQueueLength(user);
-            (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) = 
+            (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) =
                 storage_.getUserDcaConfig(user);
 
             if (!enabled) continue;
@@ -620,9 +596,9 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @return config The DCA configuration
      */
     function getDCAConfig(address user) external view override returns (DCAConfig memory config) {
-        (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage, int24 lowerTick, int24 upperTick) = 
+        (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage, int24 lowerTick, int24 upperTick) =
             storage_.getUserDcaConfig(user);
-        
+
         config = DCAConfig({
             enabled: enabled,
             targetToken: targetToken,
@@ -632,7 +608,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             upperTick: upperTick
         });
     }
-    
+
     /**
      * @notice Get pending DCA queue for a user
      * @param user The user address
@@ -640,21 +616,22 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @return amounts Array of amounts
      * @return targets Array of target tokens
      */
-    function getPendingDCA(address user) external view override returns (
-        address[] memory tokens,
-        uint256[] memory amounts,
-        address[] memory targets
-    ) {
+    function getPendingDCA(address user)
+        external
+        view
+        override
+        returns (address[] memory tokens, uint256[] memory amounts, address[] memory targets)
+    {
         uint256 queueLength = storage_.getDcaQueueLength(user);
         tokens = new address[](queueLength);
         amounts = new uint256[](queueLength);
         targets = new address[](queueLength);
-        
+
         uint256 pendingCount = 0;
         for (uint256 i = 0; i < queueLength; i++) {
-            (address fromToken, address toToken, uint256 amount, , uint256 deadline, bool executed, ) = 
+            (address fromToken, address toToken, uint256 amount,, uint256 deadline, bool executed,) =
                 storage_.getDcaQueueItem(user, i);
-            
+
             if (!executed && block.timestamp <= deadline) {
                 tokens[pendingCount] = fromToken;
                 amounts[pendingCount] = amount;
@@ -662,7 +639,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
                 pendingCount++;
             }
         }
-        
+
         // Resize arrays to actual pending count
         if (pendingCount < queueLength) {
             assembly {
@@ -672,7 +649,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             }
         }
     }
-    
+
     /**
      * @notice Check if DCA should execute based on current tick
      * @param user The user address
@@ -680,28 +657,30 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @return shouldExecute Whether DCA should execute
      * @return currentTick The current pool tick
      */
-    function shouldExecuteDCA(
-        address user,
-        PoolKey calldata poolKey
-    ) external view override returns (bool shouldExecute, int24 currentTick) {
+    function shouldExecuteDCA(address user, PoolKey calldata poolKey)
+        external
+        view
+        override
+        returns (bool shouldExecute, int24 currentTick)
+    {
         // Get current tick from pool manager
-        (,currentTick,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
-        
+        (, currentTick,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
+
         // Get user's tick strategy
-        (int24 tickDelta, uint256 tickExpiryTime, bool onlyImprovePrice, int24 minTickImprovement, , ) = 
+        (int24 tickDelta, uint256 tickExpiryTime, bool onlyImprovePrice, int24 minTickImprovement,,) =
             storage_.getDcaTickStrategy(user);
-        
+
         // Check if tick strategy is still valid
         if (tickExpiryTime > 0 && block.timestamp > tickExpiryTime) {
             return (false, currentTick);
         }
-        
+
         // Get last execution tick
         int24 lastExecutionTick = storage_.getLastDcaExecutionTick(user, PoolId.unwrap(poolKey.toId()));
-        
+
         // Calculate tick movement
         int24 tickMovement = currentTick - lastExecutionTick;
-        
+
         // Check if tick movement meets criteria
         if (tickMovement >= tickDelta) {
             if (onlyImprovePrice) {
@@ -710,7 +689,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
                 shouldExecute = true;
             }
         }
-        
+
         return (shouldExecute, currentTick);
     }
 
@@ -721,11 +700,11 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @param currentTick The current tick to check
      * @return shouldExecute Whether DCA should execute at this tick
      */
-    function shouldExecuteDCAAtTickPublic(
-        address user,
-        uint256 index,
-        int24 currentTick
-    ) external view returns (bool shouldExecute) {
+    function shouldExecuteDCAAtTickPublic(address user, uint256 index, int24 currentTick)
+        external
+        view
+        returns (bool shouldExecute)
+    {
         return shouldExecuteDCAAtTick(user, index, currentTick);
     }
 
@@ -737,28 +716,28 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @param availableAmount Amount available for DCA
      * @return optimalAmount The optimal amount to execute
      */
-    function calculateOptimalDCAAmount(
-        address user,
-        address fromToken,
-        address toToken,
-        uint256 availableAmount
-    ) external view override returns (uint256 optimalAmount) {
+    function calculateOptimalDCAAmount(address user, address fromToken, address toToken, uint256 availableAmount)
+        external
+        view
+        override
+        returns (uint256 optimalAmount)
+    {
         // Get user's DCA config
-        (bool enabled, , uint256 minAmount, , , ) = storage_.getUserDcaConfig(user);
-        
+        (bool enabled,, uint256 minAmount,,,) = storage_.getUserDcaConfig(user);
+
         if (!enabled) return 0;
-        
+
         // Get user's savings balance
         uint256 savingsBalance = storage_.savings(user, fromToken);
-        
+
         // Calculate optimal amount based on available savings and minimum amount
         if (savingsBalance >= minAmount) {
             optimalAmount = savingsBalance > availableAmount ? availableAmount : savingsBalance;
         }
-        
+
         return optimalAmount;
     }
-    
+
     /**
      * @notice Process DCA after savings
      * @dev Called by savings module when DCA is enabled
@@ -778,47 +757,44 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         if (!context.enableDCA || context.dcaTargetToken == address(0)) {
             return false;
         }
-        
+
         // Don't queue if saved token is the same as target token
         if (savedToken == context.dcaTargetToken) {
             return false;
         }
-        
+
         // Get user's DCA config
-        (bool enabled, , uint256 minAmount, , , ) = storage_.getUserDcaConfig(user);
-        
+        (bool enabled,, uint256 minAmount,,,) = storage_.getUserDcaConfig(user);
+
         if (!enabled || savedAmount < minAmount) {
             return false;
         }
-        
+
         // Queue the DCA execution
-        try this.queueDCAExecution(
-            user,
-            savedToken,
-            context.dcaTargetToken,
-            savedAmount
-        ) {
+        try this.queueDCAExecution(user, savedToken, context.dcaTargetToken, savedAmount) {
             queued = true;
         } catch {
             queued = false;
         }
-        
+
         return queued;
     }
-    
+
     /**
      * @notice Get DCA execution history
      * @param user The user address
      * @param limit Maximum number of records to return
      * @return history Array of DCA executions
      */
-    function getDCAHistory(
-        address user,
-        uint256 limit
-    ) external view override returns (DCAExecution[] memory history) {
+    function getDCAHistory(address user, uint256 limit)
+        external
+        view
+        override
+        returns (DCAExecution[] memory history)
+    {
         // Get DCA execution history from storage contract and convert types
         SpendSaveStorage.DCAExecution[] memory storageHistory = storage_.getDcaExecutionHistory(user, limit);
-        
+
         // Convert from storage type to interface type
         history = new DCAExecution[](storageHistory.length);
         for (uint256 i = 0; i < storageHistory.length; i++) {
@@ -830,7 +806,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
                 executedPrice: storageHistory[i].price
             });
         }
-        
+
         return history;
     }
 
@@ -865,17 +841,9 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal returns (uint256 amountOut, uint256 executedPrice) {
         PoolKey memory poolKey = storage_.getPoolKey(fromToken, toToken);
         bool zeroForOne = fromToken < toToken;
-        
-        amountOut = executeDCASwap(
-            user,
-            fromToken,
-            toToken,
-            amount,
-            poolKey,
-            zeroForOne,
-            maxSlippage
-        );
-        
+
+        amountOut = executeDCASwap(user, fromToken, toToken, amount, poolKey, zeroForOne, maxSlippage);
+
         // Calculate executed price: amountOut / amount (with safety for division by zero)
         // Scale by 1e18 for fixed-point precision
         executedPrice = amount > 0 ? (amountOut * 1e18) / amount : 0;
@@ -888,58 +856,52 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @param maxSlippage The maximum slippage tolerance (in basis points, e.g., 300 = 3%)
      * @return maxAmount The maximum amount that can be swapped without exceeding slippage
      */
-    function _calculateMaxAmountForSlippage(
-        address fromToken,
-        address toToken,
-        uint256 maxSlippage
-    ) internal returns (uint256) {
+    function _calculateMaxAmountForSlippage(address fromToken, address toToken, uint256 maxSlippage)
+        internal
+        returns (uint256)
+    {
         if (maxSlippage == 0) return 0;
-        
+
         // Create pool key for the token pair
         PoolKey memory poolKey = storage_.getPoolKey(fromToken, toToken);
         PoolId poolId = poolKey.toId();
-        
+
         // Get pool state using StateLibrary
-        (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = 
+        (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) =
             StateLibrary.getSlot0(poolManager, poolId);
-            
+
         // If pool doesn't exist or has no price, return conservative limit
         if (sqrtPriceX96 == 0) {
-            return 1000 * 10**18; // 1000 tokens max as fallback
+            return 1000 * 10 ** 18; // 1000 tokens max as fallback
         }
-        
+
         // Get pool liquidity at current tick
         uint128 liquidity = StateLibrary.getLiquidity(poolManager, poolId);
-        
+
         // If no liquidity, return minimal amount
         if (liquidity == 0) {
-            return 100 * 10**18; // 100 tokens max for empty pools
+            return 100 * 10 ** 18; // 100 tokens max for empty pools
         }
-        
+
         // Determine swap direction
         bool zeroForOne = fromToken < toToken;
-        
+
         // Calculate maximum amount based on pool liquidity and slippage tolerance
         // Use a fraction of available liquidity to prevent excessive price impact
         uint256 maxLiquidityFraction = uint256(liquidity) / 10; // Use 10% of pool liquidity
-        
+
         // Calculate price-based limits using tick spacing
-        uint256 tickBasedLimit = _calculateTickBasedLimit(
-            sqrtPriceX96,
-            tick,
-            maxSlippage,
-            zeroForOne
-        );
-        
+        uint256 tickBasedLimit = _calculateTickBasedLimit(sqrtPriceX96, tick, maxSlippage, zeroForOne);
+
         // Return the minimum of liquidity-based and price-based limits
         uint256 liquidityLimit = maxLiquidityFraction;
         uint256 finalLimit = liquidityLimit < tickBasedLimit ? liquidityLimit : tickBasedLimit;
-        
+
         // Ensure minimum viable amount (prevent zero amounts)
-        uint256 minAmount = 1 * 10**18; // 1 token minimum
+        uint256 minAmount = 1 * 10 ** 18; // 1 token minimum
         return finalLimit > minAmount ? finalLimit : minAmount;
     }
-    
+
     /**
      * @notice Calculate tick-based slippage limit
      * @param sqrtPriceX96 Current pool price
@@ -948,49 +910,46 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @param zeroForOne Swap direction
      * @return limit Maximum amount based on tick movement
      */
-    function _calculateTickBasedLimit(
-        uint160 sqrtPriceX96,
-        int24 currentTick,
-        uint256 maxSlippage,
-        bool zeroForOne
-    ) internal pure returns (uint256) {
+    function _calculateTickBasedLimit(uint160 sqrtPriceX96, int24 currentTick, uint256 maxSlippage, bool zeroForOne)
+        internal
+        pure
+        returns (uint256)
+    {
         // Convert slippage from basis points to tick movement
         // Each tick represents ~0.01% price change
         int24 maxTickMovement = int24(uint24(maxSlippage / 10)); // Convert bps to ticks
-        
+
         if (maxTickMovement == 0) {
             maxTickMovement = 1; // Minimum 1 tick movement
         }
-        
+
         // Calculate target tick based on direction and slippage tolerance
-        int24 targetTick = zeroForOne ? 
-            currentTick - maxTickMovement : 
-            currentTick + maxTickMovement;
-            
+        int24 targetTick = zeroForOne ? currentTick - maxTickMovement : currentTick + maxTickMovement;
+
         // Ensure target tick is within valid bounds
         int24 MIN_TICK = -887272;
         int24 MAX_TICK = 887272;
-        
+
         if (targetTick < MIN_TICK) targetTick = MIN_TICK;
         if (targetTick > MAX_TICK) targetTick = MAX_TICK;
-        
+
         // Convert back to amount estimate
         // This is a simplified calculation - in production you'd want more precise math
         uint256 tickDistance = uint256(uint24(maxTickMovement));
-        
+
         // Scale based on current price and tick distance
         uint256 baseAmount = (uint256(sqrtPriceX96) * tickDistance) / (1 << 96);
-        
+
         // Apply reasonable bounds (1 to 10,000 tokens)
-        uint256 minLimit = 1 * 10**18;
-        uint256 maxLimit = 10000 * 10**18;
-        
+        uint256 minLimit = 1 * 10 ** 18;
+        uint256 maxLimit = 10000 * 10 ** 18;
+
         if (baseAmount < minLimit) return minLimit;
         if (baseAmount > maxLimit) return maxLimit;
-        
+
         return baseAmount;
     }
-    
+
     // Helper to process a single queue item
     function _processQueueItem(address user, uint256 index, PoolKey memory poolKey, int24 currentTick) internal {
         // Get the DCA execution info
@@ -1003,7 +962,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             bool executed,
             uint256 customSlippageTolerance
         ) = storage_.getDcaQueueItem(user, index);
-        
+
         // Create a DCAExecution struct for easier handling
         SpendSaveStorage.DCAExecution memory dca = SpendSaveStorage.DCAExecution({
             amount: amount,
@@ -1012,25 +971,25 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             price: 0, // Will be set after execution
             successful: false
         });
-        
+
         if (!executed && shouldExecuteDCAAtTick(user, index, currentTick)) {
             executeDCAAtIndex(user, index, poolKey, currentTick);
         }
     }
-    
+
     // Get current pool tick
     function getCurrentTick(PoolKey memory poolKey) public nonReentrant returns (int24) {
         PoolId poolId = poolKey.toId();
-        
+
         // Get current tick from pool manager
-        (,int24 currentTick,,) = StateLibrary.getSlot0(IPoolManager(storage_.poolManager()), poolId);
-        
+        (, int24 currentTick,,) = StateLibrary.getSlot0(IPoolManager(storage_.poolManager()), poolId);
+
         // Update stored tick if changed
         _updateStoredTick(poolId, currentTick);
-        
+
         return currentTick;
     }
-    
+
     // Helper to update stored tick
     function _updateStoredTick(PoolId poolId, int24 currentTick) internal {
         int24 oldTick = storage_.poolTicks(poolId);
@@ -1039,14 +998,9 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             emit TickUpdated(poolId, oldTick, currentTick);
         }
     }
-    
+
     // Execute a specific DCA from the queue
-    function executeDCAAtIndex(
-        address user,
-        uint256 index,
-        PoolKey memory poolKey,
-        int24 currentTick
-    ) internal {
+    function executeDCAAtIndex(address user, uint256 index, PoolKey memory poolKey, int24 currentTick) internal {
         // Validate and retrieve execution parameters
         (
             address fromToken,
@@ -1057,67 +1011,52 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             uint256 swapAmount,
             uint256 customSlippageTolerance
         ) = _prepareExecutionParameters(user, index, currentTick);
-        
+
         if (executed) revert InvalidDCAExecution();
-        
+
         // Execute the swap
-        executeDCASwap(
-            user,
-            fromToken,
-            toToken,
-            swapAmount,
-            poolKey,
-            zeroForOne,
-            customSlippageTolerance
-        );
-        
+        executeDCASwap(user, fromToken, toToken, swapAmount, poolKey, zeroForOne, customSlippageTolerance);
+
         // Mark as executed
         storage_.markDcaExecuted(user, index);
     }
-    
+
     // Helper to prepare execution parameters
-    function _prepareExecutionParameters(
-        address user,
-        uint256 index,
-        int24 currentTick
-    ) internal view returns (
-        address fromToken,
-        address toToken,
-        uint256 amount,
-        bool executed,
-        bool zeroForOne,
-        uint256 swapAmount,
-        uint256 customSlippageTolerance
-    ) {
+    function _prepareExecutionParameters(address user, uint256 index, int24 currentTick)
+        internal
+        view
+        returns (
+            address fromToken,
+            address toToken,
+            uint256 amount,
+            bool executed,
+            bool zeroForOne,
+            uint256 swapAmount,
+            uint256 customSlippageTolerance
+        )
+    {
         // Get execution details from storage
         int24 executionTick;
         uint256 deadline;
-        
-        (
-            fromToken,
-            toToken,
-            amount,
-            executionTick,
-            deadline,
-            executed,
-            customSlippageTolerance
-        ) = storage_.getDcaQueueItem(user, index);
-        
+
+        (fromToken, toToken, amount, executionTick, deadline, executed, customSlippageTolerance) =
+            storage_.getDcaQueueItem(user, index);
+
         // Determine direction
         zeroForOne = fromToken < toToken;
-        
+
         // Calculate swap amount considering dynamic sizing
         swapAmount = _calculateSwapAmount(user, amount, executionTick, currentTick, zeroForOne);
-        
+
         // Validate sufficient balance
         uint256 userSavings = storage_.savings(user, fromToken);
         if (userSavings < swapAmount) {
             revert InsufficientSavings(fromToken, swapAmount, userSavings);
         }
-        
+
         return (fromToken, toToken, amount, executed, zeroForOne, swapAmount, customSlippageTolerance);
     }
-    
+
     // Helper to calculate swap amount
     function _calculateSwapAmount(
         address user,
@@ -1128,18 +1067,13 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal view returns (uint256) {
         // Check if using dynamic sizing
         bool dynamicSizing;
-        (,,,,dynamicSizing,) = storage_.getDcaTickStrategy(user);
-        
+        (,,,, dynamicSizing,) = storage_.getDcaTickStrategy(user);
+
         if (!dynamicSizing) return baseAmount;
-        
-        return calculateDynamicDCAAmount(
-            baseAmount,
-            executionTick,
-            currentTick,
-            zeroForOne
-        );
+
+        return calculateDynamicDCAAmount(baseAmount, executionTick, currentTick, zeroForOne);
     }
-    
+
     // Execute the actual DCA swap
     function executeDCASwap(
         address user,
@@ -1156,46 +1090,39 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         _validateBalance(user, fromToken, amount);
 
         // Prepare swap with slippage protection
-        SwapExecutionParams memory params = _prepareSwapExecution(
-            user, fromToken, toToken, amount, customSlippageTolerance
-        );
+        SwapExecutionParams memory params =
+            _prepareSwapExecution(user, fromToken, toToken, amount, customSlippageTolerance);
 
         // Execute the swap
-        SwapExecutionResult memory result = _executePoolSwap(
-            poolKey, params, zeroForOne, amount, user, fromToken, toToken
-        );
-        
+        SwapExecutionResult memory result =
+            _executePoolSwap(poolKey, params, zeroForOne, amount, user, fromToken, toToken);
+
         // Check if swap succeeded
         if (!result.success) revert SwapExecutionFailed();
-        
+
         // Get minimum amount out
         uint256 minAmountOut = params.minAmountOut;
-        
+
         // Check for slippage
         if (result.receivedAmount < minAmountOut) {
             bool shouldContinue = slippageModule.handleSlippageExceeded(
-                user,
-                fromToken,
-                toToken,
-                amount,
-                result.receivedAmount,
-                minAmountOut
+                user, fromToken, toToken, amount, result.receivedAmount, minAmountOut
             );
-            
+
             if (!shouldContinue) {
                 revert SlippageToleranceExceeded(result.receivedAmount, minAmountOut);
             }
         }
-        
+
         // Process the results
         _processSwapResults(user, fromToken, toToken, amount, result.receivedAmount);
-        
+
         // Record DCA execution in history
         uint256 executionPrice = (result.receivedAmount * 1e18) / amount; // Calculate price ratio
         _recordDCAExecution(user, fromToken, toToken, amount, result.receivedAmount, executionPrice);
-        
+
         emit DCAExecuted(user, fromToken, toToken, amount, result.receivedAmount);
-        
+
         return result.receivedAmount;
     }
 
@@ -1217,7 +1144,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             price: executionPrice,
             successful: true
         });
-        
+
         storage_.addDcaExecution(user, execution);
     }
 
@@ -1230,12 +1157,11 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal returns (SwapExecutionParams memory) {
         // Approve the pool manager to spend tokens
         IERC20(fromToken).approve(address(storage_.poolManager()), amount);
-        
+
         // Get minimum amount out with slippage protection
-        uint256 minAmountOut = slippageModule.getMinimumAmountOut(
-            user, fromToken, toToken, amount, customSlippageTolerance
-        );
-        
+        uint256 minAmountOut =
+            slippageModule.getMinimumAmountOut(user, fromToken, toToken, amount, customSlippageTolerance);
+
         return SwapExecutionParams({
             amount: amount,
             minAmountOut: minAmountOut,
@@ -1253,17 +1179,15 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         address toToken
     ) internal returns (SwapExecutionResult memory) {
         // Set price limit to ensure reasonable execution
-        params.sqrtPriceLimitX96 = zeroForOne ? 
-            TickMath.MIN_SQRT_PRICE + 1 : 
-            TickMath.MAX_SQRT_PRICE - 1;
-        
+        params.sqrtPriceLimitX96 = zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1;
+
         // Prepare swap parameters
         SwapParams memory swapParams = SwapParams({
             zeroForOne: zeroForOne,
             amountSpecified: int256(amount),
             sqrtPriceLimitX96: params.sqrtPriceLimitX96
         });
-        
+
         // Execute the swap using V4 unlock pattern
         // Note: This requires access to user, fromToken, toToken from parent function
         // The function signature will need to be updated to include these parameters
@@ -1276,30 +1200,27 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             amount: amount,
             isExecuteDCA: true
         });
-        
+
         BalanceDelta delta;
         try IPoolManager(storage_.poolManager()).unlock(abi.encode(callbackData)) returns (bytes memory result) {
             delta = abi.decode(result, (BalanceDelta));
         } catch {
             revert SwapExecutionFailed();
         }
-        
+
         // Calculate the amount received
         uint256 receivedAmount = _calculateReceivedAmount(delta, zeroForOne);
-        
+
         // Check if we received any tokens
         bool success = receivedAmount > 0;
-        
+
         if (!success) {
             emit SwapExecutionZeroOutput(amount, zeroForOne);
         }
-        
-        return SwapExecutionResult({
-            receivedAmount: receivedAmount,
-            success: success
-        });
+
+        return SwapExecutionResult({receivedAmount: receivedAmount, success: success});
     }
-    
+
     // Helper to validate balance
     function _validateBalance(address user, address fromToken, uint256 amount) internal view {
         uint256 userSavings = storage_.savings(user, fromToken);
@@ -1307,7 +1228,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             revert InsufficientSavings(fromToken, amount, userSavings);
         }
     }
-    
+
     // Helper to execute swap via pool manager
     function _executeSwap(
         address user,
@@ -1320,28 +1241,18 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal returns (uint256 receivedAmount) {
         // Approve pool manager to spend fromToken
         IERC20(fromToken).approve(address(storage_.poolManager()), amount);
-        
+
         // Set price limit to ensure the swap executes at a reasonable price
-        uint160 sqrtPriceLimitX96 = zeroForOne ? 
-            TickMath.MIN_SQRT_PRICE + 1 : 
-            TickMath.MAX_SQRT_PRICE - 1;
-        
+        uint160 sqrtPriceLimitX96 = zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1;
+
         // Prepare swap parameters
-        SwapParams memory params = SwapParams({
-            zeroForOne: zeroForOne,
-            amountSpecified: int256(amount),
-            sqrtPriceLimitX96: sqrtPriceLimitX96
-        });
-        
+        SwapParams memory params =
+            SwapParams({zeroForOne: zeroForOne, amountSpecified: int256(amount), sqrtPriceLimitX96: sqrtPriceLimitX96});
+
         // Get min amount out with slippage protection
-        uint256 minAmountOut = slippageModule.getMinimumAmountOut(
-            user,
-            fromToken,
-            toToken,
-            amount,
-            customSlippageTolerance
-        );
-        
+        uint256 minAmountOut =
+            slippageModule.getMinimumAmountOut(user, fromToken, toToken, amount, customSlippageTolerance);
+
         // Execute swap using V4 unlock pattern
         SwapCallbackData memory callbackData = SwapCallbackData({
             poolKey: poolKey,
@@ -1352,24 +1263,23 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             amount: amount,
             isExecuteDCA: false
         });
-        
+
         BalanceDelta delta;
         try IPoolManager(storage_.poolManager()).unlock(abi.encode(callbackData)) returns (bytes memory result) {
             delta = abi.decode(result, (BalanceDelta));
         } catch {
             revert SwapExecutionFailed();
         }
-        
+
         // Calculate received amount based on the swap delta
         receivedAmount = _calculateReceivedAmount(delta, zeroForOne);
-        
+
         // Check for slippage
         _handleSlippage(user, fromToken, toToken, amount, receivedAmount, minAmountOut);
-        
+
         return receivedAmount;
     }
-    
-    
+
     // Helper to calculate received amount
     function _calculateReceivedAmount(BalanceDelta delta, bool zeroForOne) internal pure returns (uint256) {
         if (zeroForOne) {
@@ -1378,7 +1288,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             return uint256(int256(-delta.amount0()));
         }
     }
-    
+
     // Helper to handle slippage check
     function _handleSlippage(
         address user,
@@ -1390,22 +1300,16 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal {
         if (receivedAmount < minAmountOut) {
             // Call the handler which will either revert or continue based on user preference
-            bool shouldContinue = slippageModule.handleSlippageExceeded(
-                user,
-                fromToken,
-                toToken,
-                amount,
-                receivedAmount,
-                minAmountOut
-            );
-            
+            bool shouldContinue =
+                slippageModule.handleSlippageExceeded(user, fromToken, toToken, amount, receivedAmount, minAmountOut);
+
             // If shouldContinue is false, revert the transaction
             if (!shouldContinue) {
                 revert SlippageToleranceExceeded(receivedAmount, minAmountOut);
             }
         }
     }
-    
+
     // Helper to process swap results
     function _processSwapResults(
         address user,
@@ -1416,15 +1320,15 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal {
         // Update savings balances
         storage_.decreaseSavings(user, fromToken, amount);
-        
+
         // Calculate fee and final amount
         uint256 treasuryFee = storage_.treasuryFee();
         uint256 feeAmount = (receivedAmount * treasuryFee) / 10000;
         uint256 finalReceivedAmount = receivedAmount - feeAmount;
-        
+
         // Update user's savings with final amount after fee
         storage_.increaseSavings(user, toToken, finalReceivedAmount);
-        
+
         // Update ERC-6909 token balances
         // Convert token addresses to token IDs first
         uint256 fromTokenId = tokenModule.getTokenId(fromToken);
@@ -1445,48 +1349,41 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         // Transfer tokens to user
         _transferTokensToUser(user, toToken, finalReceivedAmount);
     }
-    
+
     // Helper to transfer tokens to user
     function _transferTokensToUser(address user, address token, uint256 amount) internal {
         bool success = false;
         bytes memory returnData;
-        
+
         // Use low-level call instead of try-catch with safeTransfer
-        (success, returnData) = token.call(
-            abi.encodeWithSelector(IERC20.transfer.selector, user, amount)
-        );
-        
+        (success, returnData) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, user, amount));
+
         if (!success) {
             emit TransferFailure(user, token, amount, returnData);
             revert TokenTransferFailed();
         }
     }
-    
+
     // Calculate optimal tick for DCA execution
-    function calculateDCAExecutionTick(
-        address user,
-        PoolKey memory poolKey,
-        int24 currentTick,
-        bool zeroForOne
-    ) internal view returns (int24) {
+    function calculateDCAExecutionTick(address user, PoolKey memory poolKey, int24 currentTick, bool zeroForOne)
+        internal
+        view
+        returns (int24)
+    {
         // Get the tick delta from the strategy
         (int24 tickDelta,,,,,) = storage_.getDcaTickStrategy(user);
-        
+
         // If no strategy, execute at current tick
         if (tickDelta == 0) {
             return currentTick;
         }
-        
+
         // Calculate target tick based on direction
         return zeroForOne ? currentTick - tickDelta : currentTick + tickDelta;
     }
-    
+
     // Check if a queued DCA should execute based on current tick
-    function shouldExecuteDCAAtTick(
-        address user,
-        uint256 index,
-        int24 currentTick
-    ) internal view returns (bool) {
+    function shouldExecuteDCAAtTick(address user, uint256 index, int24 currentTick) internal view returns (bool) {
         // Get the DCA queue item data
         (
             address fromToken,
@@ -1497,52 +1394,45 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             bool executed,
             uint256 customSlippageTolerance
         ) = storage_.getDcaQueueItem(user, index);
-        
+
         if (executed) return false;
-        
+
         // Get strategy parameters
         DCAExecutionCriteria memory criteria = _getDCAExecutionCriteria(user);
-        
+
         // If past deadline, execute regardless of tick
         if (criteria.tickExpiryTime > 0 && block.timestamp > deadline) {
             return true;
         }
-        
+
         // Determine if price has improved enough to execute
-        bool priceImproved = _hasPriceImproved(
-            fromToken, 
-            toToken, 
-            currentTick, 
-            executionTick, 
-            criteria.minTickImprovement
-        );
-        
+        bool priceImproved =
+            _hasPriceImproved(fromToken, toToken, currentTick, executionTick, criteria.minTickImprovement);
+
         // If we only execute on price improvement, check that condition
         if (criteria.onlyImprovePrice) {
             return priceImproved;
         }
-        
+
         // Otherwise, execute at or past the target tick
         return true;
     }
-    
+
     // Helper struct to store DCA execution criteria
     struct DCAExecutionCriteria {
         bool onlyImprovePrice;
         int24 minTickImprovement;
         uint256 tickExpiryTime;
     }
-    
+
     // Helper to get DCA execution criteria
-    function _getDCAExecutionCriteria(
-        address user
-    ) internal view returns (DCAExecutionCriteria memory criteria) {
-        (,criteria.tickExpiryTime,criteria.onlyImprovePrice,criteria.minTickImprovement,,) = 
+    function _getDCAExecutionCriteria(address user) internal view returns (DCAExecutionCriteria memory criteria) {
+        (, criteria.tickExpiryTime, criteria.onlyImprovePrice, criteria.minTickImprovement,,) =
             storage_.getDcaTickStrategy(user);
-            
+
         return criteria;
     }
-    
+
     // Helper to check if price has improved
     function _hasPriceImproved(
         address fromToken,
@@ -1553,11 +1443,11 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     ) internal pure returns (bool) {
         bool zeroForOne = fromToken < toToken;
         bool priceImproved;
-        
+
         if (zeroForOne) {
             // For 0->1, price improves when current tick < execution tick
             priceImproved = currentTick <= executionTick;
-            
+
             // Check minimum improvement if required
             if (minTickImprovement > 0) {
                 priceImproved = priceImproved && (executionTick - currentTick >= minTickImprovement);
@@ -1565,74 +1455,60 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         } else {
             // For 1->0, price improves when current tick > execution tick
             priceImproved = currentTick >= executionTick;
-            
+
             // Check minimum improvement if required
             if (minTickImprovement > 0) {
                 priceImproved = priceImproved && (currentTick - executionTick >= minTickImprovement);
             }
         }
-        
+
         return priceImproved;
     }
-    
+
     // Calculate DCA amount based on tick movement (for dynamic sizing)
-    function calculateDynamicDCAAmount(
-        uint256 baseAmount,
-        int24 entryTick,
-        int24 currentTick,
-        bool zeroForOne
-    ) internal pure returns (uint256) {
+    function calculateDynamicDCAAmount(uint256 baseAmount, int24 entryTick, int24 currentTick, bool zeroForOne)
+        internal
+        pure
+        returns (uint256)
+    {
         // Calculate tick movement and determine multiplier
-        TickMovement memory movement = _calculateTickMovement(
-            entryTick, currentTick, zeroForOne
-        );
-        
+        TickMovement memory movement = _calculateTickMovement(entryTick, currentTick, zeroForOne);
+
         if (!movement.isPositive) return baseAmount;
-        
+
         // Apply multiplier with capping
         return _applyMultiplier(baseAmount, movement.delta);
     }
 
-    function _calculateTickMovement(
-        int24 entryTick,
-        int24 currentTick,
-        bool zeroForOne
-    ) internal pure returns (TickMovement memory) {
+    function _calculateTickMovement(int24 entryTick, int24 currentTick, bool zeroForOne)
+        internal
+        pure
+        returns (TickMovement memory)
+    {
         // If no tick movement, return zero delta
         if (entryTick == currentTick) {
-            return TickMovement({
-                delta: 0,
-                isPositive: false
-            });
+            return TickMovement({delta: 0, isPositive: false});
         }
-        
+
         // Calculate tick delta based on swap direction
-        int24 delta = zeroForOne ? 
-            (entryTick - currentTick) : 
-            (currentTick - entryTick);
-        
-        return TickMovement({
-            delta: delta,
-            isPositive: delta > 0
-        });
+        int24 delta = zeroForOne ? (entryTick - currentTick) : (currentTick - entryTick);
+
+        return TickMovement({delta: delta, isPositive: delta > 0});
     }
-    
-    function _applyMultiplier(
-        uint256 baseAmount, 
-        int24 tickDelta
-    ) internal pure returns (uint256) {
+
+    function _applyMultiplier(uint256 baseAmount, int24 tickDelta) internal pure returns (uint256) {
         // Convert to uint safely
         uint256 multiplier = uint24(tickDelta);
-        
+
         // Cap multiplier at MAX_MULTIPLIER (100)
         if (multiplier > MAX_MULTIPLIER) {
             multiplier = MAX_MULTIPLIER;
         }
-        
+
         // Apply multiplier to base amount
         return baseAmount + (baseAmount * multiplier) / 100;
     }
-    
+
     // ==================== INTERNAL HELPER FUNCTIONS FOR DCA ====================
     /**
      * @notice Helper function to burn savings token for DCA
@@ -1674,9 +1550,9 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             }
         }
     }
-    
+
     // ==================== V4 UNLOCK CALLBACK IMPLEMENTATION ====================
-    
+
     /**
      * @notice Critical V4 compliance function - handles all swap operations through flash accounting
      * @param data Encoded SwapCallbackData containing swap parameters
@@ -1686,10 +1562,10 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     function unlockCallback(bytes calldata data) external override returns (bytes memory result) {
         // Verify caller is the pool manager
         require(msg.sender == address(storage_.poolManager()), "DCA: unauthorized callback");
-        
+
         // Validate data is not empty
         require(data.length > 0, "DCA: empty callback data");
-        
+
         // Decode the callback data with error handling
         SwapCallbackData memory callbackData;
         try this.decodeSwapCallbackData(data) returns (SwapCallbackData memory decoded) {
@@ -1697,21 +1573,19 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         } catch {
             revert("DCA: invalid callback data");
         }
-        
+
         // Validate callback data
         require(callbackData.user != address(0), "DCA: invalid user address");
         require(callbackData.amount > 0, "DCA: zero swap amount");
         require(callbackData.fromToken != address(0), "DCA: invalid from token");
         require(callbackData.toToken != address(0), "DCA: invalid to token");
         require(callbackData.fromToken != callbackData.toToken, "DCA: identical tokens");
-        
+
         // Perform the swap through pool manager with error handling
         BalanceDelta delta;
-        try IPoolManager(storage_.poolManager()).swap(
-            callbackData.poolKey,
-            callbackData.params,
-            ""
-        ) returns (BalanceDelta _delta) {
+        try IPoolManager(storage_.poolManager()).swap(callbackData.poolKey, callbackData.params, "") returns (
+            BalanceDelta _delta
+        ) {
             delta = _delta;
         } catch (bytes memory reason) {
             // Enhanced error reporting
@@ -1723,16 +1597,16 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
                 }
             }
         }
-        
+
         // Validate delta is not zero (indicates successful swap)
         require(delta.amount0() != 0 || delta.amount1() != 0, "DCA: zero delta returned");
-        
+
         // Handle currency settlement with enhanced error handling
         _handleCurrencySettlement(callbackData, delta);
-        
+
         return abi.encode(delta);
     }
-    
+
     /**
      * @notice Helper function to decode callback data safely
      * @param data The encoded callback data
@@ -1741,7 +1615,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     function decodeSwapCallbackData(bytes calldata data) external pure returns (SwapCallbackData memory decoded) {
         decoded = abi.decode(data, (SwapCallbackData));
     }
-    
+
     /**
      * @notice Handles currency settlement after swap execution
      * @param callbackData The original swap parameters
@@ -1751,64 +1625,57 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         Currency currency0 = callbackData.poolKey.currency0;
         Currency currency1 = callbackData.poolKey.currency1;
         IPoolManager pm = IPoolManager(storage_.poolManager());
-        
+
         // Handle input currency settlement (what we owe)
         if (delta.amount0() < 0) {
             uint256 amount0Owed = uint256(uint128(-delta.amount0()));
             address token0 = Currency.unwrap(currency0);
-            
+
             // Validate user has sufficient balance
-            require(IERC20(token0).balanceOf(callbackData.user) >= amount0Owed, 
-                "DCA: insufficient token0 balance");
-            require(IERC20(token0).allowance(callbackData.user, address(this)) >= amount0Owed,
-                "DCA: insufficient token0 allowance");
-            
-            // Transfer tokens from user to pool manager
-            IERC20(token0).safeTransferFrom(
-                callbackData.user, 
-                address(pm), 
-                amount0Owed
+            require(IERC20(token0).balanceOf(callbackData.user) >= amount0Owed, "DCA: insufficient token0 balance");
+            require(
+                IERC20(token0).allowance(callbackData.user, address(this)) >= amount0Owed,
+                "DCA: insufficient token0 allowance"
             );
-            
+
+            // Transfer tokens from user to pool manager
+            IERC20(token0).safeTransferFrom(callbackData.user, address(pm), amount0Owed);
+
             // Settle currency with pool manager
             pm.settle();
         }
-        
+
         if (delta.amount1() < 0) {
             uint256 amount1Owed = uint256(uint128(-delta.amount1()));
             address token1 = Currency.unwrap(currency1);
-            
+
             // Validate user has sufficient balance
-            require(IERC20(token1).balanceOf(callbackData.user) >= amount1Owed,
-                "DCA: insufficient token1 balance");
-            require(IERC20(token1).allowance(callbackData.user, address(this)) >= amount1Owed,
-                "DCA: insufficient token1 allowance");
-            
-            // Transfer tokens from user to pool manager
-            IERC20(token1).safeTransferFrom(
-                callbackData.user, 
-                address(pm), 
-                amount1Owed
+            require(IERC20(token1).balanceOf(callbackData.user) >= amount1Owed, "DCA: insufficient token1 balance");
+            require(
+                IERC20(token1).allowance(callbackData.user, address(this)) >= amount1Owed,
+                "DCA: insufficient token1 allowance"
             );
-            
+
+            // Transfer tokens from user to pool manager
+            IERC20(token1).safeTransferFrom(callbackData.user, address(pm), amount1Owed);
+
             // Settle currency with pool manager
             pm.settle();
         }
-        
+
         // Handle output currency taking (what we receive)
         if (delta.amount0() > 0) {
             uint256 amount0Received = uint256(uint128(delta.amount0()));
-            
+
             // Take currency0 tokens from pool manager
             pm.take(currency0, address(this), amount0Received);
         }
-        
+
         if (delta.amount1() > 0) {
             uint256 amount1Received = uint256(uint128(delta.amount1()));
-            
+
             // Take currency1 tokens from pool manager
             pm.take(currency1, address(this), amount1Received);
         }
     }
-    
 }

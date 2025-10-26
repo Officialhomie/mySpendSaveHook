@@ -1,0 +1,114 @@
+No files changed, compilation skipped
+Script ran successfully.
+
+== Logs ==
+  ========================================
+  SPENDSAVE PROTOCOL - COMPLETE END-TO-END TEST
+  ========================================
+  
+  Testing on: Base Sepolia
+  User: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  SpendSave Hook: 0xc4ABf9A7bf8300086BBad164b4c47B1Afbbf00Cc
+  
+  Initial Balances:
+    USDC: 6950029
+    WETH: 3999999996988949
+  
+  === STEP 1: Configure Savings Strategy ===
+  Setting 10% INPUT savings for user...
+  Strategy configured successfully!
+    Verified percentage: 1000
+    Verified type: 0
+  
+  === STEP 2: Deploy Helper Contracts ===
+  SwapRouter deployed: 0x3517Bd2940F061f16c9992bf776EB8fE0d13423F
+  
+  LiquidityRouter deployed: 0x679973e3995987C5219Daed3E3BC53C50746C9c5
+  
+  === STEP 3: Initialize Pool WITH SpendSave Hook ===
+  Pool configuration:
+    Currency0: USDC
+    Currency1: WETH
+    Fee: 0.3%
+    Hook: SPENDSAVE 0xc4ABf9A7bf8300086BBad164b4c47B1Afbbf00Cc
+  
+Using existing pool (already initialized)
+  
+  === STEP 4: Add Liquidity to Hook Pool ===
+  Wrapped 0.001 ETH to WETH
+  Tokens approved to LiquidityRouter
+  Liquidity added successfully!
+    Delta0 (USDC): -1009970
+    Delta1 (WETH): -990129
+  
+  
+===========================================
+  SAVINGS BEFORE SWAP: 0
+  ===========================================
+
+  === STEP 5: EXECUTE SWAP WITH SPENDSAVE HOOK ===
+  Input: 0.01 USDC
+  Expected savings: 10% = 0.001 USDC
+  Expected swap amount: 90% = 0.009 USDC -> WETH
+  
+  USDC approved to SwapRouter
+  
+Balances BEFORE swap:
+    USDC: 5940059
+    WETH: 4999999995998820
+  
+Executing swap through SpendSave hook...
+  Passing user address in hookData: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  
+  SWAP EXECUTED SUCCESSFULLY!
+  
+  Swap Delta:
+    Delta0 (USDC): -10000
+    Delta1 (WETH): 8757
+  
+  Balances AFTER swap:
+    USDC: 5930059
+    WETH: 4999999996007577
+  
+  Changes:
+    USDC change: -10000
+    WETH change: 8757
+  
+  
+===========================================
+  SAVINGS AFTER SWAP: 1000
+  ===========================================
+  
+  ========================================
+             PROOF OF SAVINGS             
+  ========================================
+  Savings Before:   0
+  Savings After:    1000
+  Savings Extracted: 1000
+  
+  SUCCESS! SAVINGS EXTRACTION PROVEN!
+  Expected: ~1000 (10% of 10000)
+  Actual:   1000
+  
+  FULL PROTOCOL FUNCTIONALITY CONFIRMED!
+  ========================================
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 84532
+
+Estimated gas price: 0.001000112 gwei
+
+Estimated total gas used for script: 3926911
+
+Estimated amount required: 0.000003927350814032 ETH
+
+==========================
+
+Transactions saved to: /Users/mac/mySpendSaveHook/broadcast/CompleteProtocolTest.s.sol/84532/run-latest.json
+
+Sensitive values saved to: /Users/mac/mySpendSaveHook/cache/CompleteProtocolTest.s.sol/84532/run-latest.json
+
+Error: Device not configured (os error 6)

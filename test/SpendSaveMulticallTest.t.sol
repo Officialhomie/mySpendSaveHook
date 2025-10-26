@@ -165,18 +165,10 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         weth9 = IWETH9(wethAddr);
 
         // Deploy PositionDescriptor
-        PositionDescriptor descriptorImpl = new PositionDescriptor(
-            manager,
-            address(weth9),
-            bytes32("ETH")
-        );
+        PositionDescriptor descriptorImpl = new PositionDescriptor(manager, address(weth9), bytes32("ETH"));
 
         // Deploy TransparentUpgradeableProxy for descriptor
-        proxy = new TransparentUpgradeableProxy(
-            address(descriptorImpl),
-            owner,
-            ""
-        );
+        proxy = new TransparentUpgradeableProxy(address(descriptorImpl), owner, "");
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
@@ -208,24 +200,16 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -239,7 +223,8 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
 
         // Deploy liquidity manager with proper V4 Periphery integration
         vm.prank(owner);
-        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
+        liquidityManager =
+            new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
 
         // Deploy DCA router (simplified for testing)
         vm.prank(owner);
@@ -517,8 +502,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         users[1] = bob;
         users[2] = charlie;
 
-        SpendSaveMulticall.DCABatchParams[] memory dcaParams =
-            new SpendSaveMulticall.DCABatchParams[](3);
+        SpendSaveMulticall.DCABatchParams[] memory dcaParams = new SpendSaveMulticall.DCABatchParams[](3);
 
         dcaParams[0] = SpendSaveMulticall.DCABatchParams({
             fromToken: address(tokenA),
@@ -559,8 +543,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         users[0] = alice;
         users[1] = bob;
 
-        SpendSaveMulticall.DCABatchParams[] memory dcaParams =
-            new SpendSaveMulticall.DCABatchParams[](3); // Different length
+        SpendSaveMulticall.DCABatchParams[] memory dcaParams = new SpendSaveMulticall.DCABatchParams[](3); // Different length
 
         vm.prank(batchExecutor);
         vm.expectRevert("Array length mismatch");
@@ -573,8 +556,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         console.log("\n=== P5 ADVANCED: Testing Empty DCA Batch Protection ===");
 
         address[] memory emptyUsers = new address[](0);
-        SpendSaveMulticall.DCABatchParams[] memory emptyParams =
-            new SpendSaveMulticall.DCABatchParams[](0);
+        SpendSaveMulticall.DCABatchParams[] memory emptyParams = new SpendSaveMulticall.DCABatchParams[](0);
 
         vm.prank(batchExecutor);
         vm.expectRevert("Empty batch");
@@ -594,8 +576,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         users[1] = bob;
         users[2] = charlie;
 
-        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams =
-            new SpendSaveMulticall.SavingsBatchParams[](3);
+        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams = new SpendSaveMulticall.SavingsBatchParams[](3);
 
         // Deposit operations
         savingsParams[0] = SpendSaveMulticall.SavingsBatchParams({
@@ -634,8 +615,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         address[] memory depositUsers = new address[](1);
         depositUsers[0] = alice;
 
-        SpendSaveMulticall.SavingsBatchParams[] memory depositParams =
-            new SpendSaveMulticall.SavingsBatchParams[](1);
+        SpendSaveMulticall.SavingsBatchParams[] memory depositParams = new SpendSaveMulticall.SavingsBatchParams[](1);
 
         depositParams[0] = SpendSaveMulticall.SavingsBatchParams({
             token: address(tokenA),
@@ -650,8 +630,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         address[] memory withdrawUsers = new address[](1);
         withdrawUsers[0] = alice;
 
-        SpendSaveMulticall.SavingsBatchParams[] memory withdrawParams =
-            new SpendSaveMulticall.SavingsBatchParams[](1);
+        SpendSaveMulticall.SavingsBatchParams[] memory withdrawParams = new SpendSaveMulticall.SavingsBatchParams[](1);
 
         withdrawParams[0] = SpendSaveMulticall.SavingsBatchParams({
             token: address(tokenA),
@@ -676,8 +655,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         users[1] = bob;
         users[2] = charlie;
 
-        SpendSaveMulticall.SavingsBatchParams[] memory goalParams =
-            new SpendSaveMulticall.SavingsBatchParams[](3);
+        SpendSaveMulticall.SavingsBatchParams[] memory goalParams = new SpendSaveMulticall.SavingsBatchParams[](3);
 
         for (uint256 i = 0; i < 3; i++) {
             goalParams[i] = SpendSaveMulticall.SavingsBatchParams({
@@ -706,8 +684,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         users[0] = alice;
         users[1] = bob;
 
-        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams =
-            new SpendSaveMulticall.SavingsBatchParams[](2);
+        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams = new SpendSaveMulticall.SavingsBatchParams[](2);
 
         savingsParams[0] = SpendSaveMulticall.SavingsBatchParams({
             token: address(tokenA),
@@ -725,8 +702,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         multicall.batchExecuteSavings(users, savingsParams);
 
         // Now execute liquidity operations
-        SpendSaveMulticall.LiquidityBatchParams[] memory lpParams =
-            new SpendSaveMulticall.LiquidityBatchParams[](2);
+        SpendSaveMulticall.LiquidityBatchParams[] memory lpParams = new SpendSaveMulticall.LiquidityBatchParams[](2);
 
         lpParams[0] = SpendSaveMulticall.LiquidityBatchParams({
             token0: address(tokenA),
@@ -786,7 +762,9 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         // Verify gas refund was processed (pool balance should decrease)
         assertLt(finalPoolBalance, initialPoolBalance, "Gas refund should reduce pool balance");
 
-        console.log("Gas refund processed - Gas used:", gasUsed, "Pool reduction:", initialPoolBalance - finalPoolBalance);
+        console.log(
+            "Gas refund processed - Gas used:", gasUsed, "Pool reduction:", initialPoolBalance - finalPoolBalance
+        );
         console.log("SUCCESS: Gas refund eligibility working");
     }
 
@@ -991,8 +969,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         users[0] = alice;
         users[1] = bob;
 
-        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams =
-            new SpendSaveMulticall.SavingsBatchParams[](2);
+        SpendSaveMulticall.SavingsBatchParams[] memory savingsParams = new SpendSaveMulticall.SavingsBatchParams[](2);
 
         savingsParams[0] = SpendSaveMulticall.SavingsBatchParams({
             token: address(tokenA),
@@ -1011,8 +988,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         bytes[] memory savingsResults = multicall.batchExecuteSavings(users, savingsParams);
 
         // 4. Setup batch DCA operations
-        SpendSaveMulticall.DCABatchParams[] memory dcaParams =
-            new SpendSaveMulticall.DCABatchParams[](2);
+        SpendSaveMulticall.DCABatchParams[] memory dcaParams = new SpendSaveMulticall.DCABatchParams[](2);
 
         dcaParams[0] = SpendSaveMulticall.DCABatchParams({
             fromToken: address(tokenA),

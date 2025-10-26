@@ -144,18 +144,10 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         weth9 = IWETH9(wethAddr);
 
         // Deploy PositionDescriptor
-        PositionDescriptor descriptorImpl = new PositionDescriptor(
-            manager,
-            address(weth9),
-            bytes32("ETH")
-        );
+        PositionDescriptor descriptorImpl = new PositionDescriptor(manager, address(weth9), bytes32("ETH"));
 
         // Deploy TransparentUpgradeableProxy for descriptor
-        proxy = new TransparentUpgradeableProxy(
-            address(descriptorImpl),
-            owner,
-            ""
-        );
+        proxy = new TransparentUpgradeableProxy(address(descriptorImpl), owner, "");
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
@@ -187,24 +179,16 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -214,7 +198,8 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
 
         // Deploy additional contracts AFTER storage initialization
         vm.prank(owner);
-        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
+        liquidityManager =
+            new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
 
         vm.prank(owner);
         dcaRouter = new SpendSaveDCARouter(manager, address(storageContract), address(0x01));
@@ -354,12 +339,30 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         console.log("\n=== P5 ADVANCED: Testing Module Registration ===");
 
         // Verify all modules are properly registered
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Savings module should be registered");
-        assertEq(storageContract.getModule(keccak256("STRATEGY")), address(strategyModule), "Strategy module should be registered");
-        assertEq(storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Savings module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("STRATEGY")),
+            address(strategyModule),
+            "Strategy module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module should be registered"
+        );
         assertEq(storageContract.getModule(keccak256("DCA")), address(dcaModule), "DCA module should be registered");
-        assertEq(storageContract.getModule(keccak256("DAILY")), address(dailySavingsModule), "Daily module should be registered");
-        assertEq(storageContract.getModule(keccak256("SLIPPAGE")), address(slippageModule), "Slippage module should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("DAILY")),
+            address(dailySavingsModule),
+            "Daily module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("SLIPPAGE")),
+            address(slippageModule),
+            "Slippage module should be registered"
+        );
 
         console.log("All modules properly registered");
         console.log("SUCCESS: Module registration working");
@@ -388,9 +391,19 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         // This verifies cross-module communication setup through storage
 
         // Verify modules can access each other through storage contract
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Savings module accessible via storage");
-        assertEq(storageContract.getModule(keccak256("STRATEGY")), address(strategyModule), "Strategy module accessible via storage");
-        assertEq(storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module accessible via storage");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Savings module accessible via storage"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("STRATEGY")),
+            address(strategyModule),
+            "Strategy module accessible via storage"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module accessible via storage"
+        );
         assertEq(storageContract.getModule(keccak256("DCA")), address(dcaModule), "DCA module accessible via storage");
 
         console.log("Module references properly configured through storage");
@@ -407,7 +420,7 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         strategyModule.setSavingStrategy(
             alice,
             2000, // 20% savings
-            0,    // no auto increment
+            0, // no auto increment
             5000, // max 50%
             false, // no round up
             SpendSaveStorage.SavingsTokenType.INPUT,
@@ -415,7 +428,7 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         );
 
         // Verify strategy is set
-        (uint256 percentage, , , ) = storageContract.getPackedUserConfig(alice);
+        (uint256 percentage,,,) = storageContract.getPackedUserConfig(alice);
         assertEq(percentage, 2000, "Savings percentage should be set");
 
         // Use proper savings deposit flow through Savings module
@@ -468,7 +481,11 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
 
         // Verify savings token was automatically burned by Savings module
         uint256 aliceTokenBalanceAfter = tokenModule.balanceOf(alice, tokenAId);
-        assertEq(aliceTokenBalanceAfter, INITIAL_SAVINGS_NET + netDepositAmount - withdrawAmount, "Savings token should be burned");
+        assertEq(
+            aliceTokenBalanceAfter,
+            INITIAL_SAVINGS_NET + netDepositAmount - withdrawAmount,
+            "Savings token should be burned"
+        );
 
         console.log("Savings to token module data flow successful");
         console.log("SUCCESS: Savings to token module data flow working");
@@ -545,12 +562,7 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         // Convert savings to LP position
         vm.prank(alice);
         (uint256 tokenId, uint128 liquidity) = liquidityManager.convertSavingsToLP(
-            alice,
-            address(tokenA),
-            address(tokenB),
-            -300,
-            300,
-            block.timestamp + 3600
+            alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
         // Verify LP conversion affected savings (accounting for treasury fees)
@@ -559,8 +571,16 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         uint256 finalSavingsA = storageContract.savings(alice, address(tokenA));
         uint256 finalSavingsB = storageContract.savings(alice, address(tokenB));
 
-        assertLt(finalSavingsA, INITIAL_SAVINGS_NET + netAdditionalSavings, "TokenA savings should decrease after LP conversion");
-        assertLt(finalSavingsB, INITIAL_SAVINGS_NET + netAdditionalSavings, "TokenB savings should decrease after LP conversion");
+        assertLt(
+            finalSavingsA,
+            INITIAL_SAVINGS_NET + netAdditionalSavings,
+            "TokenA savings should decrease after LP conversion"
+        );
+        assertLt(
+            finalSavingsB,
+            INITIAL_SAVINGS_NET + netAdditionalSavings,
+            "TokenB savings should decrease after LP conversion"
+        );
 
         console.log("LP conversion successful - TokenID:", tokenId, "Liquidity:", liquidity);
         console.log("SUCCESS: Savings to liquidity manager data flow working");
@@ -645,7 +665,7 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         assertTrue(dcaConfig.enabled, "DCA should be enabled");
 
         // 6. Verify all modules have consistent view of user state
-        (uint256 percentage, , , bool dcaEnabled) = storageContract.getPackedUserConfig(alice);
+        (uint256 percentage,,, bool dcaEnabled) = storageContract.getPackedUserConfig(alice);
         assertEq(percentage, 1500, "Strategy should be consistent");
         assertTrue(dcaEnabled, "DCA status should be consistent");
 
@@ -694,7 +714,11 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
 
         // Test all registry query functions
         assertTrue(storageContract.isAuthorizedModule(address(savingsModule)), "Should identify authorized module");
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Should return correct module address");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Should return correct module address"
+        );
         assertEq(storageContract.owner(), owner, "Should return correct owner");
         assertEq(storageContract.spendSaveHook(), address(hook), "Should return correct hook address");
 
@@ -743,15 +767,11 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
 
         // 5. Convert remaining savings to LP position (Liquidity Manager)
         uint256 savingsForLP = storageContract.savings(alice, address(tokenA));
-        if (savingsForLP > 1e15) { // If enough savings for LP
+        if (savingsForLP > 1e15) {
+            // If enough savings for LP
             vm.prank(alice);
             (uint256 tokenId, uint128 liquidity) = liquidityManager.convertSavingsToLP(
-                alice,
-                address(tokenA),
-                address(tokenB),
-                -300,
-                300,
-                block.timestamp + 3600
+                alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
             );
 
             assertGt(tokenId, 0, "Should create LP position");
@@ -759,7 +779,7 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         }
 
         // 6. Verify final state consistency across all modules
-        (uint256 finalPercentage, , , bool finalDcaEnabled) = storageContract.getPackedUserConfig(alice);
+        (uint256 finalPercentage,,, bool finalDcaEnabled) = storageContract.getPackedUserConfig(alice);
         assertEq(finalPercentage, 2000, "Strategy should remain consistent");
         assertTrue(finalDcaEnabled, "DCA should remain enabled");
 

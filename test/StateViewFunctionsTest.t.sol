@@ -117,24 +117,16 @@ contract StateViewFunctionsTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -255,12 +247,8 @@ contract StateViewFunctionsTest is Test, Deployers {
         PoolId poolId = poolKey.toId();
 
         // Test getTickInfo for a specific tick
-        (
-            uint128 liquidityGross,
-            int128 liquidityNet,
-            uint256 feeGrowthOutside0X128,
-            uint256 feeGrowthOutside1X128
-        ) = stateView.getTickInfo(poolId, TEST_TICK);
+        (uint128 liquidityGross, int128 liquidityNet, uint256 feeGrowthOutside0X128, uint256 feeGrowthOutside1X128) =
+            stateView.getTickInfo(poolId, TEST_TICK);
 
         console.log("Tick");
         console.log(TEST_TICK);
@@ -288,11 +276,8 @@ contract StateViewFunctionsTest is Test, Deployers {
 
         // Test getPositionInfo for a specific position (using zero salt for simplicity)
         bytes32 salt = bytes32(0);
-        (
-            uint128 liquidity,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128
-        ) = stateView.getPositionInfo(poolId, alice, TEST_TICK_LOWER, TEST_TICK_UPPER, salt);
+        (uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            stateView.getPositionInfo(poolId, alice, TEST_TICK_LOWER, TEST_TICK_UPPER, salt);
 
         console.log("Position liquidity");
         console.log(liquidity);
@@ -442,11 +427,8 @@ contract StateViewFunctionsTest is Test, Deployers {
 
         // Test getPositionInfo using position ID (using zero salt for simplicity)
         bytes32 positionId = keccak256(abi.encodePacked(alice, TEST_TICK_LOWER, TEST_TICK_UPPER, bytes32(0)));
-        (
-            uint128 liquidity,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128
-        ) = stateView.getPositionInfo(poolId, positionId);
+        (uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            stateView.getPositionInfo(poolId, positionId);
 
         console.log("Position ID liquidity");
         console.log(liquidity);
@@ -496,12 +478,8 @@ contract StateViewFunctionsTest is Test, Deployers {
             int24 tick = testTicks[i];
 
             // Test getTickInfo for each tick
-            (
-                uint128 liquidityGross,
-                int128 liquidityNet,
-                uint256 feeGrowthOutside0X128,
-                uint256 feeGrowthOutside1X128
-            ) = stateView.getTickInfo(poolId, tick);
+            (uint128 liquidityGross, int128 liquidityNet, uint256 feeGrowthOutside0X128, uint256 feeGrowthOutside1X128)
+            = stateView.getTickInfo(poolId, tick);
 
             // Test getTickLiquidity for each tick
             (uint128 liquidityGross2, int128 liquidityNet2) = stateView.getTickLiquidity(poolId, tick);

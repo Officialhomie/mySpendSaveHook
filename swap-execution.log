@@ -1,0 +1,216 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 6.34s
+Compiler run successful with warnings:
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SpendSaveStorage.sol:998:79:
+    |
+998 |     function setSwapContextWithTick(address user, SwapContext memory context, int24 currentTick) external onlyModule {
+    |                                                                               ^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> script/TestSwapBaseMainnet.s.sol:162:9:
+    |
+162 |         SpendSaveStorage.SavingStrategy memory strategy = SpendSaveStorage.SavingStrategy({
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> script/TestSwapBaseMainnet.s.sol:360:9:
+    |
+360 |         uint256 savingsPercentage,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> script/TestSwapBaseMainnet.s.sol:361:9:
+    |
+361 |         uint8 savingsTokenType,
+    |         ^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> script/TestSwapBaseMainnet.s.sol:362:9:
+    |
+362 |         bool dcaEnabled
+    |         ^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to view
+   --> src/SpendSaveHook.sol:898:5:
+    |
+898 |     function emergencyPause() external {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> script/TestSwapBaseMainnet.s.sol:359:5:
+    |
+359 |     function viewUserConfig() external view returns (
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> script/TestSwapBaseMainnet.s.sol:372:5:
+    |
+372 |     function viewUserSavings(address token) external view returns (uint256) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Traces:
+  [2550058] → new TestSwapBaseMainnet@0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+    └─ ← [Return] 12626 bytes of code
+
+  [1197247] TestSwapBaseMainnet::run()
+    ├─ [0] console::log("Hook flags:", 204) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("=== SpendSave Protocol Swap Test - Base Mainnet ===") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("User:", 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Hook:", 0x0Eeb66c3164b11b77FFf1371c6FD25A1833440CC) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Storage:", 0xCD52e874AF4a9896977536B05a53d84A0204e365) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Pool Manager:", PoolManager: [0x498581fF718922c3f8e6A244956aF099B2652b2b]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] VM::startBroadcast()
+    │   └─ ← [Return]
+    ├─ emit TestStarted(user: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09, tokenIn: FiatTokenProxy: [0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913], tokenOut: WETH9: [0x4200000000000000000000000000000000000006], amountIn: 1000000 [1e6])
+    ├─ [0] console::log("\n--- Step 1: Configure Savings Strategy ---") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Savings strategy configured:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Percentage:", 1000, "basis points") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Type: INPUT (save from tokenIn)") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Note: In production, set via SavingStrategy module") [staticcall]
+    │   └─ ← [Stop]
+    ├─ emit SavingsConfigured(user: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09, percentage: 1000)
+    ├─ [0] console::log("\n--- Step 2: Check Token Balances ---") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [9750] FiatTokenProxy::fallback(0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09) [staticcall]
+    │   ├─ [2553] FiatTokenV2_2::balanceOf(0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09) [delegatecall]
+    │   │   └─ ← [Return] 1944730 [1.944e6]
+    │   └─ ← [Return] 1944730 [1.944e6]
+    ├─ [2457] WETH9::balanceOf(0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("User balances:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  TokenIn (USDC):", 1944730 [1.944e6]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  TokenOut (WETH):", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("\n--- Step 3: Approve Tokens ---") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [1008317] → new PoolSwapTest@0x177939095EDf5Fb0370789B88168912F290a1ab5
+    │   └─ ← [Return] 5035 bytes of code
+    ├─ [0] console::log("SwapRouter deployed at:", PoolSwapTest: [0x177939095EDf5Fb0370789B88168912F290a1ab5]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Approving tokens...") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [27341] FiatTokenProxy::fallback(PoolSwapTest: [0x177939095EDf5Fb0370789B88168912F290a1ab5], 1000000 [1e6])
+    │   ├─ [26673] FiatTokenV2_2::approve(PoolSwapTest: [0x177939095EDf5Fb0370789B88168912F290a1ab5], 1000000 [1e6]) [delegatecall]
+    │   │   ├─ emit Approval(owner: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09, spender: PoolSwapTest: [0x177939095EDf5Fb0370789B88168912F290a1ab5], value: 1000000 [1e6])
+    │   │   └─ ← [Return] true
+    │   └─ ← [Return] true
+    ├─ [0] console::log("  Approved amount:", 1000000 [1e6]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Token:", FiatTokenProxy: [0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  To:", PoolSwapTest: [0x177939095EDf5Fb0370789B88168912F290a1ab5]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("\n--- Step 4: Execute Swap ---") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Executing swap:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Amount in:", 1000000 [1e6]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Token in:", FiatTokenProxy: [0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Token out:", WETH9: [0x4200000000000000000000000000000000000006]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Pool key created") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Currency0:", WETH9: [0x4200000000000000000000000000000000000006]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Currency1:", FiatTokenProxy: [0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Fee:", 3000) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  Hook:", 0x0Eeb66c3164b11b77FFf1371c6FD25A1833440CC) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("  ZeroForOne:", false) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("\n[EXECUTING REAL SWAP]") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Calling swapRouter.swap()...") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [25509] PoolSwapTest::swap(PoolKey({ currency0: 0x4200000000000000000000000000000000000006, currency1: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, fee: 3000, tickSpacing: 60, hooks: 0x0Eeb66c3164b11b77FFf1371c6FD25A1833440CC }), SwapParams({ zeroForOne: false, amountSpecified: -1000000 [-1e6], sqrtPriceLimitX96: 1461446703485210103287273052203988822378723970341 [1.461e48] }), TestSettings({ takeClaims: false, settleUsingBurn: false }), 0x)
+    │   ├─ [20321] PoolManager::unlock(0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000009ac2d5a0a0e88d459ecfb68bcbb94dfd7cdf1f09000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004200000000000000000000000000000000000006000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000eeb66c3164b11b77fff1371c6fd25a1833440cc0000000000000000000000000000000000000000000000000000000000000000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0bdc0000000000000000000000000fffd8963efd1fc6a506488495d951d5263988d2500000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000000000)
+    │   │   ├─ [19108] PoolSwapTest::unlockCallback(0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000009ac2d5a0a0e88d459ecfb68bcbb94dfd7cdf1f09000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004200000000000000000000000000000000000006000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000eeb66c3164b11b77fff1371c6fd25a1833440cc0000000000000000000000000000000000000000000000000000000000000000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0bdc0000000000000000000000000fffd8963efd1fc6a506488495d951d5263988d2500000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000000000)
+    │   │   │   ├─ [457] WETH9::balanceOf(0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09) [staticcall]
+    │   │   │   │   └─ ← [Return] 0
+    │   │   │   ├─ [2457] WETH9::balanceOf(PoolManager: [0x498581fF718922c3f8e6A244956aF099B2652b2b]) [staticcall]
+    │   │   │   │   └─ ← [Return] 748165412004504066301 [7.481e20]
+    │   │   │   ├─ [859] PoolManager::exttload(0x39a168212bc2153018f57eacfe8f9c3d2468e7ef12af403ff3d3f57c01473ce3) [staticcall]
+    │   │   │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000000000000000000000000000
+    │   │   │   ├─ [1250] FiatTokenProxy::fallback(0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09) [staticcall]
+    │   │   │   │   ├─ [553] FiatTokenV2_2::balanceOf(0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09) [delegatecall]
+    │   │   │   │   │   └─ ← [Return] 1944730 [1.944e6]
+    │   │   │   │   └─ ← [Return] 1944730 [1.944e6]
+    │   │   │   ├─ [3250] FiatTokenProxy::fallback(PoolManager: [0x498581fF718922c3f8e6A244956aF099B2652b2b]) [staticcall]
+    │   │   │   │   ├─ [2553] FiatTokenV2_2::balanceOf(PoolManager: [0x498581fF718922c3f8e6A244956aF099B2652b2b]) [delegatecall]
+    │   │   │   │   │   └─ ← [Return] 9642790311724 [9.642e12]
+    │   │   │   │   └─ ← [Return] 9642790311724 [9.642e12]
+    │   │   │   ├─ [859] PoolManager::exttload(0xb0713b5fa0dcf3435c515bffd0e15c80a3c22195b89a1b7a8026fec11fc471ca) [staticcall]
+    │   │   │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000000000000000000000000000
+    │   │   │   ├─ [4075] PoolManager::swap(PoolKey({ currency0: 0x4200000000000000000000000000000000000006, currency1: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, fee: 3000, tickSpacing: 60, hooks: 0x0Eeb66c3164b11b77FFf1371c6FD25A1833440CC }), SwapParams({ zeroForOne: false, amountSpecified: -1000000 [-1e6], sqrtPriceLimitX96: 1461446703485210103287273052203988822378723970341 [1.461e48] }), 0x)
+    │   │   │   │   └─ ← [Revert] PoolNotInitialized()
+    │   │   │   └─ ← [Revert] PoolNotInitialized()
+    │   │   └─ ← [Revert] PoolNotInitialized()
+    │   └─ ← [Revert] PoolNotInitialized()
+    ├─ [0] console::log("Swap failed with low-level error") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log(0x486aa307) [staticcall]
+    │   └─ ← [Stop]
+    └─ ← [Revert] Swap failed with low-level error
+
+
+
+== Logs ==
+  Hook flags: 204
+  === SpendSave Protocol Swap Test - Base Mainnet ===
+  User: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  Hook: 0x0Eeb66c3164b11b77FFf1371c6FD25A1833440CC
+  Storage: 0xCD52e874AF4a9896977536B05a53d84A0204e365
+  Pool Manager: 0x498581fF718922c3f8e6A244956aF099B2652b2b
+  
+--- Step 1: Configure Savings Strategy ---
+  Savings strategy configured:
+    Percentage: 1000 basis points
+    Type: INPUT (save from tokenIn)
+    Note: In production, set via SavingStrategy module
+  
+--- Step 2: Check Token Balances ---
+  User balances:
+    TokenIn (USDC): 1944730
+    TokenOut (WETH): 0
+  
+--- Step 3: Approve Tokens ---
+  SwapRouter deployed at: 0x177939095EDf5Fb0370789B88168912F290a1ab5
+  Approving tokens...
+    Approved amount: 1000000
+    Token: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+    To: 0x177939095EDf5Fb0370789B88168912F290a1ab5
+  
+--- Step 4: Execute Swap ---
+  Executing swap:
+    Amount in: 1000000
+    Token in: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+    Token out: 0x4200000000000000000000000000000000000006
+  Pool key created
+    Currency0: 0x4200000000000000000000000000000000000006
+    Currency1: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+    Fee: 3000
+    Hook: 0x0Eeb66c3164b11b77FFf1371c6FD25A1833440CC
+    ZeroForOne: false
+  
+[EXECUTING REAL SWAP]
+  Calling swapRouter.swap()...
+  Swap failed with low-level error
+  0x486aa307
+Error: script failed: Swap failed with low-level error

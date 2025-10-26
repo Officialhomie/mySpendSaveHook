@@ -16,6 +16,8 @@ docs/
 # Development and testing artifacts
 *.txt
 *.md
+# Exception: Allow transaction proof documentation
+!NEW-DEPLOYMENT-TRANSACTION-HASHES.md
 *.sh
 test-results*
 analysis*

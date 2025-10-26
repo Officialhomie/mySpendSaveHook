@@ -143,18 +143,10 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         weth9 = IWETH9(wethAddr);
 
         // Deploy PositionDescriptor
-        PositionDescriptor descriptorImpl = new PositionDescriptor(
-            manager,
-            address(weth9),
-            bytes32("ETH")
-        );
+        PositionDescriptor descriptorImpl = new PositionDescriptor(manager, address(weth9), bytes32("ETH"));
 
         // Deploy TransparentUpgradeableProxy for descriptor
-        proxy = new TransparentUpgradeableProxy(
-            address(descriptorImpl),
-            owner,
-            ""
-        );
+        proxy = new TransparentUpgradeableProxy(address(descriptorImpl), owner, "");
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
@@ -186,24 +178,16 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -213,7 +197,8 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
 
         // Deploy additional contracts AFTER storage initialization
         vm.prank(owner);
-        liquidityManager = new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
+        liquidityManager =
+            new SpendSaveLiquidityManager(address(storageContract), address(positionManager), address(permit2));
 
         vm.prank(owner);
         dcaRouter = new SpendSaveDCARouter(manager, address(storageContract), address(0x01));
@@ -363,12 +348,30 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         console.log("\n=== P8 ENHANCED: Testing Module Registration ===");
 
         // Verify all modules are properly registered
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Savings module should be registered");
-        assertEq(storageContract.getModule(keccak256("STRATEGY")), address(strategyModule), "Strategy module should be registered");
-        assertEq(storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Savings module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("STRATEGY")),
+            address(strategyModule),
+            "Strategy module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Token module should be registered"
+        );
         assertEq(storageContract.getModule(keccak256("DCA")), address(dcaModule), "DCA module should be registered");
-        assertEq(storageContract.getModule(keccak256("DAILY")), address(dailySavingsModule), "Daily module should be registered");
-        assertEq(storageContract.getModule(keccak256("SLIPPAGE")), address(slippageModule), "Slippage module should be registered");
+        assertEq(
+            storageContract.getModule(keccak256("DAILY")),
+            address(dailySavingsModule),
+            "Daily module should be registered"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("SLIPPAGE")),
+            address(slippageModule),
+            "Slippage module should be registered"
+        );
 
         console.log("All modules properly registered");
         console.log("SUCCESS: Module registration working");
@@ -397,7 +400,11 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
 
         // Test all registry query functions
         assertTrue(storageContract.isAuthorizedModule(address(savingsModule)), "Should identify authorized module");
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Should return correct module address");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Should return correct module address"
+        );
         assertEq(storageContract.owner(), owner, "Should return correct owner");
         assertEq(storageContract.spendSaveHook(), address(hook), "Should return correct hook address");
 
@@ -510,10 +517,16 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         // Test that modules can access each other through registry
 
         // Strategy module should be able to get savings module address
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Strategy should access savings module");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Strategy should access savings module"
+        );
 
         // Savings module should be able to get token module address
-        assertEq(storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Savings should access token module");
+        assertEq(
+            storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Savings should access token module"
+        );
 
         // Token module should be able to get DCA module address
         assertEq(storageContract.getModule(keccak256("DCA")), address(dcaModule), "Token should access DCA module");
@@ -565,12 +578,24 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         storageContract.registerModule(keccak256("SAVINGS_ENHANCED"), address(enhancedSavingsModule));
 
         // Verify new module is registered
-        assertEq(storageContract.getModule(keccak256("SAVINGS_ENHANCED")), address(enhancedSavingsModule), "New module should be registered");
-        assertTrue(storageContract.isAuthorizedModule(address(enhancedSavingsModule)), "New module should be authorized");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS_ENHANCED")),
+            address(enhancedSavingsModule),
+            "New module should be registered"
+        );
+        assertTrue(
+            storageContract.isAuthorizedModule(address(enhancedSavingsModule)), "New module should be authorized"
+        );
 
         // Verify existing modules still work
-        assertTrue(storageContract.isAuthorizedModule(address(savingsModule)), "Original module should still be authorized");
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Original module should still be accessible");
+        assertTrue(
+            storageContract.isAuthorizedModule(address(savingsModule)), "Original module should still be authorized"
+        );
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")),
+            address(savingsModule),
+            "Original module should still be accessible"
+        );
 
         console.log("Forward compatibility verified");
         console.log("SUCCESS: Forward compatibility working");
@@ -636,7 +661,9 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         assertTrue(storageContract.isAuthorizedModule(address(savingsModule)), "Initial modules should be authorized");
 
         // 2. Test cross-module data flow
-        assertEq(storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Should access savings module");
+        assertEq(
+            storageContract.getModule(keccak256("SAVINGS")), address(savingsModule), "Should access savings module"
+        );
         assertEq(storageContract.getModule(keccak256("TOKEN")), address(tokenModule), "Should access token module");
 
         // 3. Test module upgrade pattern
@@ -647,7 +674,9 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         storageContract.registerModule(keccak256("SAVINGS_NEW"), address(newSavingsModule));
 
         // 4. Verify compatibility
-        assertTrue(storageContract.isAuthorizedModule(address(savingsModule)), "Original module should remain authorized");
+        assertTrue(
+            storageContract.isAuthorizedModule(address(savingsModule)), "Original module should remain authorized"
+        );
         assertTrue(storageContract.isAuthorizedModule(address(newSavingsModule)), "New module should be authorized");
 
         // 5. Test data consistency
@@ -703,4 +732,3 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         console.log("SUCCESS: Complete SpendSaveModuleRegistry functionality verified!");
     }
 }
-

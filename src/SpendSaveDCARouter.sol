@@ -7,8 +7,10 @@ import {PoolId, PoolIdLibrary} from "lib/v4-periphery/lib/v4-core/src/types/Pool
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "lib/v4-periphery/lib/v4-core/src/types/BalanceDelta.sol";
 import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {SafeERC20} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from
+    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 import {V4Router} from "lib/v4-periphery/src/V4Router.sol";
 import {IV4Router} from "lib/v4-periphery/src/interfaces/IV4Router.sol";
@@ -36,14 +38,14 @@ import {SpendSaveStorage} from "./SpendSaveStorage.sol";
  *      - Gas-optimized batch operations
  *      - Advanced slippage protection
  *      - Path optimization for better pricing
- * 
+ *
  * Key Features:
  * - Multi-hop routing for tokens without direct pairs
  * - Automatic path discovery and optimization
  * - Batch execution of multiple DCA orders
  * - MEV protection through private mempool submission
  * - Gas-efficient multicall operations
- * 
+ *
  * @author SpendSave Protocol Team
  */
 contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
@@ -67,32 +69,20 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
 
     /// @notice Emitted when DCA batch execution is completed
     event BatchDCAExecuted(
-        uint256 indexed batchId,
-        uint256 successfulExecutions,
-        uint256 totalExecutions,
-        uint256 totalGasUsed
+        uint256 indexed batchId, uint256 successfulExecutions, uint256 totalExecutions, uint256 totalGasUsed
     );
 
     /// @notice Emitted when optimal path is discovered
-    event OptimalPathFound(
-        address indexed fromToken,
-        address indexed toToken,
-        PathKey[] path,
-        uint256 expectedOutput
-    );
+    event OptimalPathFound(address indexed fromToken, address indexed toToken, PathKey[] path, uint256 expectedOutput);
 
     /// @notice Emitted when cached path is cleared
-    event PathCacheCleared(
-        address indexed fromToken,
-        address indexed toToken,
-        bytes32 indexed pairKey
-    );
+    event PathCacheCleared(address indexed fromToken, address indexed toToken, bytes32 indexed pairKey);
 
     // ==================== STORAGE ====================
 
     /// @notice Reference to SpendSave storage contract
     SpendSaveStorage public immutable storage_;
-    
+
     /// @notice Reference to V4Quoter for accurate price quotes
     V4Quoter public immutable quoter;
 
@@ -128,11 +118,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      * @param _storage SpendSaveStorage contract address
      * @param _quoter V4Quoter contract address
      */
-    constructor(
-        IPoolManager _poolManager,
-        address _storage,
-        address _quoter
-    ) V4Router(_poolManager) {
+    constructor(IPoolManager _poolManager, address _storage, address _quoter) V4Router(_poolManager) {
         require(_storage != address(0), "Invalid storage address");
         require(_quoter != address(0), "Invalid quoter address");
         storage_ = SpendSaveStorage(_storage);
@@ -171,26 +157,13 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
         require(path.length > 0, "No viable path found");
 
         // Execute multi-hop swap using V4Router
-        amountOut = _executeMultiHopSwap(
-            Currency.wrap(fromToken),
-            path,
-            amount.toUint128(),
-            minAmountOut.toUint128()
-        );
+        amountOut = _executeMultiHopSwap(Currency.wrap(fromToken), path, amount.toUint128(), minAmountOut.toUint128());
 
         require(amountOut >= minAmountOut, "Insufficient output amount");
 
         uint256 gasUsed = gasStart - gasleft();
 
-        emit MultiHopDCAExecuted(
-            user,
-            fromToken,
-            toToken,
-            amount,
-            amountOut,
-            path.length,
-            gasUsed
-        );
+        emit MultiHopDCAExecuted(user, fromToken, toToken, amount, amountOut, path.length, gasUsed);
 
         return amountOut;
     }
@@ -201,16 +174,17 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      * @param deadline Transaction deadline
      * @return successCount Number of successful executions
      */
-    function batchExecuteDCA(
-        DCAOrder[] calldata dcaOrders,
-        uint256 deadline
-    ) external nonReentrant returns (uint256 successCount) {
+    function batchExecuteDCA(DCAOrder[] calldata dcaOrders, uint256 deadline)
+        external
+        nonReentrant
+        returns (uint256 successCount)
+    {
         require(dcaOrders.length > 0, "Empty DCA orders");
         require(block.timestamp <= deadline, "Transaction expired");
 
         uint256 batchId = ++batchCounter;
         uint256 totalGasStart = gasleft();
-        
+
         for (uint256 i = 0; i < dcaOrders.length; i++) {
             try this._executeSingleDCA(dcaOrders[i]) {
                 successCount++;
@@ -233,7 +207,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      */
     function _executeSingleDCA(DCAOrder calldata order) external {
         require(msg.sender == address(this), "Only internal calls");
-        
+
         // Validate order
         require(order.user != address(0), "Invalid user");
         require(order.amount > 0, "Zero amount");
@@ -247,12 +221,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
 
         // Execute the DCA order
         this.executeDCAWithRouting(
-            order.user,
-            order.fromToken,
-            order.toToken,
-            order.amount,
-            order.minAmountOut,
-            order.maxHops
+            order.user, order.fromToken, order.toToken, order.amount, order.minAmountOut, order.maxHops
         );
     }
 
@@ -266,27 +235,25 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      * @param maxHops Maximum hops to consider
      * @return path Optimal PathKey array
      */
-    function discoverOptimalPath(
-        address fromToken,
-        address toToken,
-        uint256 amount,
-        uint256 maxHops
-    ) external returns (PathKey[] memory path) {
+    function discoverOptimalPath(address fromToken, address toToken, uint256 amount, uint256 maxHops)
+        external
+        returns (PathKey[] memory path)
+    {
         require(fromToken != toToken, "Identical tokens");
         require(amount > 0, "Zero amount");
         require(maxHops <= MAX_HOPS, "Too many hops");
 
         path = _findBestPath(fromToken, toToken, amount, maxHops);
-        
+
         if (path.length > 0) {
             // Cache the optimal path
             bytes32 pairKey = _getPairKey(fromToken, toToken);
             delete optimalPaths[pairKey]; // Clear existing path
-            
+
             for (uint256 i = 0; i < path.length; i++) {
                 optimalPaths[pairKey].push(path[i]);
             }
-            
+
             pathDiscoveryTime[pairKey] = block.timestamp;
 
             emit OptimalPathFound(fromToken, toToken, path, 0);
@@ -298,19 +265,17 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
     /**
      * @notice Get cached optimal path or discover new one
      * @param fromToken Source token
-     * @param toToken Destination token  
+     * @param toToken Destination token
      * @param amount Amount for optimization
      * @param maxHops Maximum hops
      * @return path PathKey array
      */
-    function _getOptimalPath(
-        address fromToken,
-        address toToken,
-        uint256 amount,
-        uint256 maxHops
-    ) internal returns (PathKey[] memory path) {
+    function _getOptimalPath(address fromToken, address toToken, uint256 amount, uint256 maxHops)
+        internal
+        returns (PathKey[] memory path)
+    {
         bytes32 pairKey = _getPairKey(fromToken, toToken);
-        
+
         // Check if cached path is still valid
         if (pathDiscoveryTime[pairKey] + PATH_CACHE_VALIDITY > block.timestamp) {
             path = optimalPaths[pairKey];
@@ -331,12 +296,10 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      * @param maxHops Maximum hops to consider
      * @return bestPath Best PathKey array found
      */
-    function _findBestPath(
-        address fromToken,
-        address toToken,
-        uint256 amount,
-        uint256 maxHops
-    ) internal returns (PathKey[] memory bestPath) {
+    function _findBestPath(address fromToken, address toToken, uint256 amount, uint256 maxHops)
+        internal
+        returns (PathKey[] memory bestPath)
+    {
         // Try direct path first
         PathKey[] memory directPath = _tryDirectPath(fromToken, toToken);
         if (directPath.length > 0) {
@@ -346,7 +309,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
         if (maxHops > 1) {
             // Try single-hop paths through common intermediary tokens
             address[] memory intermediaries = _getCommonIntermediaries();
-            
+
             for (uint256 i = 0; i < intermediaries.length; i++) {
                 PathKey[] memory hopPath = _tryHopPath(fromToken, toToken, intermediaries[i]);
                 if (hopPath.length > 0 && _isPathBetter(hopPath, bestPath, amount)) {
@@ -362,10 +325,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      * @notice Try direct path between two tokens
      * @dev Validates that the pool actually exists before returning path
      */
-    function _tryDirectPath(
-        address fromToken,
-        address toToken
-    ) internal view returns (PathKey[] memory path) {
+    function _tryDirectPath(address fromToken, address toToken) internal view returns (PathKey[] memory path) {
         // Construct pool key for direct path
         // Ensure proper token ordering for V4
         (address token0, address token1) = fromToken < toToken ? (fromToken, toToken) : (toToken, fromToken);
@@ -405,17 +365,17 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
     /**
      * @notice Try path through an intermediary token
      */
-    function _tryHopPath(
-        address fromToken,
-        address toToken,
-        address intermediary
-    ) internal view returns (PathKey[] memory path) {
+    function _tryHopPath(address fromToken, address toToken, address intermediary)
+        internal
+        view
+        returns (PathKey[] memory path)
+    {
         if (intermediary == fromToken || intermediary == toToken) {
             return new PathKey[](0);
         }
 
         path = new PathKey[](2);
-        
+
         // First hop: fromToken -> intermediary
         path[0] = PathKey({
             intermediateCurrency: Currency.wrap(intermediary),
@@ -424,7 +384,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
             hooks: IHooks(address(0)),
             hookData: ""
         });
-        
+
         // Second hop: intermediary -> toToken
         path[1] = PathKey({
             intermediateCurrency: Currency.wrap(toToken),
@@ -433,7 +393,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
             hooks: IHooks(address(0)),
             hookData: ""
         });
-        
+
         return path;
     }
 
@@ -444,27 +404,27 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
     function _getCommonIntermediaries() internal returns (address[] memory intermediaries) {
         // Get intermediary tokens from storage configuration
         address[] memory configuredTokens = storage_.getIntermediaryTokens();
-        
+
         if (configuredTokens.length > 0) {
             return configuredTokens;
         }
-        
+
         // If no tokens configured, get default network tokens with liquidity validation
         return _getDefaultNetworkIntermediaries();
     }
-    
+
     /**
      * @notice Get default intermediary tokens based on network with liquidity validation
      * @dev Only returns tokens that have active V4 pools with sufficient liquidity
      */
     function _getDefaultNetworkIntermediaries() internal returns (address[] memory intermediaries) {
         address[] memory candidates;
-        
+
         if (block.chainid == 8453) {
             // Base Mainnet - well-known production tokens
             candidates = new address[](4);
             candidates[0] = address(0x4200000000000000000000000000000000000006); // WETH
-            candidates[1] = address(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913); // USDC  
+            candidates[1] = address(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913); // USDC
             candidates[2] = address(0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA); // USDbC
             candidates[3] = address(0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb); // DAI
         } else if (block.chainid == 84532) {
@@ -476,11 +436,11 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
             // Unknown network - return empty array
             return new address[](0);
         }
-        
+
         // Validate tokens have active pools before returning
         return _validateTokenLiquidity(candidates);
     }
-    
+
     /**
      * @notice Validate intermediary tokens have sufficient liquidity in V4 pools
      * @param candidates Array of candidate intermediary tokens
@@ -489,7 +449,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
     function _validateTokenLiquidity(address[] memory candidates) internal returns (address[] memory validated) {
         uint256 validCount = 0;
         bool[] memory hasLiquidity = new bool[](candidates.length);
-        
+
         // Check each candidate for minimum liquidity thresholds
         for (uint256 i = 0; i < candidates.length; i++) {
             if (_hasMinimumPoolLiquidity(candidates[i])) {
@@ -497,7 +457,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
                 validCount++;
             }
         }
-        
+
         // Build validated array
         validated = new address[](validCount);
         uint256 index = 0;
@@ -507,10 +467,10 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
                 index++;
             }
         }
-        
+
         return validated;
     }
-    
+
     /**
      * @notice Check if token has minimum liquidity in V4 pools for routing
      * @param token The token to validate
@@ -518,17 +478,17 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      */
     function _hasMinimumPoolLiquidity(address token) internal returns (bool hasLiquidity) {
         uint128 MIN_LIQUIDITY = 10000; // Minimum liquidity threshold
-        
+
         // Check against major base currencies
         address[] memory baseCurrencies = new address[](2);
         baseCurrencies[0] = address(0x4200000000000000000000000000000000000006); // WETH
         baseCurrencies[1] = address(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913); // USDC
-        
+
         // Token is valid if it IS one of the base currencies
         for (uint256 i = 0; i < baseCurrencies.length; i++) {
             if (token == baseCurrencies[i]) return true;
         }
-        
+
         // Or if it has sufficient liquidity pools with base currencies
         for (uint256 i = 0; i < baseCurrencies.length; i++) {
             try storage_.getPoolKey(token, baseCurrencies[i]) returns (PoolKey memory poolKey) {
@@ -542,24 +502,24 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
                 continue;
             }
         }
-        
+
         return false;
     }
 
     /**
      * @notice Compare if new path is better than current best
      */
-    function _isPathBetter(
-        PathKey[] memory newPath,
-        PathKey[] memory currentBest,
-        uint256 amount
-    ) internal view returns (bool) {
+    function _isPathBetter(PathKey[] memory newPath, PathKey[] memory currentBest, uint256 amount)
+        internal
+        view
+        returns (bool)
+    {
         if (currentBest.length == 0) return true;
-        
+
         // Shorter paths are generally better (less slippage, gas)
         if (newPath.length < currentBest.length) return true;
         if (newPath.length > currentBest.length) return false;
-        
+
         // For same length paths, would need to quote both
         // For simplicity, assume first found is best
         return false;
@@ -604,17 +564,14 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
         require(path.length > 0, "Empty path");
         require(amountIn > 0, "Zero input amount");
         require(amountOutMinimum > 0, "Zero minimum output");
-        
+
         // Use the actual V4Router action system (production pattern)
         // Build actions for SWAP_EXACT_IN + settlement
-        bytes memory actions = abi.encodePacked(
-            uint256(Actions.SWAP_EXACT_IN),
-            uint256(Actions.SETTLE),
-            uint256(Actions.TAKE)
-        );
-        
+        bytes memory actions =
+            abi.encodePacked(uint256(Actions.SWAP_EXACT_IN), uint256(Actions.SETTLE), uint256(Actions.TAKE));
+
         bytes[] memory params = new bytes[](3);
-        
+
         // Action 1: SWAP_EXACT_IN
         params[0] = abi.encode(
             IV4Router.ExactInputParams({
@@ -624,27 +581,28 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
                 amountOutMinimum: amountOutMinimum
             })
         );
-        
+
         // Action 2: SETTLE input currency
         params[1] = abi.encode(currencyIn, amountIn, true); // payerIsUser = true
-        
-        // Action 3: TAKE output currency  
+
+        // Action 3: TAKE output currency
         Currency currencyOut = path[path.length - 1].intermediateCurrency;
         params[2] = abi.encode(currencyOut, address(this), amountOutMinimum);
-        
+
         // Execute using V4Router's pattern - directly call poolManager.unlock
         bytes memory unlockData = abi.encode(actions, params);
         poolManager.unlock(unlockData);
-        
+
         // Get the actual amount received
-        amountOut = Currency.unwrap(currencyOut) != address(0) ? 
-                   IERC20(Currency.unwrap(currencyOut)).balanceOf(address(this)) : address(this).balance;
-        
+        amountOut = Currency.unwrap(currencyOut) != address(0)
+            ? IERC20(Currency.unwrap(currencyOut)).balanceOf(address(this))
+            : address(this).balance;
+
         require(amountOut >= amountOutMinimum, "Insufficient output amount");
-        
+
         return amountOut;
     }
-    
+
     // Note: unlockCallback is inherited from V4Router via SafeCallback
     // Custom multi-hop logic will be implemented using the existing callback system
 
@@ -669,10 +627,11 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      * @return path Cached PathKey array
      * @return isValid Whether the cached path is still valid
      */
-    function getCachedOptimalPath(
-        address fromToken,
-        address toToken
-    ) external view returns (PathKey[] memory path, bool isValid) {
+    function getCachedOptimalPath(address fromToken, address toToken)
+        external
+        view
+        returns (PathKey[] memory path, bool isValid)
+    {
         bytes32 pairKey = _getPairKey(fromToken, toToken);
         path = optimalPaths[pairKey];
         isValid = pathDiscoveryTime[pairKey] + PATH_CACHE_VALIDITY > block.timestamp;
@@ -689,18 +648,12 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
      * @return path Optimal path that would be used
      * @return gasEstimate Estimated gas consumption
      */
-    function previewDCAExecution(
-        address fromToken,
-        address toToken,
-        uint256 amount,
-        uint256 maxHops
-    ) external returns (
-        uint256 expectedOutput,
-        PathKey[] memory path,
-        uint256 gasEstimate
-    ) {
+    function previewDCAExecution(address fromToken, address toToken, uint256 amount, uint256 maxHops)
+        external
+        returns (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate)
+    {
         bytes32 pairKey = _getPairKey(fromToken, toToken);
-        
+
         // Use cached path if valid, otherwise return estimated path
         if (pathDiscoveryTime[pairKey] + PATH_CACHE_VALIDITY > block.timestamp) {
             path = optimalPaths[pairKey];
@@ -712,15 +665,19 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
         if (path.length == 1) {
             // Single hop - use quoteExactInputSingle
             PoolKey memory poolKey = PoolKey({
-                currency0: Currency.wrap(fromToken) < Currency.wrap(toToken) ? Currency.wrap(fromToken) : Currency.wrap(toToken),
-                currency1: Currency.wrap(fromToken) < Currency.wrap(toToken) ? Currency.wrap(toToken) : Currency.wrap(fromToken),
+                currency0: Currency.wrap(fromToken) < Currency.wrap(toToken)
+                    ? Currency.wrap(fromToken)
+                    : Currency.wrap(toToken),
+                currency1: Currency.wrap(fromToken) < Currency.wrap(toToken)
+                    ? Currency.wrap(toToken)
+                    : Currency.wrap(fromToken),
                 fee: path[0].fee,
                 tickSpacing: path[0].tickSpacing,
                 hooks: path[0].hooks
             });
-            
+
             bool zeroForOne = Currency.wrap(fromToken) < Currency.wrap(toToken);
-            
+
             (expectedOutput, gasEstimate) = quoter.quoteExactInputSingle(
                 IV4Quoter.QuoteExactSingleParams({
                     poolKey: poolKey,
@@ -729,7 +686,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
                     hookData: path[0].hookData
                 })
             );
-            
+
             gasEstimate += 50000; // Add DCA execution overhead
         } else {
             // Multi-hop - estimate based on path analysis
@@ -751,16 +708,14 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
     function clearCachedPath(address fromToken, address toToken) external {
         // Access control: only owner or authorized modules can clear cache
         require(
-            msg.sender == storage_.owner() || 
-            msg.sender == address(storage_) ||
-            storage_.isAuthorizedModule(msg.sender),
+            msg.sender == storage_.owner() || msg.sender == address(storage_) || storage_.isAuthorizedModule(msg.sender),
             "SpendSaveDCARouter: unauthorized cache clear"
         );
-        
+
         bytes32 pairKey = _getPairKey(fromToken, toToken);
         delete optimalPaths[pairKey];
         delete pathDiscoveryTime[pairKey];
-        
+
         emit PathCacheCleared(fromToken, toToken, pairKey);
     }
 
@@ -775,7 +730,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
         uint256 minAmountOut;
         uint256 maxHops;
     }
-    
+
     /// @notice Internal structure for multi-hop swap data
     struct SwapRouterData {
         Currency currencyIn;

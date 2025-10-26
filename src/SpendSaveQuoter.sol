@@ -14,7 +14,6 @@ import {SpendSaveStorage} from "./SpendSaveStorage.sol";
  * @notice Savings impact preview and gas estimation using V4Quoter
  */
 contract SpendSaveQuoter {
-    
     SpendSaveStorage public immutable storage_;
     V4Quoter public immutable quoter;
 
@@ -26,18 +25,12 @@ contract SpendSaveQuoter {
     /**
      * @notice Preview savings impact on swap
      */
-    function previewSavingsImpact(
-        PoolKey memory poolKey,
-        bool zeroForOne,
-        uint128 amountIn,
-        uint256 savingsPercentage
-    ) external returns (
-        uint256 swapOutput,
-        uint256 savedAmount,
-        uint256 netOutput
-    ) {
+    function previewSavingsImpact(PoolKey memory poolKey, bool zeroForOne, uint128 amountIn, uint256 savingsPercentage)
+        external
+        returns (uint256 swapOutput, uint256 savedAmount, uint256 netOutput)
+    {
         // Get quote for full swap amount
-        (uint256 fullSwapOutput, ) = quoter.quoteExactInputSingle(
+        (uint256 fullSwapOutput,) = quoter.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
                 poolKey: poolKey,
                 zeroForOne: zeroForOne,
@@ -56,7 +49,7 @@ contract SpendSaveQuoter {
         }
 
         // Get quote for adjusted amount
-        (uint256 adjustedSwapOutput, ) = quoter.quoteExactInputSingle(
+        (uint256 adjustedSwapOutput,) = quoter.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
                 poolKey: poolKey,
                 zeroForOne: zeroForOne,
@@ -74,11 +67,10 @@ contract SpendSaveQuoter {
     /**
      * @notice Get DCA execution quote
      */
-    function getDCAQuote(
-        PoolKey memory poolKey,
-        bool zeroForOne,
-        uint128 amountIn
-    ) external returns (uint256 amountOut, uint256 gasEstimate) {
+    function getDCAQuote(PoolKey memory poolKey, bool zeroForOne, uint128 amountIn)
+        external
+        returns (uint256 amountOut, uint256 gasEstimate)
+    {
         // Handle zero amount gracefully
         if (amountIn == 0) {
             return (0, 50000); // Return 0 output with base gas estimate
@@ -102,21 +94,16 @@ contract SpendSaveQuoter {
     /**
      * @notice Preview multi-hop routing using real V4Quoter
      */
-    function previewMultiHopRouting(
-        Currency startingCurrency,
-        PathKey[] memory path,
-        uint128 amountIn
-    ) external returns (uint256 amountOut, uint256 gasEstimate) {
+    function previewMultiHopRouting(Currency startingCurrency, PathKey[] memory path, uint128 amountIn)
+        external
+        returns (uint256 amountOut, uint256 gasEstimate)
+    {
         require(path.length > 0, "Empty path");
         require(amountIn > 0, "Zero amount");
 
         // Use V4Quoter for accurate multi-hop pricing with production struct
         (amountOut, gasEstimate) = quoter.quoteExactInput(
-            IV4Quoter.QuoteExactParams({
-                exactCurrency: startingCurrency,
-                path: path,
-                exactAmount: amountIn
-            })
+            IV4Quoter.QuoteExactParams({exactCurrency: startingCurrency, path: path, exactAmount: amountIn})
         );
 
         return (amountOut, gasEstimate);

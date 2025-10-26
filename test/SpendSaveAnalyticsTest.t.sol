@@ -140,24 +140,16 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -378,9 +370,9 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Portfolio for Multiple Users ===");
 
         // Get portfolios for different users
-        (,, , uint256 aliceValue) = analytics.getUserPortfolio(alice);
-        (,, , uint256 bobValue) = analytics.getUserPortfolio(bob);
-        (,, , uint256 charlieValue) = analytics.getUserPortfolio(charlie);
+        (,,, uint256 aliceValue) = analytics.getUserPortfolio(alice);
+        (,,, uint256 bobValue) = analytics.getUserPortfolio(bob);
+        (,,, uint256 charlieValue) = analytics.getUserPortfolio(charlie);
 
         // Each should have different portfolio values
         assertGt(aliceValue, 0, "Alice should have portfolio value");
@@ -404,12 +396,8 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
         dcaModule.enableDCA(alice, address(tokenB), DCA_AMOUNT, 500);
 
         // Get DCA tracking data via getUserPortfolio
-        (
-            address[] memory tokens,
-            uint256[] memory savings,
-            uint256[] memory dcaAmounts,
-            uint256 totalValueUSD
-        ) = analytics.getUserPortfolio(alice);
+        (address[] memory tokens, uint256[] memory savings, uint256[] memory dcaAmounts, uint256 totalValueUSD) =
+            analytics.getUserPortfolio(alice);
 
         // Should track DCA amounts
         require(tokens.length > 0, "Should have tokens");
@@ -432,13 +420,9 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
         dcaModule.enableDCA(alice, address(tokenC), DCA_AMOUNT / 2, 500);
 
         // Get DCA tracking for each token via getUserPortfolio
-        (
-            address[] memory tokens,
-            uint256[] memory savings,
-            uint256[] memory dcaAmounts,
-            uint256 totalValueUSD
-        ) = analytics.getUserPortfolio(alice);
-        
+        (address[] memory tokens, uint256[] memory savings, uint256[] memory dcaAmounts, uint256 totalValueUSD) =
+            analytics.getUserPortfolio(alice);
+
         // Extract DCA amounts for verification (simplified approach)
         uint256 totalDCA = 0;
         for (uint256 i = 0; i < dcaAmounts.length; i++) {
@@ -461,13 +445,8 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Pool Analytics ===");
 
         // Get pool analytics using StateView
-        (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint128 liquidity,
-            uint256 feeGrowthGlobal0,
-            uint256 feeGrowthGlobal1
-        ) = analytics.getPoolAnalytics(poolKeyAB);
+        (uint160 sqrtPriceX96, int24 tick, uint128 liquidity, uint256 feeGrowthGlobal0, uint256 feeGrowthGlobal1) =
+            analytics.getPoolAnalytics(poolKeyAB);
 
         // Should get pool data
         assertGt(sqrtPriceX96, 0, "Should get sqrt price");
@@ -506,7 +485,7 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Real-Time Portfolio Valuation ===");
 
         // Get real-time portfolio value
-        (,, , uint256 aliceValue) = analytics.getUserPortfolio(alice);
+        (,,, uint256 aliceValue) = analytics.getUserPortfolio(alice);
 
         // Should calculate real-time value
         assertGt(aliceValue, 0, "Should calculate real-time portfolio value");
@@ -523,14 +502,14 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Valuation After Portfolio Changes ===");
 
         // Get initial valuation
-        (,, , uint256 initialValue) = analytics.getUserPortfolio(alice);
+        (,,, uint256 initialValue) = analytics.getUserPortfolio(alice);
 
         // Make changes to portfolio
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(tokenA), 50 ether);
 
         // Get updated valuation
-        (,, , uint256 updatedValue) = analytics.getUserPortfolio(alice);
+        (,,, uint256 updatedValue) = analytics.getUserPortfolio(alice);
 
         // Value should increase
         assertGt(updatedValue, initialValue, "Portfolio value should increase after savings addition");
@@ -653,4 +632,3 @@ contract SpendSaveAnalyticsTest is Test, Deployers {
         console.log("SUCCESS: Complete SpendSaveAnalytics functionality verified!");
     }
 }
-

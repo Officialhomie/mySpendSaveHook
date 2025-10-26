@@ -66,7 +66,9 @@ contract DCASlippageTest is Test, Deployers {
     uint256 constant DCA_MIN_AMOUNT = 0.01 ether;
 
     // Events
-    event DCASlippageExceeded(address indexed user, address fromToken, address toToken, uint256 expected, uint256 received);
+    event DCASlippageExceeded(
+        address indexed user, address fromToken, address toToken, uint256 expected, uint256 received
+    );
     event DCASlippageProtected(address indexed user, address fromToken, address toToken, uint256 amount);
 
     function setUp() public {
@@ -117,24 +119,16 @@ contract DCASlippageTest is Test, Deployers {
 
         // Deploy hook with proper address mining
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG |
-            Hooks.AFTER_SWAP_FLAG |
-            Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
-            Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                | Hooks.AFTER_SWAP_RETURNS_DELTA_FLAG
         );
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            owner,
-            flags,
-            type(SpendSaveHook).creationCode,
-            abi.encode(IPoolManager(address(manager)), storageContract)
+            owner, flags, type(SpendSaveHook).creationCode, abi.encode(IPoolManager(address(manager)), storageContract)
         );
 
         vm.prank(owner);
-        hook = new SpendSaveHook{salt: salt}(
-            IPoolManager(address(manager)),
-            storageContract
-        );
+        hook = new SpendSaveHook{salt: salt}(IPoolManager(address(manager)), storageContract);
 
         require(address(hook) == hookAddress, "Hook deployed at wrong address");
 
@@ -269,9 +263,9 @@ contract DCASlippageTest is Test, Deployers {
 
         // Test slippage protection with different tolerance levels
         uint256[] memory slippageTolerances = new uint256[](3);
-        slippageTolerances[0] = 500;  // 5%
-        slippageTolerances[1] = 100;  // 1%
-        slippageTolerances[2] = 50;   // 0.5%
+        slippageTolerances[0] = 500; // 5%
+        slippageTolerances[1] = 100; // 1%
+        slippageTolerances[2] = 50; // 0.5%
 
         for (uint256 i = 0; i < slippageTolerances.length; i++) {
             uint256 tolerance = slippageTolerances[i];
@@ -294,10 +288,10 @@ contract DCASlippageTest is Test, Deployers {
 
         // Test price impact calculations for different trade sizes
         uint256[] memory amounts = new uint256[](4);
-        amounts[0] = 0.1 ether;  // Small trade
-        amounts[1] = 1 ether;    // Medium trade
-        amounts[2] = 10 ether;   // Large trade
-        amounts[3] = 100 ether;  // Very large trade
+        amounts[0] = 0.1 ether; // Small trade
+        amounts[1] = 1 ether; // Medium trade
+        amounts[2] = 10 ether; // Large trade
+        amounts[3] = 100 ether; // Very large trade
 
         for (uint256 i = 0; i < amounts.length; i++) {
             uint256 amount = amounts[i];
@@ -368,7 +362,7 @@ contract DCASlippageTest is Test, Deployers {
 
         // Simulate a trade that would exceed slippage tolerance
         uint256 receivedAmount = amount * 95 / 100; // 5% less than expected
-        uint256 expectedMinOut = amount * 99 / 100;  // 1% tolerance
+        uint256 expectedMinOut = amount * 99 / 100; // 1% tolerance
 
         // Check if slippage is exceeded
         bool slippageExceeded = receivedAmount < expectedMinOut;
@@ -482,9 +476,3 @@ contract DCASlippageTest is Test, Deployers {
         console.log("SUCCESS: Complete DCA slippage protection functionality verified!");
     }
 }
-
-
-
-
-
-

@@ -20,45 +20,45 @@ import {ISavingStrategyModule} from "./interfaces/ISavingStrategyModule.sol";
  *      - Uses batch operations for storage updates to minimize gas costs
  *      - Delegates heavy computation to optimized hook for hot path efficiency
  *      - Maintains backward compatibility with existing interfaces
- * 
+ *
  * Integration Patterns:
  *      - Hook Communication: Receives processed savings data from optimized hook
  *      - Storage Integration: Uses centralized SpendSaveStorage for all state
  *      - Module Coordination: Interfaces with Token, DCA, and Strategy modules
  *      - Error Handling: Comprehensive error recovery with proper cleanup
- * 
+ *
  * @author SpendSave Protocol Team
  */
 contract Savings is ISavingsModule, ReentrancyGuard {
     using SafeERC20 for IERC20;
-    
+
     // ==================== CONSTANTS ====================
-    
+
     /// @notice Treasury fee denominator (10000 = 100%)
     uint256 private constant TREASURY_FEE_DENOMINATOR = 10000;
-    
+
     /// @notice Maximum batch size for batch operations
     uint256 private constant MAX_BATCH_SIZE = 50;
-    
+
     /// @notice Maximum withdrawal timelock (30 days in seconds)
     uint256 private constant MAX_WITHDRAWAL_TIMELOCK = 30 days;
-    
+
     /// @notice Early withdrawal penalty (10% in basis points)
     uint256 private constant EARLY_WITHDRAWAL_PENALTY = 1000;
 
     // ==================== STATE VARIABLES ====================
-    
+
     /// @notice Reference to centralized storage contract
     SpendSaveStorage public storage_;
-    
+
     /// @notice Module references for cross-module operations
     ITokenModule public tokenModule;
     IDCAModule public dcaModule;
     ISavingStrategyModule public savingStrategyModule;
-    
+
     /// @notice Emergency pause state
     bool public paused;
-    
+
     // Standardized module references
     address internal _savingStrategyModule;
     address internal _savingsModule;
@@ -68,108 +68,115 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     address internal _dailySavingsModule;
 
     // ==================== EVENTS ====================
-    
+
     /// @notice Emitted when module is successfully initialized
     event ModuleInitialized(address indexed storageAddress);
-    
+
     /// @notice Emitted when module references are configured
     event ModuleReferencesSet(address indexed tokenModule, address indexed dcaModule, address indexed strategyModule);
-    
+
     /// @notice Emitted when user withdraws savings
-    event WithdrawalProcessed(address indexed user, address indexed token, uint256 amount, uint256 actualAmount, bool earlyWithdrawal);
-    
+    event WithdrawalProcessed(
+        address indexed user, address indexed token, uint256 amount, uint256 actualAmount, bool earlyWithdrawal
+    );
+
     /// @notice Emitted when savings goal is achieved
     event GoalReached(address indexed user, address indexed token, uint256 totalSaved, uint256 goalAmount);
-    
+
     /// @notice Emitted when savings are queued for DCA
-    event SavingsQueuedForDCA(address indexed user, address indexed fromToken, address indexed targetToken, uint256 amount);
-    
+    event SavingsQueuedForDCA(
+        address indexed user, address indexed fromToken, address indexed targetToken, uint256 amount
+    );
+
     /// @notice Emitted when swap queuing fails and falls back to direct savings
-    event SwapQueueingFailed(address indexed user, address indexed fromToken, address indexed targetToken, string reason);
-    
+    event SwapQueueingFailed(
+        address indexed user, address indexed fromToken, address indexed targetToken, string reason
+    );
+
     /// @notice Emitted when auto-compound is configured
     event AutoCompoundConfigured(address indexed user, address indexed token, bool enabled, uint256 minAmount);
-    
+
     /// @notice Emitted when withdrawal timelock is updated
     event WithdrawalTimelockUpdated(address indexed user, uint256 oldTimelock, uint256 newTimelock);
-    
+
     /// @notice Emitted when emergency withdrawal is executed
     event EmergencyWithdrawal(address indexed user, address indexed token, uint256 amount, address indexed recipient);
-    
+
     /// @notice Emitted when pause state changes
     event PauseStateChanged(bool isPaused);
-    
+
     /// @notice Emitted when savings token is successfully minted
     event SavingsTokenMinted(address indexed user, address indexed token, uint256 indexed tokenId, uint256 amount);
-    
+
     /// @notice Emitted when savings token minting fails
     event SavingsTokenMintFailed(address indexed user, address indexed token, uint256 amount, string reason);
-    
+
     /// @notice Emitted when savings token is successfully burned
     event SavingsTokenBurned(address indexed user, address indexed token, uint256 indexed tokenId, uint256 amount);
-    
+
     /// @notice Emitted when savings token burning fails
     event SavingsTokenBurnFailed(address indexed user, address indexed token, uint256 amount, string reason);
 
     // ==================== ERRORS ====================
-    
+
     /// @notice Error when module is not initialized
     error NotInitialized();
-    
+
     /// @notice Error when caller is not authorized
     error Unauthorized();
-    
+
     /// @notice Error when amount is invalid
     error InvalidAmount();
-    
+
     /// @notice Error when token address is invalid
     error InvalidToken();
-    
+
     /// @notice Error when user has insufficient savings balance
     error InsufficientBalance();
-    
+
     /// @notice Error when withdrawal is locked
     error WithdrawalLocked();
-    
+
     /// @notice Error when batch size exceeds maximum
     error BatchSizeTooLarge();
-    
+
     /// @notice Error when contract is paused
     error Paused();
-    
+
     /// @notice Error when module is already initialized
     error AlreadyInitialized();
-    
+
     /// @notice Error when timelock period is invalid
     error InvalidTimelock();
-    
+
     /// @notice Error when module address is invalid
     error InvalidModule();
 
     // ==================== MODIFIERS ====================
-    
+
     /// @notice Ensures module is properly initialized
     modifier onlyInitialized() {
         if (address(storage_) == address(0)) revert NotInitialized();
         _;
     }
-    
+
     /// @notice Restricts access to authorized callers
     modifier onlyAuthorized() {
-        if (msg.sender != storage_.spendSaveHook() && 
-            msg.sender != storage_.owner() &&
-            !storage_.authorizedModules(msg.sender)) {
+        if (
+            msg.sender != storage_.spendSaveHook() && msg.sender != storage_.owner()
+                && !storage_.authorizedModules(msg.sender)
+        ) {
             revert Unauthorized();
         }
         _;
     }
-    
+
     /// @notice Restricts access to hook contract only
     modifier onlyHook() {
         if (msg.sender != storage_.spendSaveHook()) revert Unauthorized();
         _;
     }
-    
+
     /// @notice Ensures contract is not paused
     modifier whenNotPaused() {
         if (paused) revert Paused();
@@ -177,7 +184,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     }
 
     // ==================== CONSTRUCTOR ====================
-    
+
     /**
      * @notice Initialize the Savings module
      * @dev Constructor is minimal since actual initialization happens via initialize()
@@ -185,7 +192,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     constructor() {}
 
     // ==================== MODULE INITIALIZATION ====================
-    
+
     /**
      * @notice Initialize the module with storage reference
      * @param _storage The SpendSaveStorage contract address
@@ -194,11 +201,11 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     function initialize(SpendSaveStorage _storage) external override nonReentrant {
         if (address(storage_) != address(0)) revert AlreadyInitialized();
         if (address(_storage) == address(0)) revert InvalidModule();
-        
+
         storage_ = _storage;
         emit ModuleInitialized(address(_storage));
     }
-    
+
     /**
      * @notice Set references to other modules for cross-module operations
      * @param newSavingStrategyModule Address of the saving strategy module
@@ -218,14 +225,14 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         address dailySavingsModule
     ) external override nonReentrant {
         if (msg.sender != storage_.owner()) revert Unauthorized();
-        
+
         _savingStrategyModule = newSavingStrategyModule;
         _savingsModule = newSavingsModule;
         _dcaModule = newDcaModule;
         _slippageModule = slippageModule;
         _tokenModule = newTokenModule;
         _dailySavingsModule = dailySavingsModule;
-        
+
         // Set the typed references for backward compatibility
         if (newSavingStrategyModule != address(0)) {
             savingStrategyModule = ISavingStrategyModule(newSavingStrategyModule);
@@ -236,12 +243,12 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         if (newTokenModule != address(0)) {
             tokenModule = ITokenModule(newTokenModule);
         }
-        
+
         emit ModuleReferencesSet(address(tokenModule), address(dcaModule), address(savingStrategyModule));
     }
 
     // ==================== OPTIMIZED CORE SAVINGS FUNCTIONS ====================
-    
+
     /**
      * @notice Process savings with gas optimization for hook integration
      * @param user The user address
@@ -251,30 +258,38 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @return netAmount The net amount saved after fees
      * @dev This function is optimized for calls from the hook during swap execution
      */
-    function processSavings(
-        address user,
-        address token,
-        uint256 amount,
-        SpendSaveStorage.SwapContext memory context
-    ) external override onlyHook whenNotPaused onlyInitialized returns (uint256 netAmount) {
+    function processSavings(address user, address token, uint256 amount, SpendSaveStorage.SwapContext memory context)
+        external
+        override
+        onlyHook
+        whenNotPaused
+        onlyInitialized
+        returns (uint256 netAmount)
+    {
         return _processSavings(user, token, amount, context);
     }
-    function _processSavings(
-        address user,
-        address token,
-        uint256 amount,
-        SpendSaveStorage.SwapContext memory context
-    ) internal returns (uint256 netAmount) {
+
+    function _processSavings(address user, address token, uint256 amount, SpendSaveStorage.SwapContext memory context)
+        internal
+        returns (uint256 netAmount)
+    {
         if (amount == 0) return 0;
         uint256 treasuryFee = storage_.treasuryFee();
         uint256 feeAmount = (amount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
         netAmount = amount - feeAmount;
+
+        // Update savings in storage (this applies the treasury fee internally)
+        storage_.increaseSavings(user, token, amount);
+
+        // Mint ERC6909 savings tokens for the net amount
+        _mintSavingsToken(user, token, netAmount);
+
         _registerTokenIfNeeded(token);
         _checkGoalAchievement(user, token, netAmount);
         emit SavingsProcessed(user, token, amount, netAmount, feeAmount);
         return netAmount;
     }
-    
+
     /**
      * @notice Process savings using packed configuration for maximum gas efficiency
      * @param user The user address
@@ -292,6 +307,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     ) external override onlyHook whenNotPaused onlyInitialized returns (uint256 netAmount) {
         return _processSavingsOptimized(user, token, amount, packedConfig);
     }
+
     function _processSavingsOptimized(
         address user,
         address token,
@@ -302,11 +318,18 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         uint256 treasuryFee = storage_.treasuryFee();
         uint256 feeAmount = (amount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
         netAmount = amount - feeAmount;
+
+        // Update savings in storage (this applies the treasury fee internally)
+        storage_.increaseSavings(user, token, amount);
+
+        // Mint ERC6909 savings tokens for the net amount
+        _mintSavingsToken(user, token, netAmount);
+
         _registerTokenIfNeeded(token);
         emit SavingsProcessed(user, token, amount, netAmount, feeAmount);
         return netAmount;
     }
-    
+
     /**
      * @notice Process savings from swap output with delta-based calculation
      * @param user The user address
@@ -324,6 +347,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     ) external onlyHook whenNotPaused onlyInitialized returns (uint256 savedAmount) {
         return _processSavingsFromOutput(user, outputToken, outputAmount, context);
     }
+
     function _processSavingsFromOutput(
         address user,
         address outputToken,
@@ -341,7 +365,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         emit SavingsProcessed(user, outputToken, savedAmount, savedAmount, 0);
         return savedAmount;
     }
-    
+
     /**
      * @notice Process savings to a specific token (for SPECIFIC savings type)
      * @param user The user address
@@ -359,6 +383,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     ) external onlyHook whenNotPaused onlyInitialized returns (uint256 savedAmount) {
         return _processSavingsToSpecificToken(user, outputToken, outputAmount, context);
     }
+
     function _processSavingsToSpecificToken(
         address user,
         address outputToken,
@@ -371,12 +396,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             savedAmount += 1;
         }
         if (address(dcaModule) != address(0) && context.specificSavingsToken != address(0)) {
-            try dcaModule.queueDCAExecution(
-                user,
-                outputToken,
-                context.specificSavingsToken,
-                savedAmount
-            ) {
+            try dcaModule.queueDCAExecution(user, outputToken, context.specificSavingsToken, savedAmount) {
                 emit SavingsQueuedForDCA(user, outputToken, context.specificSavingsToken, savedAmount);
             } catch Error(string memory reason) {
                 emit SwapQueueingFailed(user, outputToken, context.specificSavingsToken, reason);
@@ -387,7 +407,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         }
         return savedAmount;
     }
-    
+
     /**
      * @notice Batch process multiple savings operations efficiently
      * @param user The user address
@@ -396,18 +416,21 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @return totalNetAmount Total net amount saved across all tokens
      * @dev Optimized for off-swap-path batch operations
      */
-    function batchProcessSavings(
-        address user,
-        address[] calldata tokens,
-        uint256[] calldata amounts
-    ) external override onlyAuthorized whenNotPaused onlyInitialized returns (uint256 totalNetAmount) {
+    function batchProcessSavings(address user, address[] calldata tokens, uint256[] calldata amounts)
+        external
+        override
+        onlyAuthorized
+        whenNotPaused
+        onlyInitialized
+        returns (uint256 totalNetAmount)
+    {
         return _batchProcessSavings(user, tokens, amounts);
     }
-    function _batchProcessSavings(
-        address user,
-        address[] calldata tokens,
-        uint256[] calldata amounts
-    ) internal returns (uint256 totalNetAmount) {
+
+    function _batchProcessSavings(address user, address[] calldata tokens, uint256[] calldata amounts)
+        internal
+        returns (uint256 totalNetAmount)
+    {
         uint256 length = tokens.length;
         if (length != amounts.length) revert InvalidAmount();
         if (length > MAX_BATCH_SIZE) revert BatchSizeTooLarge();
@@ -423,14 +446,16 @@ contract Savings is ISavingsModule, ReentrancyGuard {
                 totalNetAmount += netAmount;
                 totalFeeAmount += feeAmount;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
         emit BatchSavingsProcessed(user, totalNetAmount, totalFeeAmount);
         return totalNetAmount;
     }
 
     // ==================== WITHDRAWAL FUNCTIONS ====================
-    
+
     /**
      * @notice Withdraw user savings with timelock and penalty handling
      * @param user The user address
@@ -440,20 +465,21 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @return actualAmount The actual amount withdrawn (after penalties)
      * @dev Handles timelock validation and early withdrawal penalties
      */
-    function withdraw(
-        address user,
-        address token,
-        uint256 amount,
-        bool force
-    ) external override nonReentrant whenNotPaused onlyInitialized returns (uint256 actualAmount) {
+    function withdraw(address user, address token, uint256 amount, bool force)
+        external
+        override
+        nonReentrant
+        whenNotPaused
+        onlyInitialized
+        returns (uint256 actualAmount)
+    {
         return _withdraw(user, token, amount, force);
     }
-    function _withdraw(
-        address user,
-        address token,
-        uint256 amount,
-        bool force
-    ) internal returns (uint256 actualAmount) {
+
+    function _withdraw(address user, address token, uint256 amount, bool force)
+        internal
+        returns (uint256 actualAmount)
+    {
         if (msg.sender != user && msg.sender != storage_.owner()) {
             revert Unauthorized();
         }
@@ -461,7 +487,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         if (token == address(0)) revert InvalidToken();
         uint256 currentBalance = storage_.savings(user, token);
         if (currentBalance < amount) revert InsufficientBalance();
-        ( , , , , uint256 withdrawalTimelock) = storage_.getSavingsDetails(user, token);
+        (,,,, uint256 withdrawalTimelock) = storage_.getSavingsDetails(user, token);
         bool isEarlyWithdrawal = false;
         actualAmount = amount;
         if (block.timestamp < withdrawalTimelock) {
@@ -479,7 +505,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         emit WithdrawalProcessed(user, token, amount, actualAmount, isEarlyWithdrawal);
         return actualAmount;
     }
-    
+
     /**
      * @notice Batch withdraw multiple tokens efficiently
      * @param user The user address
@@ -488,18 +514,21 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @return actualAmounts Array of actual amounts withdrawn
      * @dev Gas-optimized batch withdrawal with comprehensive validation
      */
-    function batchWithdraw(
-        address user,
-        address[] calldata tokens,
-        uint256[] calldata amounts
-    ) external override nonReentrant whenNotPaused onlyInitialized returns (uint256[] memory actualAmounts) {
+    function batchWithdraw(address user, address[] calldata tokens, uint256[] calldata amounts)
+        external
+        override
+        nonReentrant
+        whenNotPaused
+        onlyInitialized
+        returns (uint256[] memory actualAmounts)
+    {
         return _batchWithdraw(user, tokens, amounts);
     }
-    function _batchWithdraw(
-        address user,
-        address[] calldata tokens,
-        uint256[] calldata amounts
-    ) internal returns (uint256[] memory actualAmounts) {
+
+    function _batchWithdraw(address user, address[] calldata tokens, uint256[] calldata amounts)
+        internal
+        returns (uint256[] memory actualAmounts)
+    {
         uint256 length = tokens.length;
         if (length != amounts.length) revert InvalidAmount();
         if (length > MAX_BATCH_SIZE) revert BatchSizeTooLarge();
@@ -507,11 +536,13 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         actualAmounts = new uint256[](length);
         for (uint256 i = 0; i < length;) {
             actualAmounts[i] = _withdraw(user, tokens[i], amounts[i], false);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
         return actualAmounts;
     }
-    
+
     /**
      * @notice Withdraw specific savings (legacy interface compatibility)
      * @param user The user address
@@ -519,16 +550,12 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @param amount The amount to withdraw
      * @dev Wrapper function for backward compatibility
      */
-    function withdrawSavings(
-        address user,
-        address token,
-        uint256 amount
-    ) external {
+    function withdrawSavings(address user, address token, uint256 amount) external {
         _withdraw(user, token, amount, false);
     }
 
     // ==================== CONFIGURATION FUNCTIONS ====================
-    
+
     /**
      * @notice Set withdrawal timelock for user's savings
      * @param user The user address
@@ -538,13 +565,13 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     function setWithdrawalTimelock(address user, uint256 timelock) external override onlyInitialized {
         if (msg.sender != user && msg.sender != storage_.owner()) revert Unauthorized();
         if (timelock > MAX_WITHDRAWAL_TIMELOCK) revert InvalidTimelock();
-        
+
         uint256 oldTimelock = storage_.withdrawalTimelock(user);
         storage_.setWithdrawalTimelock(user, timelock);
-        
+
         emit WithdrawalTimelockUpdated(user, oldTimelock, timelock);
     }
-    
+
     /**
      * @notice Configure auto-compound settings for user savings
      * @param user The user address
@@ -553,22 +580,21 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @param minCompoundAmount Minimum amount before compounding
      * @dev Enables automatic yield compounding when yield strategies are implemented
      */
-    function configureAutoCompound(
-        address user,
-        address token,
-        bool enableCompound,
-        uint256 minCompoundAmount
-    ) external override onlyInitialized {
+    function configureAutoCompound(address user, address token, bool enableCompound, uint256 minCompoundAmount)
+        external
+        override
+        onlyInitialized
+    {
         if (msg.sender != user) revert Unauthorized();
-        
+
         // Store auto-compound configuration in storage
         // This would be implemented when yield strategies are added
-        
+
         emit AutoCompoundConfigured(user, token, enableCompound, minCompoundAmount);
     }
 
     // ==================== LEGACY COMPATIBILITY FUNCTIONS ====================
-    
+
     /**
      * @notice Process input savings after swap (legacy compatibility)
      * @param user The user address
@@ -576,11 +602,12 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @param amount The amount to process
      * @dev Maintains compatibility with existing interfaces
      */
-    function processInputSavingsAfterSwap(
-        address user,
-        address token,
-        uint256 amount
-    ) external onlyHook whenNotPaused onlyInitialized {
+    function processInputSavingsAfterSwap(address user, address token, uint256 amount)
+        external
+        onlyHook
+        whenNotPaused
+        onlyInitialized
+    {
         if (amount > 0) {
             SpendSaveStorage.SwapContext memory context = SpendSaveStorage.SwapContext({
                 hasStrategy: true,
@@ -598,7 +625,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             _processSavings(user, token, amount, context);
         }
     }
-    
+
     /**
      * @notice Deposit savings (legacy compatibility)
      * @param user The user address
@@ -606,11 +633,12 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @param amount The amount to deposit
      * @dev Provides direct deposit functionality outside of swap context
      */
-    function depositSavings(
-        address user,
-        address token,
-        uint256 amount
-    ) external nonReentrant whenNotPaused onlyInitialized {
+    function depositSavings(address user, address token, uint256 amount)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyInitialized
+    {
         if (msg.sender != user) revert Unauthorized();
         if (amount == 0) revert InvalidAmount();
         if (token == address(0)) revert InvalidToken();
@@ -618,28 +646,26 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         // Transfer tokens from user to Storage contract (central custody)
         IERC20(token).safeTransferFrom(user, address(storage_), amount);
 
-        // Calculate treasury fee and net amount
-        uint256 treasuryFee = storage_.treasuryFee();
-        uint256 feeAmount = (amount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
-        uint256 netAmount = amount - feeAmount;
-
         // Update savings in storage (this applies the treasury fee internally)
-        storage_.increaseSavings(user, token, amount);
+        uint256 netSavings = storage_.batchUpdateUserSavings(user, token, amount);
 
         // Mint ERC6909 savings tokens for the net amount
-        _mintSavingsToken(user, token, netAmount);
+        _mintSavingsToken(user, token, netSavings);
 
         // Register token if needed
         _registerTokenIfNeeded(token);
 
         // Check for goal achievement
-        _checkGoalAchievement(user, token, netAmount);
+        _checkGoalAchievement(user, token, netSavings);
 
-        emit SavingsProcessed(user, token, amount, netAmount, feeAmount);
+        // Calculate fee for event
+        uint256 feeAmount = amount - netSavings;
+
+        emit SavingsProcessed(user, token, amount, netSavings, feeAmount);
     }
 
     // ==================== VIEW FUNCTIONS ====================
-    
+
     /**
      * @notice Get user's savings across all tokens
      * @param user The user address
@@ -647,27 +673,29 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @return amounts Array of savings amounts
      * @dev Note: For gas efficiency, this should use off-chain indexing in production
      */
-    function getUserSavings(address user) external view override returns (
-        address[] memory tokens,
-        uint256[] memory amounts
-    ) {
+    function getUserSavings(address user)
+        external
+        view
+        override
+        returns (address[] memory tokens, uint256[] memory amounts)
+    {
         // Get user's savings tokens from storage contract
         address[] memory userTokens = storage_.getUserSavingsTokens(user);
-        
+
         if (userTokens.length == 0) {
             return (new address[](0), new uint256[](0));
         }
-        
+
         // Initialize return arrays
         tokens = new address[](userTokens.length);
         amounts = new uint256[](userTokens.length);
-        
+
         // Populate arrays with actual savings data
         uint256 validTokenCount = 0;
         for (uint256 i = 0; i < userTokens.length; i++) {
             address token = userTokens[i];
             uint256 balance = storage_.savings(user, token);
-            
+
             // Only include tokens with positive balances
             if (balance > 0) {
                 tokens[validTokenCount] = token;
@@ -675,7 +703,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
                 validTokenCount++;
             }
         }
-        
+
         // Resize arrays to actual count of tokens with balances
         if (validTokenCount < userTokens.length) {
             assembly {
@@ -683,10 +711,10 @@ contract Savings is ISavingsModule, ReentrancyGuard {
                 mstore(amounts, validTokenCount)
             }
         }
-        
+
         return (tokens, amounts);
     }
-    
+
     /**
      * @notice Get detailed savings information for specific token
      * @param user The user address
@@ -698,20 +726,19 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @return unlockTime Timestamp when withdrawals will be unlocked
      * @dev Provides comprehensive savings data for frontend integration
      */
-    function getSavingsDetails(address user, address token) external view override returns (
-        uint256 balance,
-        uint256 totalSaved,
-        uint256 lastSaveTime,
-        bool isLocked,
-        uint256 unlockTime
-    ) {
+    function getSavingsDetails(address user, address token)
+        external
+        view
+        override
+        returns (uint256 balance, uint256 totalSaved, uint256 lastSaveTime, bool isLocked, uint256 unlockTime)
+    {
         balance = storage_.savings(user, token);
 
-        ( , , , , uint256 withdrawalTimelock) = storage_.getSavingsDetails(user, token);
+        (,,,, uint256 withdrawalTimelock) = storage_.getSavingsDetails(user, token);
         isLocked = block.timestamp < withdrawalTimelock;
         unlockTime = withdrawalTimelock;
     }
-    
+
     /**
      * @notice Calculate actual withdrawal amount including penalties
      * @param user The user address
@@ -721,13 +748,14 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @return penalty The penalty amount for early withdrawal
      * @dev Helps users understand withdrawal costs before executing
      */
-    function calculateWithdrawalAmount(
-        address user,
-        address token,
-        uint256 requestedAmount
-    ) external view override returns (uint256 actualAmount, uint256 penalty) {
-        ( , , , , uint256 withdrawalTimelock) = storage_.getSavingsDetails(user, token);
-        
+    function calculateWithdrawalAmount(address user, address token, uint256 requestedAmount)
+        external
+        view
+        override
+        returns (uint256 actualAmount, uint256 penalty)
+    {
+        (,,,, uint256 withdrawalTimelock) = storage_.getSavingsDetails(user, token);
+
         if (block.timestamp >= withdrawalTimelock) {
             actualAmount = requestedAmount;
             penalty = 0;
@@ -738,7 +766,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     }
 
     // ==================== INTEGRATION HELPER FUNCTIONS ====================
-    
+
     /**
      * @notice Queue savings for DCA execution
      * @param user The user address
@@ -747,12 +775,11 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @param targetToken The target token for DCA
      * @dev Facilitates integration with DCA module for automated conversions
      */
-    function queueForDCA(
-        address user,
-        address fromToken,
-        uint256 amount,
-        address targetToken
-    ) external onlyAuthorized onlyInitialized {
+    function queueForDCA(address user, address fromToken, uint256 amount, address targetToken)
+        external
+        onlyAuthorized
+        onlyInitialized
+    {
         if (address(dcaModule) != address(0)) {
             dcaModule.queueDCAExecution(user, fromToken, targetToken, amount);
             emit SavingsQueuedForDCA(user, fromToken, targetToken, amount);
@@ -760,7 +787,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     }
 
     // ==================== INTERNAL HELPER FUNCTIONS ====================
-    
+
     /**
      * @notice Register token if needed (gas-optimized deferred operation)
      * @param token The token address to register
@@ -776,7 +803,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             }
         }
     }
-    
+
     /**
      * @notice Check for goal achievement and emit event if reached
      * @param user The user address
@@ -787,17 +814,17 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     function _checkGoalAchievement(address user, address token, uint256 newSavings) internal {
         // Get current total savings
         uint256 currentBalance = storage_.savings(user, token);
-        
+
         // Get user's savings goal from strategy
         SpendSaveStorage.SavingStrategy memory strategy = storage_.getUserSavingStrategy(user);
-        
+
         if (strategy.goalAmount > 0 && currentBalance >= strategy.goalAmount) {
             emit GoalReached(user, token, currentBalance, strategy.goalAmount);
         }
     }
-    
+
     /**
-     * @notice Helper function to mint savings token 
+     * @notice Helper function to mint savings token
      * @param user The user address
      * @param token The token address
      * @param amount The amount to mint
@@ -808,12 +835,12 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             // STEP 1: Convert token address to token ID
             // This is the key fix - ERC6909 uses numeric IDs, not addresses
             uint256 tokenId = tokenModule.getTokenId(token);
-            
+
             // STEP 2: If token isn't registered yet, register it first
             if (tokenId == 0) {
                 tokenId = tokenModule.registerToken(token);
             }
-            
+
             // STEP 3: Now mint using the correct tokenId parameter
             try tokenModule.mintSavingsToken(user, tokenId, amount) {
                 emit SavingsTokenMinted(user, token, tokenId, amount);
@@ -822,9 +849,9 @@ contract Savings is ISavingsModule, ReentrancyGuard {
             }
         }
     }
-    
+
     /**
-     * @notice Helper function to burn savings token if needed  
+     * @notice Helper function to burn savings token if needed
      * @param user The user address
      * @param token The token address
      * @param amount The amount to burn
@@ -834,7 +861,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         if (address(tokenModule) != address(0) && amount > 0) {
             // Convert token address to token ID (same pattern as minting)
             uint256 tokenId = tokenModule.getTokenId(token);
-            
+
             // Only burn if token is registered (tokenId != 0)
             if (tokenId != 0) {
                 try tokenModule.burnSavingsToken(user, tokenId, amount) {
@@ -847,7 +874,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
     }
 
     // ==================== EMERGENCY FUNCTIONS ====================
-    
+
     /**
      * @notice Emergency withdrawal function (owner only)
      * @param user The user address
@@ -856,15 +883,15 @@ contract Savings is ISavingsModule, ReentrancyGuard {
      * @param recipient The recipient address
      * @dev Emergency function that bypasses all checks for critical situations
      */
-    function emergencyWithdraw(
-        address user,
-        address token,
-        uint256 amount,
-        address recipient
-    ) external override nonReentrant onlyInitialized {
+    function emergencyWithdraw(address user, address token, uint256 amount, address recipient)
+        external
+        override
+        nonReentrant
+        onlyInitialized
+    {
         if (msg.sender != storage_.owner()) revert Unauthorized();
         if (recipient == address(0)) revert InvalidToken();
-        
+
         // Emergency withdrawal bypasses all checks
         storage_.decreaseSavings(user, token, amount);
         // Call Storage to release tokens to recipient (Storage holds the tokens)
@@ -872,7 +899,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
 
         emit EmergencyWithdrawal(user, token, amount, recipient);
     }
-    
+
     /**
      * @notice Pause savings operations (owner only)
      * @dev Emergency pause for critical situations
@@ -892,7 +919,7 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         paused = false;
         emit PauseStateChanged(false);
     }
-    
+
     /**
      * @notice Get module version for compatibility checking
      * @return version The current module version

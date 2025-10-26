@@ -11,16 +11,15 @@ import {PoolKey} from "v4-core/types/PoolKey.sol";
  * @dev Supports batch operations and efficient queue management
  */
 interface IDCAModule is ISpendSaveModule {
-    
     // ==================== EVENTS ====================
-    
+
     event DCAEnabled(address indexed user, address indexed targetToken);
     event DCAExecuted(address indexed user, address indexed fromToken, address indexed toToken, uint256 amount);
     event DCAQueued(address indexed user, address indexed fromToken, address indexed toToken, uint256 amount);
     event TickStrategySet(address indexed user, int24 lowerTick, int24 upperTick);
-    
+
     // ==================== STRUCTS ====================
-    
+
     struct DCAConfig {
         bool enabled;
         address targetToken;
@@ -29,7 +28,7 @@ interface IDCAModule is ISpendSaveModule {
         int24 lowerTick;
         int24 upperTick;
     }
-    
+
     struct DCAExecution {
         address fromToken;
         address toToken;
@@ -37,9 +36,9 @@ interface IDCAModule is ISpendSaveModule {
         uint256 timestamp;
         uint256 executedPrice;
     }
-    
+
     // ==================== CORE FUNCTIONS ====================
-    
+
     /**
      * @notice Enable DCA for a user
      * @param user The user address
@@ -47,31 +46,22 @@ interface IDCAModule is ISpendSaveModule {
      * @param minAmount Minimum amount to trigger DCA
      * @param maxSlippage Maximum acceptable slippage (in basis points)
      */
-    function enableDCA(
-        address user,
-        address targetToken,
-        uint256 minAmount,
-        uint256 maxSlippage
-    ) external;
-    
+    function enableDCA(address user, address targetToken, uint256 minAmount, uint256 maxSlippage) external;
+
     /**
      * @notice Disable DCA for a user
      * @param user The user address
      */
     function disableDCA(address user) external;
-    
+
     /**
      * @notice Set tick-based DCA strategy
      * @param user The user address
      * @param lowerTick Lower tick bound for DCA execution
      * @param upperTick Upper tick bound for DCA execution
      */
-    function setDCATickStrategy(
-        address user,
-        int24 lowerTick,
-        int24 upperTick
-    ) external;
-    
+    function setDCATickStrategy(address user, int24 lowerTick, int24 upperTick) external;
+
     /**
      * @notice Queue tokens for DCA execution
      * @dev Optimized for gas efficiency in swap path
@@ -80,13 +70,8 @@ interface IDCAModule is ISpendSaveModule {
      * @param toToken The token to convert to
      * @param amount The amount to queue
      */
-    function queueDCAExecution(
-        address user,
-        address fromToken,
-        address toToken,
-        uint256 amount
-    ) external;
-    
+    function queueDCAExecution(address user, address fromToken, address toToken, uint256 amount) external;
+
     /**
      * @notice Execute pending DCA for a user
      * @dev Called by keeper or user
@@ -95,26 +80,24 @@ interface IDCAModule is ISpendSaveModule {
      * @return totalAmount Total amount converted
      */
     function executeDCA(address user) external returns (bool executed, uint256 totalAmount);
-    
+
     /**
      * @notice Batch execute DCA for multiple users
      * @dev Gas-efficient batch operation for keepers
      * @param users Array of user addresses
      * @return executions Array of execution results
      */
-    function batchExecuteDCA(
-        address[] calldata users
-    ) external returns (DCAExecution[] memory executions);
-    
+    function batchExecuteDCA(address[] calldata users) external returns (DCAExecution[] memory executions);
+
     // ==================== VIEW FUNCTIONS ====================
-    
+
     /**
      * @notice Get user's DCA configuration
      * @param user The user address
      * @return config The DCA configuration
      */
     function getDCAConfig(address user) external view returns (DCAConfig memory config);
-    
+
     /**
      * @notice Get pending DCA queue for a user
      * @param user The user address
@@ -122,12 +105,11 @@ interface IDCAModule is ISpendSaveModule {
      * @return amounts Array of amounts
      * @return targets Array of target tokens
      */
-    function getPendingDCA(address user) external view returns (
-        address[] memory tokens,
-        uint256[] memory amounts,
-        address[] memory targets
-    );
-    
+    function getPendingDCA(address user)
+        external
+        view
+        returns (address[] memory tokens, uint256[] memory amounts, address[] memory targets);
+
     /**
      * @notice Check if DCA should execute based on current tick
      * @param user The user address
@@ -135,11 +117,11 @@ interface IDCAModule is ISpendSaveModule {
      * @return shouldExecute Whether DCA should execute
      * @return currentTick The current pool tick
      */
-    function shouldExecuteDCA(
-        address user,
-        PoolKey calldata poolKey
-    ) external view returns (bool shouldExecute, int24 currentTick);
-    
+    function shouldExecuteDCA(address user, PoolKey calldata poolKey)
+        external
+        view
+        returns (bool shouldExecute, int24 currentTick);
+
     /**
      * @notice Calculate optimal DCA execution amount
      * @param user The user address
@@ -148,15 +130,13 @@ interface IDCAModule is ISpendSaveModule {
      * @param availableAmount Amount available for DCA
      * @return optimalAmount The optimal amount to execute
      */
-    function calculateOptimalDCAAmount(
-        address user,
-        address fromToken,
-        address toToken,
-        uint256 availableAmount
-    ) external view returns (uint256 optimalAmount);
-    
+    function calculateOptimalDCAAmount(address user, address fromToken, address toToken, uint256 availableAmount)
+        external
+        view
+        returns (uint256 optimalAmount);
+
     // ==================== INTEGRATION FUNCTIONS ====================
-    
+
     /**
      * @notice Process DCA after savings
      * @dev Called by savings module when DCA is enabled
@@ -172,15 +152,12 @@ interface IDCAModule is ISpendSaveModule {
         uint256 savedAmount,
         SpendSaveStorage.SwapContext memory context
     ) external returns (bool queued);
-    
+
     /**
      * @notice Get DCA execution history
      * @param user The user address
      * @param limit Maximum number of records to return
      * @return history Array of DCA executions
      */
-    function getDCAHistory(
-        address user,
-        uint256 limit
-    ) external view returns (DCAExecution[] memory history);
+    function getDCAHistory(address user, uint256 limit) external view returns (DCAExecution[] memory history);
 }
