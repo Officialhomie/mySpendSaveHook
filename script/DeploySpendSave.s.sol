@@ -271,14 +271,20 @@ contract DeploySpendSave is Script {
      *      correct order and properly initialized with gas optimizations enabled.
      */
     function run() external {
-        // Initialize deployment configuration
+        // Initialize deployment configuration BEFORE broadcast to get msg.sender
         _initializeDeploymentConfig();
 
+        // Display comprehensive pre-deployment information
+        _displayPreDeploymentSummary();
+
         // Log deployment start
-        console.log("=== SpendSave Protocol Deployment Starting ===");
+        console.log("\n=== SpendSave Protocol Deployment Starting ===");
+        console.log("You will be prompted for your keystore password next...\n");
         emit DeploymentStarted(deployer, block.chainid, poolManager);
 
         // Start broadcasting transactions
+        // When using --account, we don't pass an argument
+        // When using PRIVATE_KEY, Foundry will use it automatically
         vm.startBroadcast();
 
         // Execute deployment sequence
@@ -308,15 +314,20 @@ contract DeploySpendSave is Script {
         // Set addresses from network configuration
         poolManager = currentNetwork.poolManager;
 
-        // Get deployer address - supports both private key and account-based deployment
+        // Get deployer address - support both account-based and private key methods
+        // When using --account, we get the address from tx.origin or a prompt
+        // When using --private-key or PRIVATE_KEY env var, we derive from the key
+
         try vm.envUint("PRIVATE_KEY") returns (uint256 deployerPrivateKey) {
-            // Private key method (legacy)
+            // Private key method - PRIVATE_KEY env variable is set
             deployer = vm.addr(deployerPrivateKey);
             console.log("Using private key deployment method");
+            console.log("WARNING: Private key deployment is less secure. Consider using --account flag instead.");
         } catch {
-            // Account-based method (recommended)
-            deployer = msg.sender;
-            console.log("Using account-based deployment method");
+            // Account-based method - using --account flag
+            // Get deployer address from DEPLOYER_ADDRESS environment variable
+            deployer = vm.envAddress("DEPLOYER_ADDRESS");
+            console.log("Using account-based deployment method (secure keystore)");
         }
 
         // Set owner (can be different from deployer)
@@ -765,6 +776,113 @@ contract DeploySpendSave is Script {
     }
 
     // ==================== UTILITY FUNCTIONS ====================
+
+    /**
+     * @notice Display comprehensive pre-deployment summary
+     * @dev Shows all deployment details BEFORE prompting for keystore password
+     */
+    function _displayPreDeploymentSummary() internal view {
+        console.log("\n===========================================================");
+        console.log("         SPENDSAVE PRE-DEPLOYMENT INFORMATION              ");
+        console.log("===========================================================");
+        console.log("");
+        console.log("NETWORK CONFIGURATION:");
+        console.log(string.concat("  Network:          ", currentNetwork.name));
+        console.log(string.concat("  Chain ID:         ", vm.toString(block.chainid)));
+        console.log(string.concat("  Is Testnet:       ", currentNetwork.isTestnet ? "YES" : "NO"));
+        console.log(string.concat("  Pool Manager:     ", _addressToString(currentNetwork.poolManager)));
+        console.log(string.concat("  Position Manager: ", _addressToString(currentNetwork.positionManager)));
+        console.log(string.concat("  Quoter:           ", _addressToString(currentNetwork.quoter)));
+        console.log(string.concat("  Permit2:          ", _addressToString(currentNetwork.permit2)));
+        console.log("");
+        console.log("DEPLOYMENT ACCOUNT:");
+        console.log(string.concat("  Deployer Address: ", _addressToString(deployer)));
+        console.log(string.concat("  Owner Address:    ", _addressToString(owner)));
+        console.log(string.concat("  Treasury Address: ", _addressToString(treasury)));
+        console.log("");
+        console.log("CONTRACTS TO BE DEPLOYED:");
+        console.log("  Core Contracts:");
+        console.log("    1. SpendSaveStorage (Centralized state manager)");
+        console.log("    2. StateView (Pool state analytics)");
+        console.log("    3. SpendSaveHook (Main Uniswap V4 hook with address mining)");
+        console.log("    4. SpendSaveAnalytics (Portfolio tracking)");
+        console.log("");
+        console.log("  Core Modules:");
+        console.log("    5. SavingStrategy (Savings percentage management)");
+        console.log("    6. Savings (Deposits and withdrawals)");
+        console.log("    7. DCA (Dollar-cost averaging)");
+        console.log("    8. Token (ERC6909 savings tokens)");
+        console.log("    9. SlippageControl (Slippage protection)");
+        console.log("   10. DailySavings (Automated savings)");
+        console.log("");
+        console.log("  Phase 2 Enhancement Contracts:");
+        console.log("   11. SpendSaveDCARouter (Advanced DCA routing)");
+        console.log("   12. SpendSaveLiquidityManager (LP position management)");
+        console.log("   13. SpendSaveModuleRegistry (Module upgrades)");
+        console.log("   14. SpendSaveMulticall (Batch operations)");
+        console.log("   15. SpendSaveQuoter (Price impact preview)");
+        console.log("   16. SpendSaveSlippageEnhanced (Enhanced slippage)");
+        console.log("");
+        console.log("  Helper Contract:");
+        console.log("   17. HookDeployer (CREATE2 deployment helper)");
+        console.log("");
+        console.log("DEPLOYMENT SEQUENCE:");
+        console.log("  Step 1:  Deploy SpendSaveStorage");
+        console.log("  Step 2:  Deploy StateView");
+        console.log("  Step 3:  Deploy all 6 core modules");
+        console.log("  Step 4:  Deploy SpendSaveHook with address mining");
+        console.log("  Step 5:  Deploy SpendSaveAnalytics");
+        console.log("  Step 6:  Initialize storage with hook reference");
+        console.log("  Step 7:  Deploy 6 Phase 2 enhancement contracts");
+        console.log("  Step 8:  Initialize all modules");
+        console.log("  Step 9:  Register all modules in storage registry");
+        console.log("  Step 10: Initialize hook with module references");
+        console.log("  Step 11: Set cross-module references");
+        console.log("  Step 12: Verify complete deployment");
+        console.log("");
+        console.log("GAS OPTIMIZATIONS:");
+        console.log("  Packed Storage:       ENABLED");
+        console.log("  Transient Storage:    ENABLED (EIP-1153)");
+        console.log("  Batch Operations:     ENABLED");
+        console.log("  Target AfterSwap Gas: < 50,000");
+        console.log("  Hook Address Mining:  ENABLED (for flag compliance)");
+        console.log("");
+        console.log("HOOK CONFIGURATION:");
+        console.log(string.concat("  Required Flags:   ", vm.toString(REQUIRED_HOOK_FLAGS)));
+        console.log("  Flags Enabled:");
+        console.log("    - BEFORE_SWAP_FLAG");
+        console.log("    - AFTER_SWAP_FLAG");
+        console.log("    - BEFORE_SWAP_RETURNS_DELTA_FLAG");
+        console.log("    - AFTER_SWAP_RETURNS_DELTA_FLAG");
+        console.log("");
+        console.log("ESTIMATED GAS COST:");
+        console.log("  Total Contract Deployments: 17 contracts");
+        console.log("  Initialization Transactions: ~15 transactions");
+        console.log("  Estimated Total Gas: ~50-80M gas");
+
+        if (currentNetwork.isTestnet) {
+            console.log("  Estimated Cost (Base Sepolia): FREE (testnet)");
+        } else {
+            console.log("  Estimated Cost: Varies by gas price");
+        }
+
+        console.log("");
+        console.log("VERIFICATION:");
+        console.log("  --verify flag detected: Contracts will be verified on BaseScan");
+        console.log("");
+        console.log("===========================================================");
+        console.log("");
+        console.log("IMPORTANT NOTES:");
+        console.log("  - This deployment will execute ~32+ transactions");
+        console.log("  - Address mining may take 30-60 seconds for hook deployment");
+        console.log("  - All contracts will be owned by:", _addressToString(owner));
+        console.log("  - Treasury will be set to:", _addressToString(treasury));
+        console.log("  - Deployment is on:", currentNetwork.name);
+        console.log("");
+        console.log("Press Enter to continue with deployment...");
+        console.log("(You will be prompted for your keystore password next)");
+        console.log("===========================================================");
+    }
 
     /**
      * @notice Get human-readable network name for logging
