@@ -24,7 +24,7 @@ contract InitializePoolWithHook is Script {
     address constant POOL_MANAGER = 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408;
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    address constant SPENDSAVE_HOOK = 0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc;
+    address constant SPENDSAVE_HOOK = 0x158A7F998F14930fCB3e3f9Cb57Cf99bDf0940Cc;
 
     bytes constant ZERO_BYTES = "";
 
@@ -80,10 +80,10 @@ contract InitializePoolWithHook is Script {
         PoolModifyLiquidityTest liquidityRouter = new PoolModifyLiquidityTest(poolManager);
         console.log("Liquidity Router deployed:", address(liquidityRouter));
 
-        // Step 3: Wrap ETH to WETH (20 USDC worth at 1:1 ratio = 0.02 ETH + buffer)
+        // Step 3: Wrap ETH to WETH (10 USDC worth at 1:1 ratio = 0.01 ETH + buffer)
         console.log("");
         console.log("Step 3: Wrapping ETH to WETH...");
-        (bool wrapSuccess,) = WETH.call{value: 0.025 ether}("");
+        (bool wrapSuccess,) = WETH.call{value: 0.015 ether}("");
         require(wrapSuccess, "WETH wrap failed");
         uint256 wethBalance = IERC20(WETH).balanceOf(deployer);
         console.log("WETH balance:", wethBalance);
@@ -102,14 +102,14 @@ contract InitializePoolWithHook is Script {
         console.log("  USDC:", usdcBalance / 1e6, "USDC");
         console.log("  WETH:", wethBalance / 1e18, "WETH");
 
-        // Step 5: Add liquidity (20 USDC worth)
+        // Step 5: Add liquidity (10 USDC worth)
         console.log("");
-        console.log("Step 5: Adding liquidity (20 USDC worth)...");
+        console.log("Step 5: Adding liquidity (10 USDC worth)...");
 
         ModifyLiquidityParams memory params = ModifyLiquidityParams({
             tickLower: -600,
             tickUpper: 600,
-            liquidityDelta: 2e6, // For 20 USDC worth of liquidity
+            liquidityDelta: 1e6, // Much smaller - will use just a few USDC
             salt: bytes32(0)
         });
 
@@ -190,4 +190,3 @@ contract InitializePoolWithHook is Script {
         return uint128(uint256(liquidityData));
     }
 }
-

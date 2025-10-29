@@ -26,7 +26,7 @@ contract AddLiquidity is Script {
     IPoolManager constant POOL_MANAGER = IPoolManager(0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408);
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    address constant SPENDSAVE_HOOK = 0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc;
+    address constant SPENDSAVE_HOOK = 0x158A7F998F14930fCB3e3f9Cb57Cf99bDf0940Cc;
     address constant STATE_VIEW = 0xF6a15a395cC62477f37ebFeFAC71dD7224296482;
 
     // Liquidity router (will be deployed if needed)
@@ -70,7 +70,7 @@ contract AddLiquidity is Script {
         // Get liquidity amount from environment or use default
         int256 liquidityAmount = int256(vm.envOr("LIQUIDITY_AMOUNT", uint256(1e6)));
         uint256 ethAmount = vm.envOr("ETH_AMOUNT", uint256(0.001 ether));
-        
+
         console.log("LIQUIDITY CONFIGURATION:");
         console.log("  Liquidity Delta:", uint256(liquidityAmount));
         console.log("  ETH to wrap:", ethAmount);
@@ -122,15 +122,12 @@ contract AddLiquidity is Script {
 
     function _displayPoolState() internal view {
         PoolId poolId = poolKey.toId();
-        
+
         console.log("POOL STATE:");
         console.log("  Pool ID:", vm.toString(PoolId.unwrap(poolId)));
-        
+
         try StateView(STATE_VIEW).getSlot0(poolId) returns (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint24 protocolFee,
-            uint24 lpFee
+            uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee
         ) {
             console.log("  SqrtPriceX96:", sqrtPriceX96);
             console.log("  Current Tick:", uint256(int256(tick)));
@@ -144,7 +141,7 @@ contract AddLiquidity is Script {
 
     function _deployLiquidityRouter() internal {
         console.log("=== STEP 1: Setup Liquidity Router ===");
-        
+
         // Try to use existing router from environment
         try vm.envAddress("LIQUIDITY_ROUTER") returns (address existingRouter) {
             liquidityRouter = PoolModifyLiquidityTest(existingRouter);
@@ -174,12 +171,8 @@ contract AddLiquidity is Script {
 
         // Build liquidity params
         // Full range liquidity: -887220 to 887220 (covers all prices)
-        ModifyLiquidityParams memory liqParams = ModifyLiquidityParams({
-            tickLower: -887220,
-            tickUpper: 887220,
-            liquidityDelta: liquidityAmount,
-            salt: 0
-        });
+        ModifyLiquidityParams memory liqParams =
+            ModifyLiquidityParams({tickLower: -887220, tickUpper: 887220, liquidityDelta: liquidityAmount, salt: 0});
 
         // Pass user address in hookData
         bytes memory hookData = abi.encode(user);
@@ -195,13 +188,13 @@ contract AddLiquidity is Script {
             console.log("LIQUIDITY ADDED SUCCESSFULLY!");
             console.log("");
             console.log("Balance Changes:");
-            
+
             int128 delta0 = int128(int256(BalanceDelta.unwrap(delta) >> 128));
             int128 delta1 = int128(int256(BalanceDelta.unwrap(delta)));
-            
+
             console.log("  USDC Delta (units):", int256(delta0));
             console.log("  WETH Delta (units):", int256(delta1));
-            
+
             // Calculate human-readable amounts
             if (delta0 < 0) {
                 uint256 usdcAdded = uint256(int256(-delta0));
@@ -219,4 +212,3 @@ contract AddLiquidity is Script {
         }
     }
 }
-

@@ -32,7 +32,7 @@ contract InitializePoolBaseSepolia is Script {
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
 
     // Your deployed hook (from Base Sepolia deployment)
-    address constant HOOK = 0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc; // NEW SpendSave Hook
+    address constant HOOK = 0x158A7F998F14930fCB3e3f9Cb57Cf99bDf0940Cc; // NEW SpendSave Hook
 
     // Test helpers
     PoolSwapTest public swapRouter;

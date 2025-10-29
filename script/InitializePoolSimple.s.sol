@@ -22,15 +22,15 @@ contract InitializePoolSimple is Script {
     IPoolManager constant POOL_MANAGER = IPoolManager(0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408);
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    address constant HOOK = 0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc;
-    
+    address constant HOOK = 0x158A7F998F14930fCB3e3f9Cb57Cf99bDf0940Cc;
+
     uint160 constant SQRT_PRICE_1_1 = 79228162514264337593543950336;
 
     function run() external {
         console.log("=== Initialize Pool WITH SpendSave Hook ===");
         console.log("Deployer:", msg.sender);
         console.log("Hook:", HOOK);
-        
+
         // Build pool key
         PoolKey memory poolKey = PoolKey({
             currency0: Currency.wrap(USDC),
@@ -39,12 +39,12 @@ contract InitializePoolSimple is Script {
             tickSpacing: 60,
             hooks: IHooks(HOOK)
         });
-        
+
         // Calculate Pool ID
         PoolId poolId = PoolId.wrap(keccak256(abi.encode(poolKey)));
         console.log("Pool ID:", uint256(PoolId.unwrap(poolId)));
 
-        vm.startBroadcast();  // Uses msg.sender when --account is provided
+        vm.startBroadcast(); // Uses msg.sender when --account is provided
 
         // Step 1: Initialize pool
         console.log("\nStep 1: Initializing pool...");
@@ -77,7 +77,7 @@ contract InitializePoolSimple is Script {
         ModifyLiquidityParams memory params = ModifyLiquidityParams({
             tickLower: -600,
             tickUpper: 600,
-            liquidityDelta: 1e6,  // Minimal liquidity
+            liquidityDelta: 1e6, // Minimal liquidity
             salt: bytes32(0)
         });
 
@@ -101,4 +101,3 @@ contract InitializePoolSimple is Script {
         console.log("Use hook:", HOOK);
     }
 }
-

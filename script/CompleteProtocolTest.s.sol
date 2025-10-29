@@ -37,7 +37,7 @@ contract CompleteProtocolTest is Script {
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
 
     //  DEPLOYED SPENDSAVE PROTOCOL (Base Sepolia - LATEST DEPLOYMENT from DEPLOYMENT_REPORT.md)
-    address constant SPENDSAVE_HOOK = 0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc;
+    address constant SPENDSAVE_HOOK = 0x158A7F998F14930fCB3e3f9Cb57Cf99bDf0940Cc;
     address constant SPENDSAVE_STORAGE = 0x12256e69595E5949E05ba48Ab0926032e1e85484;
     address constant SAVING_STRATEGY_MODULE = 0x023EaC31560eBdD6304d6EB5d3D95994c8256d04;
     address constant SAVINGS_MODULE = 0x8339b29c63563E2Da73f3F4238b9C602F9aaE14F;
@@ -50,7 +50,7 @@ contract CompleteProtocolTest is Script {
     // State
     address public user;
     PoolKey public poolKey;
-    
+
     using PoolIdLibrary for PoolKey;
 
     function run() external {
@@ -270,18 +270,18 @@ contract CompleteProtocolTest is Script {
     function _executeSwapWithHook(PoolSwapTest swapRouter) internal {
         console.log("=== STEP 5: EXECUTE SWAP WITH SPENDSAVE HOOK ===");
         console.log("");
-        
+
         // Display current pool price
         _displayPoolPrice();
-        
+
         uint256 swapAmount = 10000; // 0.01 USDC
         uint256 savingsPercentage = 1000; // 10%
         uint256 expectedSavings = swapAmount * savingsPercentage / 10000;
         uint256 actualSwapAmount = swapAmount - expectedSavings;
-        
+
         // Calculate expected output based on current pool price
         uint256 expectedOutput = _calculateExpectedOutput(actualSwapAmount, true);
-        
+
         console.log("SWAP PARAMETERS:");
         console.log("  Total Input: 0.01 USDC (10,000 units)");
         console.log("  Savings Strategy: 10%");
@@ -343,18 +343,18 @@ contract CompleteProtocolTest is Script {
             int256 wethChange = int256(wethAfter) - int256(wethBefore);
             console.log("  USDC change:", usdcChange);
             console.log("  WETH change:", wethChange);
-            
+
             console.log("");
             console.log("=== PRICE ANALYSIS ===");
             console.log("Expected WETH output:", expectedOutput);
             console.log("Actual WETH received:", uint256(wethChange));
             if (expectedOutput > 0) {
-                uint256 slippage = expectedOutput > uint256(wethChange) 
+                uint256 slippage = expectedOutput > uint256(wethChange)
                     ? ((expectedOutput - uint256(wethChange)) * 10000) / expectedOutput
                     : 0;
                 console.log("Slippage (bps):", slippage);
             }
-            
+
             // Calculate effective price paid
             uint256 actualUsdcSpent = uint256(-usdcChange);
             if (wethChange > 0) {
@@ -376,15 +376,16 @@ contract CompleteProtocolTest is Script {
      * @notice Get current pool price and liquidity information
      * @dev Fetches slot0 data from the pool to get current price
      */
-    function _getPoolPrice() internal view returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) {
+    function _getPoolPrice()
+        internal
+        view
+        returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee)
+    {
         PoolId poolId = poolKey.toId();
-        
+
         // Get slot0 from pool manager via StateView
         try StateView(STATE_VIEW).getSlot0(poolId) returns (
-            uint160 _sqrtPriceX96,
-            int24 _tick,
-            uint24 _protocolFee,
-            uint24 _lpFee
+            uint160 _sqrtPriceX96, int24 _tick, uint24 _protocolFee, uint24 _lpFee
         ) {
             return (_sqrtPriceX96, _tick, _protocolFee, _lpFee);
         } catch {
@@ -403,17 +404,17 @@ contract CompleteProtocolTest is Script {
         // sqrtPriceX96 = sqrt(price) * 2^96
         // price = (sqrtPriceX96 / 2^96)^2
         // To get price with decimals: (sqrtPriceX96^2 * 10^(decimals0)) / (2^192 * 10^(decimals1))
-        
+
         // For USDC (6 decimals) / WETH (18 decimals):
         // Price = (sqrtPriceX96^2 * 10^6) / (2^192 * 10^18)
-        
+
         uint256 sqrtPrice = uint256(sqrtPriceX96);
         uint256 priceX192 = sqrtPrice * sqrtPrice;
-        
+
         // Calculate: (priceX192 * 10^6) / (2^192 * 10^18)
         // Simplify: (priceX192 * 10^6) / (2^192 * 10^18) = (priceX192) / (2^192 * 10^12)
-        price = (priceX192 * 1e6) / (2**192) / 1e18;
-        
+        price = (priceX192 * 1e6) / (2 ** 192) / 1e18;
+
         return price;
     }
 
@@ -421,14 +422,14 @@ contract CompleteProtocolTest is Script {
      * @notice Display current pool price information
      */
     function _displayPoolPrice() internal view {
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = _getPoolPrice();
+        (uint160 sqrtPriceX96, int24 tick,, uint24 lpFee) = _getPoolPrice();
         uint256 price = _calculatePrice(sqrtPriceX96);
-        
+
         console.log("=== CURRENT POOL PRICE ===");
         console.log("SqrtPriceX96:", sqrtPriceX96);
         console.log("Current Tick:", uint256(int256(tick)));
         console.log("LP Fee (bps):", lpFee);
-        
+
         // Display price both ways
         if (price > 0) {
             console.log("Price (WETH in USDC):", price);
@@ -448,8 +449,8 @@ contract CompleteProtocolTest is Script {
      * @return expectedOut Expected output amount (before fees and slippage)
      */
     function _calculateExpectedOutput(uint256 amountIn, bool zeroForOne) internal view returns (uint256 expectedOut) {
-        (uint160 sqrtPriceX96, , , ) = _getPoolPrice();
-        
+        (uint160 sqrtPriceX96,,,) = _getPoolPrice();
+
         if (zeroForOne) {
             // Swapping USDC for WETH
             // WETH_out = USDC_in / price
@@ -470,8 +471,7 @@ contract CompleteProtocolTest is Script {
                 expectedOut = amountIn / 1e12;
             }
         }
-        
+
         return expectedOut;
     }
 }
-
