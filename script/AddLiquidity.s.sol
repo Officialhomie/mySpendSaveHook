@@ -26,7 +26,7 @@ contract AddLiquidity is Script {
     IPoolManager constant POOL_MANAGER = IPoolManager(0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408);
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    address constant SPENDSAVE_HOOK = 0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc;
+    address constant SPENDSAVE_HOOK = 0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc;
     address constant STATE_VIEW = 0xF6a15a395cC62477f37ebFeFAC71dD7224296482;
 
     // Liquidity router (will be deployed if needed)

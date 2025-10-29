@@ -22,7 +22,7 @@ contract InitializePoolSimple is Script {
     IPoolManager constant POOL_MANAGER = IPoolManager(0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408);
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    address constant HOOK = 0xc4ABf9A7bf8300086BBad164b4c47B1Afbbf00Cc;
+    address constant HOOK = 0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc;
     
     uint160 constant SQRT_PRICE_1_1 = 79228162514264337593543950336;
 
