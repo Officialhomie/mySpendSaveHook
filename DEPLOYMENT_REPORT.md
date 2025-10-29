@@ -1,6 +1,6 @@
 # SpendSave Protocol - Base Sepolia Deployment Report
 
-**Deployment Date:** October 26, 2024
+**Deployment Date:** October 29, 2024
 **Network:** Base Sepolia (Chain ID: 84532)
 **Deployer Address:** `0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09`
 **Status:** ✅ FULLY OPERATIONAL
@@ -21,108 +21,108 @@
 ## 🎯 Core Protocol Contracts
 
 ### SpendSaveHook (Main Hook)
-- **Address:** `0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc`
+- **Address:** `0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc`
 - **Description:** Main Uniswap V4 hook that intercepts swaps and enables automatic savings
 - **Hook Flags:** BEFORE_SWAP, AFTER_SWAP, BEFORE_SWAP_RETURNS_DELTA, AFTER_SWAP_RETURNS_DELTA
 - **Gas Target:** < 50,000 gas for afterSwap operations
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc)
 
 ### SpendSaveStorage
-- **Address:** `0x12256e69595E5949E05ba48Ab0926032e1e85484`
+- **Address:** `0x39d4f8457f874310973abd1450d01a1e08d52dd2`
 - **Description:** Centralized storage contract with packed storage for gas efficiency
 - **Features:** Module registry, user configurations, swap context management
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x12256e69595E5949E05ba48Ab0926032e1e85484)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x39d4f8457f874310973abd1450d01a1e08d52dd2)
 
 ### StateView
-- **Address:** `0xf6a15a395cc62477f37ebfefac71dd7224296482`
+- **Address:** `0x6ba3859954995aec70b77d3946a7743eec5f52f2`
 - **Description:** Provides gas-efficient read access to pool state data
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xf6a15a395cc62477f37ebfefac71dd7224296482)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x6ba3859954995aec70b77d3946a7743eec5f52f2)
 
 ### SpendSaveAnalytics
-- **Address:** `0xD718d5A27a29FF1cD22403426084bA0d479869a0`
+- **Address:** `0xa69c93ce3f3dedd8d9b24913aee902d55ff1ad40`
 - **Description:** Real-time portfolio tracking and pool metrics
 - **Features:** User savings tracking, pool analytics, performance metrics
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xD718d5A27a29FF1cD22403426084bA0d479869a0)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xa69c93ce3f3dedd8d9b24913aee902d55ff1ad40)
 
 ---
 
 ## 🔧 Module Contracts
 
 ### SavingStrategy Module
-- **Address:** `0x023EaC31560eBdD6304d6EB5d3D95994c8256d04`
+- **Address:** `0x3dd1c60cba1843fec09d11d2aea2245bf597b8b9`
 - **Module ID:** `keccak256("STRATEGY")`
 - **Description:** Manages savings percentages and rules
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x023EaC31560eBdD6304d6EB5d3D95994c8256d04)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x3dd1c60cba1843fec09d11d2aea2245bf597b8b9)
 
 ### Savings Module
-- **Address:** `0x8339b29c63563E2Da73f3F4238b9C602F9aaE14F`
+- **Address:** `0x3aac8be395df877bd4170c34419c234d6adc7712`
 - **Module ID:** `keccak256("SAVINGS")`
 - **Description:** Handles deposits and withdrawals
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x8339b29c63563E2Da73f3F4238b9C602F9aaE14F)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x3aac8be395df877bd4170c34419c234d6adc7712)
 
 ### DCA Module
-- **Address:** `0x7d40bf9338dfbf71be85ed10bcef18da8944df44`
+- **Address:** `0xa50ce1646c2a9086e27211e57f96ec056ed2633c`
 - **Module ID:** `keccak256("DCA")`
 - **Description:** Dollar-cost averaging execution logic
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x7d40bf9338dfbf71be85ed10bcef18da8944df44)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xa50ce1646c2a9086e27211e57f96ec056ed2633c)
 
 ### Token Module
-- **Address:** `0x445e062d21b2c9c8f95501cdb5235b7c5c2dba1e`
+- **Address:** `0x0e930f98613a8010fbba835bed5ce9755d4139b7`
 - **Module ID:** `keccak256("TOKEN")`
 - **Description:** ERC6909 token representation of savings
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x445e062d21b2c9c8f95501cdb5235b7c5c2dba1e)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x0e930f98613a8010fbba835bed5ce9755d4139b7)
 
 ### SlippageControl Module
-- **Address:** `0x6843c57c75ef9408ddabf744d8e7e9fae849b92e`
+- **Address:** `0x3ffd29c190745ff301b4dddc3587ae0b3867c65d`
 - **Module ID:** `keccak256("SLIPPAGE")`
 - **Description:** Slippage management and protection
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x6843c57c75ef9408ddabf744d8e7e9fae849b92e)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x3ffd29c190745ff301b4dddc3587ae0b3867c65d)
 
 ### DailySavings Module
-- **Address:** `0xfeeec143f5fe25c076c588981d91b1e8622361b9`
+- **Address:** `0x819a758656a6ecbe9b96c6d694e7643b9df039c8`
 - **Module ID:** `keccak256("DAILY")`
 - **Description:** Regular automated savings functionality
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xfeeec143f5fe25c076c588981d91b1e8622361b9)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x819a758656a6ecbe9b96c6d694e7643b9df039c8)
 
 ---
 
 ## 🚀 Phase 2 Enhancement Contracts
 
 ### SpendSaveDCARouter
-- **Address:** `0x8ae02ee0f17a5c1db1672164b20162a24be28b9a`
+- **Address:** `0x8e55563fad437eed9e380748f22f484941d54a94`
 - **Module ID:** `keccak256("DCA_ROUTER")`
 - **Description:** Advanced DCA routing with multi-hop paths
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x8ae02ee0f17a5c1db1672164b20162a24be28b9a)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x8e55563fad437eed9e380748f22f484941d54a94)
 
 ### SpendSaveLiquidityManager
-- **Address:** `0x58f397f42c8a73714c9a55067c6abad73b8f4af4`
+- **Address:** `0xd41624609e651f6d2cde05b55a5b4e22b6c01366`
 - **Module ID:** `keccak256("LIQUIDITY_MANAGER")`
 - **Description:** LP position management for savings
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x58f397f42c8a73714c9a55067c6abad73b8f4af4)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xd41624609e651f6d2cde05b55a5b4e22b6c01366)
 
 ### SpendSaveModuleRegistry
-- **Address:** `0xe3333ee0952dcefd24e0eea2b8bb840041f8f27b`
+- **Address:** `0x41bee6005a3865778feb7dfa7d5b12bffa72488b`
 - **Module ID:** `keccak256("MODULE_REGISTRY")`
 - **Description:** Upgradeable module management system
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xe3333ee0952dcefd24e0eea2b8bb840041f8f27b)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x41bee6005a3865778feb7dfa7d5b12bffa72488b)
 
 ### SpendSaveMulticall
-- **Address:** `0xe1b2d1ad4a1ea6d036a0873a83c7065f123f53be`
+- **Address:** `0x09de89dd04c6452d7bf2d7ba63101d1d01ff85ba`
 - **Module ID:** `keccak256("MULTICALL")`
 - **Description:** Batch operations for gas efficiency
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xe1b2d1ad4a1ea6d036a0873a83c7065f123f53be)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x09de89dd04c6452d7bf2d7ba63101d1d01ff85ba)
 
 ### SpendSaveQuoter
-- **Address:** `0xc29712bff80eea6136c4c51058ef8567c812a5aa`
+- **Address:** `0x4d5294abd73b4a1781138aa70d124e94ba02bc03`
 - **Module ID:** `keccak256("QUOTER")`
 - **Description:** Price impact preview before swaps
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0xc29712bff80eea6136c4c51058ef8567c812a5aa)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x4d5294abd73b4a1781138aa70d124e94ba02bc03)
 
 ### SpendSaveSlippageEnhanced
-- **Address:** `0x1dd10dde3e77313bb58530f31d36ecbbcbaad311`
+- **Address:** `0x6de5af843d270e45a9541805aa42e14544e4ad5c`
 - **Module ID:** `keccak256("SLIPPAGE_ENHANCED")`
 - **Description:** Enhanced slippage protection with dynamic adjustments
-- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x1dd10dde3e77313bb58530f31d36ecbbcbaad311)
+- **Deployment Tx:** [View on BaseScan](https://sepolia.basescan.org/address/0x6de5af843d270e45a9541805aa42e14544e4ad5c)
 
 ---
 
@@ -370,14 +370,14 @@ cast call 0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc \
 
 ### For Frontend Integration
 ```javascript
-const SPENDSAVE_HOOK = "0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc";
+const SPENDSAVE_HOOK = "0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc";
 const POOL_MANAGER = "0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408";
 const POOL_ID = "0xf3a769ced58af450d038abd3ec8837019c53f77560bc7ad6f58138a9010d1a31";
 const LIQUIDITY_ROUTER = "0xcBEf0Dd1aC0660adD4129c59931deDbA1f637D0b";
-const STORAGE = "0x12256e69595E5949E05ba48Ab0926032e1e85484";
-const ANALYTICS = "0xD718d5A27a29FF1cD22403426084bA0d479869a0";
-const SAVING_STRATEGY = "0x023EaC31560eBdD6304d6EB5d3D95994c8256d04";
-const SAVINGS = "0x8339b29c63563E2Da73f3F4238b9C602F9aaE14F";
+const STORAGE = "0x39d4f8457f874310973abd1450d01a1e08d52dd2";
+const ANALYTICS = "0xa69c93ce3f3dedd8d9b24913aee902d55ff1ad40";
+const SAVING_STRATEGY = "0x3dd1c60cba1843fec09d11d2aea2245bf597b8b9";
+const SAVINGS = "0x3aac8be395df877bd4170c34419c234d6adc7712";
 
 const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
 const WETH = "0x4200000000000000000000000000000000000006";
@@ -393,7 +393,7 @@ PoolKey memory poolKey = PoolKey({
     currency1: Currency.wrap(0x4200000000000000000000000000000000000006), // WETH
     fee: 3000, // 0.3%
     tickSpacing: 60,
-    hooks: IHooks(0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc) // SpendSave Hook
+    hooks: IHooks(0x158a7f998f14930fcb3e3f9cb57cf99bdf0940cc) // SpendSave Hook
 });
 ```
 
