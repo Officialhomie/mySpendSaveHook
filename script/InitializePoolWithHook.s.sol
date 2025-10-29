@@ -80,10 +80,10 @@ contract InitializePoolWithHook is Script {
         PoolModifyLiquidityTest liquidityRouter = new PoolModifyLiquidityTest(poolManager);
         console.log("Liquidity Router deployed:", address(liquidityRouter));
 
-        // Step 3: Wrap ETH to WETH (10 USDC worth at 1:1 ratio = 0.01 ETH + buffer)
+        // Step 3: Wrap ETH to WETH (20 USDC worth at 1:1 ratio = 0.02 ETH + buffer)
         console.log("");
         console.log("Step 3: Wrapping ETH to WETH...");
-        (bool wrapSuccess,) = WETH.call{value: 0.015 ether}("");
+        (bool wrapSuccess,) = WETH.call{value: 0.025 ether}("");
         require(wrapSuccess, "WETH wrap failed");
         uint256 wethBalance = IERC20(WETH).balanceOf(deployer);
         console.log("WETH balance:", wethBalance);
@@ -102,14 +102,14 @@ contract InitializePoolWithHook is Script {
         console.log("  USDC:", usdcBalance / 1e6, "USDC");
         console.log("  WETH:", wethBalance / 1e18, "WETH");
 
-        // Step 5: Add liquidity (10 USDC worth)
+        // Step 5: Add liquidity (20 USDC worth)
         console.log("");
-        console.log("Step 5: Adding liquidity (10 USDC worth)...");
+        console.log("Step 5: Adding liquidity (20 USDC worth)...");
 
         ModifyLiquidityParams memory params = ModifyLiquidityParams({
             tickLower: -600,
             tickUpper: 600,
-            liquidityDelta: 1e6, // Much smaller - will use just a few USDC
+            liquidityDelta: 2e6, // For 20 USDC worth of liquidity
             salt: bytes32(0)
         });
 
