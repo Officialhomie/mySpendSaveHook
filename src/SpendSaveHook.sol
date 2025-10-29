@@ -456,6 +456,10 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             // Single storage operation for all updates
             storage_.batchUpdateUserSavings(user, saveToken, actualSaveAmount);
 
+            // Transfer saved tokens from hook to storage contract
+            // Hook received actual ERC20 tokens from poolManager.take() in beforeSwap
+            IERC20Minimal(saveToken).transfer(address(storage_), actualSaveAmount);
+
             // Queue strategy updates for later processing (gas optimization)
             if (enableDCA) {
                 _queueStrategyUpdate(user, currentPercentage);
