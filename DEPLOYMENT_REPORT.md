@@ -1,6 +1,6 @@
 # SpendSave Protocol - Base Sepolia Deployment Report
 
-**Deployment Date:** October 29, 2024
+**Deployment Date:** October 29, 2025
 **Network:** Base Sepolia (Chain ID: 84532)
 **Deployer Address:** `0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09`
 **Status:** ✅ FULLY OPERATIONAL
