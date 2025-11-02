@@ -7,9 +7,9 @@ SpendSave is a DeFi protocol built on Uniswap V4 that enables automatic savings,
 - **Automatic Savings**: Save a percentage of tokens every time you swap
 - **Flexible Strategies**: Configure how much and which tokens to save
 - **Dollar-Cost Averaging**: Automatically convert saved tokens to a target token at optimal price points
-- **Daily Savings**: Schedule regular savings independent of swaps
+- **Daily Savings**: Schedule regular savings independently of swaps
 - **Yield Generation**: Apply different yield strategies to your saved tokens
-- **ERC6909 Representation**: Your savings are represented as tokens in the protocol
+- **ERC-6909 Representation**: Your savings are represented as tokens in the protocol
 
 ## 🎯 Live Deployment & Transaction Proof
 
@@ -22,9 +22,9 @@ For complete transaction proof with all hashes and on-chain verification, see:
 - 🏆 **18 confirmed transactions** on Base Sepolia (Block 32,802,845)
 - 💰 **Savings extraction verified**: 0 → 1,000 units (10% exact match!)
 - ✅ **100% accuracy**: Expected 1,000, got 1,000
-- 🔍 **All transactions verifiable** on BaseScan
+- 🔍 **All transactions are verifiable** on BaseScan
 
-**Most Important Transaction (Savings Extraction):**
+**Most Important Transaction ( Extraction):**
 ```
 TX: 0x4f19214ca298d8c0af1bb3da729300ec2ca62c48324fa33fb7ddcb64b1a14c8d
 View: https://sepolia.basescan.org/tx/0x4f19214ca298d8c0af1bb3da729300ec2ca62c48324fa33fb7ddcb64b1a14c8d
@@ -46,7 +46,7 @@ SpendSave is built with a modular architecture consisting of:
   - **SavingStrategy**: Controls savings preferences and rules
   - **Savings**: Manages deposits and withdrawals
   - **DCA**: Handles dollar-cost averaging execution
-  - **Token**: Represents savings as ERC6909 tokens
+  - **Token**: Represents savings as ERC-6909 tokens
   - **SlippageControl**: Controls slippage parameters for operations
   - **DailySavings**: Manages regular savings plans
   - **Yield**: Applies yield strategies to saved tokens (coming soon)
@@ -55,7 +55,7 @@ SpendSave is built with a modular architecture consisting of:
 
 1. **Hook Integration**: SpendSave hooks into Uniswap V4 swap functions
 2. **Savings Diversion**: When a user swaps tokens, a portion is diverted to savings based on their preferences
-3. **Strategy Application**: The protocol applies the user's configured saving strategy
+3. **Strategy Application**: The protocol applies the user's configured savings strategy
 4. **Optional DCA**: Saved tokens can be automatically converted to a target token
 5. **Yield Application**: Tokens can be deployed to yield-generating protocols
 6. **Withdrawals**: Users can withdraw their savings at any time (subject to optional timelocks)
@@ -83,7 +83,7 @@ SpendSave leverages Uniswap V4 hooks to intercept transactions without modifying
 
 Key technical aspects:
 - Uniswap V4 hook integration
-- ERC6909 token standard for savings representation
+- ERC-6909 token standard for savings representation
 - Gas-optimized execution for Ethereum mainnet
 - Comprehensive security measures including reentrancy protection
 
