@@ -1,0 +1,435 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 34.09s
+Compiler run successful with warnings:
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+    --> src/SpendSaveStorage.sol:1015:79:
+     |
+1015 |     function setSwapContextWithTick(address user, SwapContext memory context, int24 currentTick) external onlyModule {
+     |                                                                               ^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SpendSaveAnalytics.sol:239:36:
+    |
+239 |             (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = stateView.getSlot0(poolId);
+    |                                    ^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SpendSaveAnalytics.sol:239:48:
+    |
+239 |             (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = stateView.getSlot0(poolId);
+    |                                                ^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SpendSaveAnalytics.sol:239:68:
+    |
+239 |             (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = stateView.getSlot0(poolId);
+    |                                                                    ^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SavingStrategy.sol:388:45:
+    |
+388 |     function beforeSwap(address actualUser, PoolKey calldata key, SwapParams calldata params)
+    |                                             ^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SavingStrategy.sol:388:67:
+    |
+388 |     function beforeSwap(address actualUser, PoolKey calldata key, SwapParams calldata params)
+    |                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SavingStrategy.sol:396:30:
+    |
+396 |         (uint256 percentage, bool roundUpSavings, uint8 savingsTokenType, bool enableDCA) =
+    |                              ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SavingStrategy.sol:396:75:
+    |
+396 |         (uint256 percentage, bool roundUpSavings, uint8 savingsTokenType, bool enableDCA) =
+    |                                                                           ^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SavingStrategy.sol:579:47:
+    |
+579 |     function getUserSavingsGoal(address user, address token) external view returns (uint256 goalAmount) {
+    |                                               ^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:272:75:
+    |
+272 |     function _processSavings(address user, address token, uint256 amount, SpendSaveStorage.SwapContext memory context)
+    |                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:315:9:
+    |
+315 |         SpendSaveStorage.PackedUserConfig memory packedConfig
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:733:35:
+    |
+733 |         returns (uint256 balance, uint256 totalSaved, uint256 lastSaveTime, bool isLocked, uint256 unlockTime)
+    |                                   ^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:733:55:
+    |
+733 |         returns (uint256 balance, uint256 totalSaved, uint256 lastSaveTime, bool isLocked, uint256 unlockTime)
+    |                                                       ^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/Savings.sol:814:65:
+    |
+814 |     function _checkGoalAchievement(address user, address token, uint256 newSavings) internal {
+    |                                                                 ^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/DCA.sol:217:59:
+    |
+217 |     function enableDCA(address user, address targetToken, uint256 minAmount, uint256 maxSlippage)
+    |                                                           ^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/DCA.sol:276:9:
+    |
+276 |         address targetToken
+    |         ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:467:24:
+    |
+467 |         (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) = storage_.getUserDcaConfig(user);
+    |                        ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:480:17:
+    |
+480 |                 int24 executionTick,
+    |                 ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:544:28:
+    |
+544 |             (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) =
+    |                            ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:554:21:
+    |
+554 |                     int24 executionTick,
+    |                     ^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/DCA.sol:719:73:
+    |
+719 |     function calculateOptimalDCAAmount(address user, address fromToken, address toToken, uint256 availableAmount)
+    |                                                                         ^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:870:44:
+    |
+870 |         (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) =
+    |                                            ^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:870:64:
+    |
+870 |         (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) =
+    |                                                                ^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:957:13:
+    |
+957 |             address fromToken,
+    |             ^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:960:13:
+    |
+960 |             int24 executionTick,
+    |             ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:963:13:
+    |
+963 |             uint256 customSlippageTolerance
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/DCA.sol:967:9:
+    |
+967 |         SpendSaveStorage.DCAExecution memory dca = SpendSaveStorage.DCAExecution({
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+    --> src/DCA.sol:1008:13:
+     |
+1008 |             uint256 amount,
+     |             ^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+    --> src/DCA.sol:1134:9:
+     |
+1134 |         address fromToken,
+     |         ^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+    --> src/DCA.sol:1137:9:
+     |
+1137 |         uint256 receivedAmount,
+     |         ^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+    --> src/DCA.sol:1368:54:
+     |
+1368 |     function calculateDCAExecutionTick(address user, PoolKey memory poolKey, int24 currentTick, bool zeroForOne)
+     |                                                      ^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+    --> src/DCA.sol:1391:13:
+     |
+1391 |             uint256 amount,
+     |             ^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+    --> src/DCA.sol:1395:13:
+     |
+1395 |             uint256 customSlippageTolerance
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SlippageControl.sol:159:9:
+    |
+159 |         address fromToken,
+    |         ^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SpendSaveDCARouter.sol:512:84:
+    |
+512 |     function _isPathBetter(PathKey[] memory newPath, PathKey[] memory currentBest, uint256 amount)
+    |                                                                                    ^^^^^^^^^^^^^^
+
+Warning (5667): Unused try/catch parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SpendSaveLiquidityManager.sol:238:24:
+    |
+238 |             ) returns (uint256 tokenId, uint128 liquidity) {
+    |                        ^^^^^^^^^^^^^^^
+
+Warning (5667): Unused try/catch parameter. Remove or comment out the variable name to silence this warning.
+   --> src/SpendSaveLiquidityManager.sol:238:41:
+    |
+238 |             ) returns (uint256 tokenId, uint128 liquidity) {
+    |                                         ^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SpendSaveLiquidityManager.sol:298:34:
+    |
+298 |         (PoolKey memory poolKey, PositionInfo positionInfo) = positionManager.getPoolAndPositionInfo(tokenId);
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SpendSaveLiquidityManager.sol:632:34:
+    |
+632 |         (PoolKey memory poolKey, PositionInfo positionInfo) = positionManager.getPoolAndPositionInfo(tokenId);
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/SpendSaveLiquidityManager.sol:720:34:
+    |
+720 |         (PoolKey memory poolKey, PositionInfo positionInfo) = positionManager.getPoolAndPositionInfo(tokenId);
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to view
+   --> src/SpendSaveHook.sol:857:5:
+    |
+857 |     function emergencyPause() external {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to view
+   --> src/SpendSaveAnalytics.sol:234:5:
+    |
+234 |     function _getDirectPoolPrice(address token, uint256 amount, address baseToken) internal returns (uint256) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to view
+   --> src/DCA.sol:859:5:
+    |
+859 |     function _calculateMaxAmountForSlippage(address fromToken, address toToken, uint256 maxSlippage)
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> src/SpendSaveDCARouter.sol:368:5:
+    |
+368 |     function _tryHopPath(address fromToken, address toToken, address intermediary)
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to view
+   --> src/SpendSaveDCARouter.sol:479:5:
+    |
+479 |     function _hasMinimumPoolLiquidity(address token) internal returns (bool hasLiquidity) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> src/SpendSaveDCARouter.sol:512:5:
+    |
+512 |     function _isPathBetter(PathKey[] memory newPath, PathKey[] memory currentBest, uint256 amount)
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> src/SpendSaveMulticall.sol:360:5:
+    |
+360 |     function estimateBatchGas(bytes[] calldata calls) external view returns (uint256 estimatedGas) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to pure
+  --> src/SpendSaveSlippageEnhanced.sol:92:5:
+   |
+92 |     function _adjustForTokenVolatility(uint256 baseSlippage, address token) internal view returns (uint256) {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to view
+   --> script/DeploySpendSave.s.sol:671:5:
+    |
+671 |     function _initializeHook() internal {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Script ran successfully.
+
+== Logs ==
+  Using private key deployment method
+  Network: Base Sepolia
+  Pool Manager: 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408
+  Position Manager: 0x33E61BCa1cDa979E349Bf14840BD178Cc7d0F55D
+  Quoter: 0xf3A39C86dbd13C45365E57FB90fe413371F65AF8
+  Deployer: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a
+  Owner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a
+  Treasury: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  === SpendSave Protocol Deployment Starting ===
+  
+--- Step 1: Deploying SpendSaveStorage ---
+  SpendSaveStorage deployed at: 0x2304C17AD225bE17F968dE529CFd96A80D38f467
+  - Pool Manager reference: 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408
+  - Owner: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  - Treasury: 0x9aC2d5a0A0E88D459Ecfb68Bcbb94DFD7cdF1f09
+  
+--- Step 2: Deploying StateView ---
+  StateView deployed at: 0xa9f173D7260788701C71427C9Ecc76d553d8ffA3
+  - Pool Manager reference: 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408
+  
+--- Step 3: Deploying All Modules ---
+  SavingStrategy deployed at: 0xA6cd992b2ff937dFD64083e2E2339c9085B89817
+  Savings deployed at: 0xd7262c0FC4C71558811c058cf38DF549bF6feFf7
+  DCA deployed at: 0xbcf392f10Afe32Dce990ED31e9e042df141E85f8
+  Token deployed at: 0x99C3714abA7d1C095d1F4f55DBc0CcE94d4513e1
+  SlippageControl deployed at: 0xA3a085364776a5DbB8ed34ef0B5e47BDf68F4285
+  DailySavings deployed at: 0xBE830eB177Cd33e08712FA03043f9F8Adf98DC89
+  
+--- Step 4: Deploying SpendSaveHook ---
+  Mining hook address with required flags...
+  HookDeployer deployed at: 0x423aFC1a37315372921f194Da42F02bc8C1B117B
+  Found valid hook address: 0x9361472e4e1939179ac84E87226548C832EaC0Cc
+  Salt for deployment: 0x0000000000000000000000000000000000000000000000000000000000002ecb
+  SpendSaveHook deployed at: 0x9361472e4e1939179ac84E87226548C832EaC0Cc
+  Hook flags verified: 204
+  
+--- Step 5: Deploying Analytics ---
+  SpendSaveAnalytics deployed at: 0x005F6A92EEe566fb8B09a2B9024DEF8D170B2300
+  - Storage reference: 0x2304C17AD225bE17F968dE529CFd96A80D38f467
+  - StateView reference: 0xa9f173D7260788701C71427C9Ecc76d553d8ffA3
+  - Pool Manager reference: 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408
+  
+--- Step 6: Initializing Storage ---
+  Storage initialized with hook reference
+  - Hook address in storage: 0x9361472e4e1939179ac84E87226548C832EaC0Cc
+  
+--- Step 7: Deploying Phase 2 Enhancement Contracts ---
+  SpendSaveDCARouter deployed at: 0x8e55563fAd437EED9E380748F22F484941d54a94
+  SpendSaveLiquidityManager deployed at: 0xd41624609e651F6D2cDE05B55A5b4e22B6C01366
+  SpendSaveModuleRegistry deployed at: 0x41bEE6005A3865778FEB7dFA7d5B12bfFA72488b
+  SpendSaveMulticall deployed at: 0x09DE89dd04C6452d7bF2d7bA63101d1D01Ff85Ba
+  SpendSaveQuoter deployed at: 0x4D5294abD73b4a1781138AA70D124e94ba02Bc03
+  SpendSaveSlippageEnhanced deployed at: 0x6DE5AF843d270E45A9541805aA42E14544E4AD5c
+  
+--- Step 8: Initializing Modules ---
+  SavingStrategy module initialized
+  Savings module initialized
+  DCA module initialized
+  Token module initialized
+  SlippageControl module initialized
+  DailySavings module initialized
+  
+--- Step 9: Registering Modules ---
+  All modules registered in storage registry
+  
+--- Step 10: Initializing Hook ---
+  Hook ready to coordinate with all modules via registry
+  
+--- Step 11: Setting Cross-Module References ---
+  Cross-module references configured
+  
+--- Step 12: Verifying Deployment ---
+  Running comprehensive deployment verification...
+  All deployment verifications passed
+  ===========================================================
+                   SPENDSAVE DEPLOYMENT SUMMARY              
+  ===========================================================
+  Network:        Base Sepolia
+  Pool Manager:   0x05e73354cfdd6745c338b50bcfdfa3aa6fa03408
+  -----------------------------------------------------------
+  CORE CONTRACTS:
+  SpendSaveStorage: 0x2304c17ad225be17f968de529cfd96a80d38f467
+  SpendSaveHook:    0x9361472e4e1939179ac84e87226548c832eac0cc
+  StateView:        0xa9f173d7260788701c71427c9ecc76d553d8ffa3
+  Analytics:        0x005f6a92eee566fb8b09a2b9024def8d170b2300
+  -----------------------------------------------------------
+  CORE MODULES:
+  SavingStrategy:   0xa6cd992b2ff937dfd64083e2e2339c9085b89817
+  Savings:          0xd7262c0fc4c71558811c058cf38df549bf6feff7
+  DCA:              0xbcf392f10afe32dce990ed31e9e042df141e85f8
+  Token:            0x99c3714aba7d1c095d1f4f55dbc0cce94d4513e1
+  SlippageControl:  0xa3a085364776a5dbb8ed34ef0b5e47bdf68f4285
+  DailySavings:     0xbe830eb177cd33e08712fa03043f9f8adf98dc89
+  -----------------------------------------------------------
+  PHASE 2 ENHANCEMENT CONTRACTS:
+  DCA Router:       0x8e55563fad437eed9e380748f22f484941d54a94
+  Liquidity Manager:0xd41624609e651f6d2cde05b55a5b4e22b6c01366
+  Module Registry:  0x41bee6005a3865778feb7dfa7d5b12bffa72488b
+  Multicall:        0x09de89dd04c6452d7bf2d7ba63101d1d01ff85ba
+  Quoter:           0x4d5294abd73b4a1781138aa70d124e94ba02bc03
+  Slippage Enhanced:0x6de5af843d270e45a9541805aa42e14544e4ad5c
+  -----------------------------------------------------------
+  GAS OPTIMIZATIONS:
+  Packed Storage:        ENABLED
+  Transient Storage:     ENABLED
+  Batch Operations:      ENABLED
+  Target AfterSwap Gas:  < 50,000
+  Hook Address Mining:   COMPLETED
+  ===========================================================
+  
+  >> SpendSave Protocol deployment completed successfully!
+  >> Gas-efficient automated savings and DCA system ready.
+  >> All modules initialized and linked.
+  >> Optimized for <50k gas afterSwap execution.
+  === SpendSave Protocol Deployment Complete ===
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 84532
+
+Estimated gas price: 0.001000118 gwei
+
+Estimated total gas used for script: 49432419
+
+Estimated amount required: 0.000049438252025442 ETH
+
+==========================
+
+Transactions saved to: /Users/mac/mySpendSaveHook/broadcast/DeploySpendSave.s.sol/84532/run-latest.json
+
+Sensitive values saved to: /Users/mac/mySpendSaveHook/cache/DeploySpendSave.s.sol/84532/run-latest.json
+
+Error: Device not configured (os error 6)
