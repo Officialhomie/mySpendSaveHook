@@ -126,9 +126,8 @@ contract AddLiquidity is Script {
         console.log("POOL STATE:");
         console.log("  Pool ID:", vm.toString(PoolId.unwrap(poolId)));
 
-        try StateView(STATE_VIEW).getSlot0(poolId) returns (
-            uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee
-        ) {
+        try StateView(STATE_VIEW)
+            .getSlot0(poolId) returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) {
             console.log("  SqrtPriceX96:", sqrtPriceX96);
             console.log("  Current Tick:", uint256(int256(tick)));
             console.log("  Protocol Fee:", protocolFee);
