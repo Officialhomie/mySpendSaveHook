@@ -149,15 +149,16 @@ contract CompleteProtocolTest is Script {
         console.log("Setting 10% INPUT savings for user...");
 
         // ACTUALLY call the SavingStrategy contract to set strategy
-        try SavingStrategy(SAVING_STRATEGY_MODULE).setSavingStrategy(
-            user,
-            1000, // 10% (1000 basis points)
-            0, // no auto increment
-            10000, // max 100%
-            false, // no rounding
-            SpendSaveStorage.SavingsTokenType.INPUT,
-            address(0)
-        ) {
+        try SavingStrategy(SAVING_STRATEGY_MODULE)
+            .setSavingStrategy(
+                user,
+                1000, // 10% (1000 basis points)
+                0, // no auto increment
+                10000, // max 100%
+                false, // no rounding
+                SpendSaveStorage.SavingsTokenType.INPUT,
+                address(0)
+            ) {
             console.log("Strategy configured successfully!");
 
             // Verify it was set
@@ -171,15 +172,16 @@ contract CompleteProtocolTest is Script {
             console.log("Workaround: Using direct storage access...");
 
             // Fallback: Try direct storage call
-            try SpendSaveStorage(SPENDSAVE_STORAGE).setPackedUserConfig(
-                user,
-                1000, // 10%
-                0, // no auto increment
-                10000, // max
-                false, // no rounding
-                false, // no DCA
-                uint8(SpendSaveStorage.SavingsTokenType.INPUT)
-            ) {
+            try SpendSaveStorage(SPENDSAVE_STORAGE)
+                .setPackedUserConfig(
+                    user,
+                    1000, // 10%
+                    0, // no auto increment
+                    10000, // max
+                    false, // no rounding
+                    false, // no DCA
+                    uint8(SpendSaveStorage.SavingsTokenType.INPUT)
+                ) {
                 console.log("Strategy set via storage (fallback method)");
             } catch {
                 console.log("Note: Strategy may need to be set by authorized address");
@@ -384,9 +386,8 @@ contract CompleteProtocolTest is Script {
         PoolId poolId = poolKey.toId();
 
         // Get slot0 from pool manager via StateView
-        try StateView(STATE_VIEW).getSlot0(poolId) returns (
-            uint160 _sqrtPriceX96, int24 _tick, uint24 _protocolFee, uint24 _lpFee
-        ) {
+        try StateView(STATE_VIEW)
+            .getSlot0(poolId) returns (uint160 _sqrtPriceX96, int24 _tick, uint24 _protocolFee, uint24 _lpFee) {
             return (_sqrtPriceX96, _tick, _protocolFee, _lpFee);
         } catch {
             // If StateView fails, return default values
