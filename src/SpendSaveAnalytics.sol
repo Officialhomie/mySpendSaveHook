@@ -7,6 +7,7 @@ import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "lib/v4-periphery/lib/v4-core/src/types/PoolId.sol";
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
+import {PoolKeyHelper} from "./PoolKeyHelper.sol";
 
 /**
  * @title SpendSaveAnalytics
@@ -70,7 +71,9 @@ contract SpendSaveAnalytics {
         uint256 queueLength = storage_.getDcaQueueLength(user);
 
         for (uint256 i = 0; i < queueLength; i++) {
-            try storage_.getDcaQueueItem(user, i) returns (
+            try storage_.getDcaQueueItem(
+                user, i
+            ) returns (
                 address fromToken,
                 address toToken,
                 uint256 amount,
@@ -207,10 +210,7 @@ contract SpendSaveAnalytics {
      * @param baseToken The base currency (USDC)
      * @return valueUSD The USD value in base token units
      */
-    function _getPriceFromV4Pool(address token, uint256 amount, address baseToken)
-        internal
-        returns (uint256 valueUSD)
-    {
+    function _getPriceFromV4Pool(address token, uint256 amount, address baseToken) internal returns (uint256 valueUSD) {
         // Try direct pool first (token/USDC)
         uint256 directPrice = _getDirectPoolPrice(token, amount, baseToken);
         if (directPrice > 0) {
@@ -232,23 +232,20 @@ contract SpendSaveAnalytics {
      * @dev Uses StateView for gas-efficient pool state reading
      */
     function _getDirectPoolPrice(address token, uint256 amount, address baseToken) internal returns (uint256) {
-        try storage_.getPoolKey(token, baseToken) returns (PoolKey memory poolKey) {
-            PoolId poolId = poolKey.toId();
+        PoolKey memory poolKey = PoolKeyHelper.createPoolKey(token, baseToken);
+        PoolId poolId = poolKey.toId();
 
-            // Get pool state using StateView for optimized access
-            (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = stateView.getSlot0(poolId);
+        // Get pool state using StateView for optimized access
+        (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee) = stateView.getSlot0(poolId);
 
-            if (sqrtPriceX96 == 0) return 0; // Pool doesn't exist
+        if (sqrtPriceX96 == 0) return 0; // Pool doesn't exist
 
-            // Verify pool has sufficient liquidity for reliable pricing
-            uint128 liquidity = stateView.getLiquidity(poolId);
-            if (liquidity < 10000) return 0; // Minimum liquidity threshold for reliable pricing
+        // Verify pool has sufficient liquidity for reliable pricing
+        uint128 liquidity = stateView.getLiquidity(poolId);
+        if (liquidity < 10000) return 0; // Minimum liquidity threshold for reliable pricing
 
-            // Calculate price based on current pool state
-            return _calculatePriceFromSqrtPrice(token, baseToken, amount, sqrtPriceX96);
-        } catch {
-            return 0; // Pool creation failed or doesn't exist
-        }
+        // Calculate price based on current pool state
+        return _calculatePriceFromSqrtPrice(token, baseToken, amount, sqrtPriceX96);
     }
 
     /**
@@ -260,23 +257,20 @@ contract SpendSaveAnalytics {
         returns (uint256)
     {
         // Step 1: Get token -> WETH conversion rate
-        try storage_.getPoolKey(token, intermediateToken) returns (PoolKey memory poolKey1) {
-            PoolId poolId1 = poolKey1.toId();
+        PoolKey memory poolKey1 = PoolKeyHelper.createPoolKey(token, intermediateToken);
+        PoolId poolId1 = poolKey1.toId();
 
-            (uint160 sqrtPrice1,,,) = stateView.getSlot0(poolId1);
-            if (sqrtPrice1 == 0) return 0;
+        (uint160 sqrtPrice1,,,) = stateView.getSlot0(poolId1);
+        if (sqrtPrice1 == 0) return 0;
 
-            uint128 liquidity1 = stateView.getLiquidity(poolId1);
-            if (liquidity1 < 10000) return 0;
+        uint128 liquidity1 = stateView.getLiquidity(poolId1);
+        if (liquidity1 < 10000) return 0;
 
-            uint256 wethAmount = _calculatePriceFromSqrtPrice(token, intermediateToken, amount, sqrtPrice1);
-            if (wethAmount == 0) return 0;
+        uint256 wethAmount = _calculatePriceFromSqrtPrice(token, intermediateToken, amount, sqrtPrice1);
+        if (wethAmount == 0) return 0;
 
-            // Step 2: Get WETH -> USDC conversion rate
-            return _getDirectPoolPrice(intermediateToken, wethAmount, baseToken);
-        } catch {
-            return 0; // Indirect routing failed
-        }
+        // Step 2: Get WETH -> USDC conversion rate
+        return _getDirectPoolPrice(intermediateToken, wethAmount, baseToken);
     }
 
     /**
