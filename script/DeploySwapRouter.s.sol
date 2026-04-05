@@ -15,7 +15,7 @@ contract DeploySwapRouter is Script {
     address constant POOL_MANAGER_SEPOLIA = 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408;
 
     // Base Mainnet addresses
-    address constant POOL_MANAGER_MAINNET = 0x7Da1D65F8B249183667cdE74C5CBD46dD38AA829;
+    address constant POOL_MANAGER_MAINNET = 0x498581fF718922c3f8e6A244956aF099B2652b2b;
 
     function run() external {
         // Get deployer info from msg.sender (works with --account flag)
