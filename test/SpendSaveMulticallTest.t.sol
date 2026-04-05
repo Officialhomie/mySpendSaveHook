@@ -172,13 +172,14 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
-        positionManager = new PositionManager(
-            manager,
-            permit2,
-            100_000, // unsubscribeGasLimit
-            positionDescriptor,
-            weth9
-        );
+        positionManager =
+            new PositionManager(
+                manager,
+                permit2,
+                100_000, // unsubscribeGasLimit
+                positionDescriptor,
+                weth9
+            );
 
         console.log("V4 Periphery deployed successfully");
     }
@@ -580,21 +581,15 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
 
         // Deposit operations
         savingsParams[0] = SpendSaveMulticall.SavingsBatchParams({
-            token: address(tokenA),
-            amount: BATCH_AMOUNT,
-            operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
+            token: address(tokenA), amount: BATCH_AMOUNT, operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
         });
 
         savingsParams[1] = SpendSaveMulticall.SavingsBatchParams({
-            token: address(tokenB),
-            amount: BATCH_AMOUNT,
-            operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
+            token: address(tokenB), amount: BATCH_AMOUNT, operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
         });
 
         savingsParams[2] = SpendSaveMulticall.SavingsBatchParams({
-            token: address(tokenC),
-            amount: BATCH_AMOUNT,
-            operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
+            token: address(tokenC), amount: BATCH_AMOUNT, operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
         });
 
         // Execute batch savings
@@ -618,9 +613,7 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         SpendSaveMulticall.SavingsBatchParams[] memory depositParams = new SpendSaveMulticall.SavingsBatchParams[](1);
 
         depositParams[0] = SpendSaveMulticall.SavingsBatchParams({
-            token: address(tokenA),
-            amount: BATCH_AMOUNT,
-            operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
+            token: address(tokenA), amount: BATCH_AMOUNT, operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
         });
 
         vm.prank(batchExecutor);
@@ -972,15 +965,11 @@ contract SpendSaveMulticallTest is Test, Deployers, DeployPermit2 {
         SpendSaveMulticall.SavingsBatchParams[] memory savingsParams = new SpendSaveMulticall.SavingsBatchParams[](2);
 
         savingsParams[0] = SpendSaveMulticall.SavingsBatchParams({
-            token: address(tokenA),
-            amount: BATCH_AMOUNT,
-            operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
+            token: address(tokenA), amount: BATCH_AMOUNT, operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
         });
 
         savingsParams[1] = SpendSaveMulticall.SavingsBatchParams({
-            token: address(tokenB),
-            amount: BATCH_AMOUNT,
-            operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
+            token: address(tokenB), amount: BATCH_AMOUNT, operationType: SpendSaveMulticall.SavingsOperationType.DEPOSIT
         });
 
         // 3. Execute batch savings
