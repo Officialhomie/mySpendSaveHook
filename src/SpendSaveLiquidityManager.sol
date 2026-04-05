@@ -12,10 +12,12 @@ import {FullMath} from "lib/v4-periphery/lib/v4-core/src/libraries/FullMath.sol"
 import {FixedPoint96} from "lib/v4-periphery/lib/v4-core/src/libraries/FixedPoint96.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    SafeERC20
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ReentrancyGuard
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 import {IPositionManager} from "lib/v4-periphery/src/interfaces/IPositionManager.sol";
 import {PositionInfo, PositionInfoLibrary} from "lib/v4-periphery/src/libraries/PositionInfoLibrary.sol";
@@ -574,8 +576,9 @@ contract SpendSaveLiquidityManager is ReentrancyGuard {
         permit2.approve(token1, address(positionManager), type(uint160).max, type(uint48).max);
 
         // Build V4 action sequence: MINT_POSITION + CLOSE_CURRENCY (x2)
-        bytes memory actions =
-            abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY));
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.MINT_POSITION), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY)
+        );
 
         bytes[] memory params = new bytes[](3);
 
