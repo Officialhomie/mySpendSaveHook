@@ -3,6 +3,9 @@ src = "src"
 out = "out"
 libs = ["lib"]
 optimizer = true
+invariant_fail_on_revert = true
+invariant_depth = 64
+invariant_runs = 256
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
@@ -10,7 +13,7 @@ optimizer = true
 
 solc_version = '0.8.26'
 evm_version = "cancun"
-optimizer_runs = 200
+optimizer_runs = 1
 via_ir = true
 ffi = true
 
@@ -67,6 +70,12 @@ verbosity = 1
 via_ir = false
 optimizer = false
 # Usage: FOUNDRY_PROFILE=coverage forge coverage
+
+[profile.invariant]
+verbosity = 3
+invariant_runs = 512
+match_path = "test/invariant/*"
+
 
 [rpc_endpoints]
 base_sepolia = "https://sepolia.base.org"
