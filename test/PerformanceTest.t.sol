@@ -156,13 +156,14 @@ contract PerformanceTest is Test, Deployers, DeployPermit2 {
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
-        positionManager = new PositionManager(
-            manager,
-            permit2,
-            100_000, // unsubscribeGasLimit
-            positionDescriptor,
-            weth9
-        );
+        positionManager =
+            new PositionManager(
+                manager,
+                permit2,
+                100_000, // unsubscribeGasLimit
+                positionDescriptor,
+                weth9
+            );
 
         console.log("V4 Periphery deployed successfully");
     }
