@@ -2,8 +2,9 @@
 pragma solidity 0.8.26;
 
 import {Multicall_v4} from "lib/v4-periphery/src/base/Multicall_v4.sol";
-import {ReentrancyGuard} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {IDCAModule} from "./interfaces/IDCAModule.sol";
 import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
@@ -189,39 +190,35 @@ contract SpendSaveMulticall is Multicall_v4, ReentrancyGuard {
         require(users.length == savingsParams.length, "Array length mismatch");
         require(users.length > 0, "Empty batch");
 
-        bytes[] memory calls = new bytes[](users.length);
+        results = new bytes[](users.length);
 
-        // Prepare savings operation calls based on operation type
         for (uint256 i = 0; i < users.length; i++) {
             if (savingsParams[i].operationType == SavingsOperationType.DEPOSIT) {
-                // Create empty context for batch processing
-                SpendSaveStorage.SwapContext memory emptyContext;
-                calls[i] = abi.encodeWithSelector(
-                    ISavingsModule.processSavings.selector,
-                    users[i],
-                    savingsParams[i].token,
-                    savingsParams[i].amount,
-                    emptyContext
-                );
+                // Directly update savings in storage (multicall is a registered module)
+                try storage_.increaseSavings(users[i], savingsParams[i].token, savingsParams[i].amount) {
+                    results[i] = abi.encode(true);
+                } catch {
+                    results[i] = new bytes(0);
+                }
             } else if (savingsParams[i].operationType == SavingsOperationType.WITHDRAW) {
-                calls[i] = abi.encodeWithSelector(
-                    ISavingsModule.withdraw.selector,
-                    users[i],
-                    savingsParams[i].token,
-                    savingsParams[i].amount,
-                    false // force = false
-                );
+                ISavingsModule savingsModule = ISavingsModule(storage_.getModule(keccak256("SAVINGS")));
+                try savingsModule.withdraw(users[i], savingsParams[i].token, savingsParams[i].amount, false) {
+                    results[i] = abi.encode(true);
+                } catch {
+                    results[i] = new bytes(0);
+                }
             } else if (savingsParams[i].operationType == SavingsOperationType.SET_GOAL) {
-                calls[i] = abi.encodeWithSelector(
-                    ISavingStrategyModule.setSavingsGoal.selector,
-                    users[i],
-                    savingsParams[i].token,
-                    savingsParams[i].amount
-                );
+                ISavingStrategyModule strategyModule =
+                    ISavingStrategyModule(storage_.getModule(keccak256("STRATEGY")));
+                try strategyModule.setSavingsGoal(users[i], savingsParams[i].token, savingsParams[i].amount) {
+                    results[i] = abi.encode(true);
+                } catch {
+                    results[i] = new bytes(0);
+                }
             }
         }
 
-        return this.batchExecuteWithRefund(calls, false);
+        return results;
     }
 
     /**
