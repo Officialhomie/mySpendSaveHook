@@ -307,8 +307,7 @@ contract DailySavingsAdvancedTest is Test, Deployers {
         // Verify configuration
         (
             bool enabled,
-            uint256 lastExecutionTime,
-            ,
+            uint256 lastExecutionTime,,
             uint256 goalAmount,
             uint256 currentAmount,
             uint256 penaltyBps,
