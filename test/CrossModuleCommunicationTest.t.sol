@@ -130,6 +130,16 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         // Setup test accounts
         _setupTestAccounts();
 
+        // Initialize pool so LiquidityManager tests can query pool state
+        PoolKey memory lpPoolKey = PoolKey({
+            currency0: Currency.wrap(address(tokenA)),
+            currency1: Currency.wrap(address(tokenB)),
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: IHooks(address(hook))
+        });
+        manager.initialize(lpPoolKey, SQRT_PRICE_1_1);
+
         console.log("=== P5 ADVANCED: CROSS-MODULE TESTS SETUP COMPLETE ===");
     }
 
@@ -151,13 +161,14 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
-        positionManager = new PositionManager(
-            manager,
-            permit2,
-            100_000, // unsubscribeGasLimit
-            positionDescriptor,
-            weth9
-        );
+        positionManager =
+            new PositionManager(
+                manager,
+                permit2,
+                100_000, // unsubscribeGasLimit
+                positionDescriptor,
+                weth9
+            );
 
         console.log("V4 Periphery deployed successfully");
     }
@@ -456,6 +467,9 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
     function testCrossModule_SavingsToTokenModule() public {
         console.log("\n=== P5 ADVANCED: Testing Savings to Token Module Data Flow ===");
 
+        // Capture balance before deposit to handle state from prior subtests in comprehensive report
+        uint256 balanceBefore = tokenModule.balanceOf(alice, tokenAId);
+
         // Deposit savings through proper module flow (automatically mints tokens)
         uint256 depositAmount = 50 ether;
 
@@ -470,9 +484,9 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         uint256 fee = (depositAmount * 10) / 10000; // 0.1% treasury fee
         uint256 netDepositAmount = depositAmount - fee;
 
-        // Verify savings token was automatically minted by Savings module
+        // Verify savings token was automatically minted by Savings module (relative to balance before)
         uint256 aliceTokenBalance = tokenModule.balanceOf(alice, tokenAId);
-        assertEq(aliceTokenBalance, INITIAL_SAVINGS_NET + netDepositAmount, "Savings token should be minted");
+        assertEq(aliceTokenBalance, balanceBefore + netDepositAmount, "Savings token should be minted");
 
         // Test the reverse - token burning when withdrawing savings
         uint256 withdrawAmount = 25 ether;
@@ -483,7 +497,7 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         uint256 aliceTokenBalanceAfter = tokenModule.balanceOf(alice, tokenAId);
         assertEq(
             aliceTokenBalanceAfter,
-            INITIAL_SAVINGS_NET + netDepositAmount - withdrawAmount,
+            aliceTokenBalance - withdrawAmount,
             "Savings token should be burned"
         );
 
@@ -547,6 +561,10 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         // Add more savings for LP conversion through proper module
         uint256 additionalSavings = 50 ether;
 
+        // Capture savings before deposits to handle state from prior subtests in comprehensive report
+        uint256 savingsABefore = storageContract.savings(alice, address(tokenA));
+        uint256 savingsBBefore = storageContract.savings(alice, address(tokenB));
+
         // Deposit for tokenA
         vm.prank(alice);
         tokenA.approve(address(savingsModule), additionalSavings);
@@ -565,7 +583,7 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
             alice, address(tokenA), address(tokenB), -300, 300, block.timestamp + 3600
         );
 
-        // Verify LP conversion affected savings (accounting for treasury fees)
+        // Verify LP conversion reduced savings (relative to state before deposits)
         uint256 fee = (additionalSavings * 10) / 10000; // 0.1% treasury fee
         uint256 netAdditionalSavings = additionalSavings - fee;
         uint256 finalSavingsA = storageContract.savings(alice, address(tokenA));
@@ -573,12 +591,12 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
 
         assertLt(
             finalSavingsA,
-            INITIAL_SAVINGS_NET + netAdditionalSavings,
+            savingsABefore + netAdditionalSavings,
             "TokenA savings should decrease after LP conversion"
         );
         assertLt(
             finalSavingsB,
-            INITIAL_SAVINGS_NET + netAdditionalSavings,
+            savingsBBefore + netAdditionalSavings,
             "TokenB savings should decrease after LP conversion"
         );
 
@@ -608,21 +626,23 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         // The real protection is at the Savings module level (who can call depositSavings, withdraw, etc.)
 
         // Test that storage functions work when called by authorized modules
+        uint256 savingsBefore = storageContract.savings(alice, address(tokenA));
+
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(alice, address(tokenA), TEST_AMOUNT);
 
-        // Verify it worked - accounting for treasury fee
+        // Verify it worked - accounting for treasury fee (use relative baseline)
         uint256 fee = (TEST_AMOUNT * 10) / 10000; // 0.1% treasury fee
         uint256 netAmount = TEST_AMOUNT - fee;
         uint256 savingsAfter = storageContract.savings(alice, address(tokenA));
-        assertEq(savingsAfter, INITIAL_SAVINGS_NET + netAmount, "Savings should increase by net amount");
+        assertEq(savingsAfter, savingsBefore + netAmount, "Savings should increase by net amount");
 
         // Token module is also authorized (it's a registered module)
         vm.prank(address(tokenModule));
         storageContract.increaseSavings(alice, address(tokenA), TEST_AMOUNT);
 
         uint256 savingsAfter2 = storageContract.savings(alice, address(tokenA));
-        assertEq(savingsAfter2, INITIAL_SAVINGS_NET + netAmount + netAmount, "Savings should increase again");
+        assertEq(savingsAfter2, savingsBefore + netAmount + netAmount, "Savings should increase again");
 
         console.log("Module-only function protection working");
         console.log("SUCCESS: Module-only function protection working");
@@ -766,6 +786,13 @@ contract CrossModuleCommunicationTest is Test, Deployers, DeployPermit2 {
         (bool dcaExecuted, uint256 dcaAmount) = dcaModule.executeDCA(alice);
 
         // 5. Convert remaining savings to LP position (Liquidity Manager)
+        // Ensure Alice has tokenB savings for the LP conversion (tokenB not deposited in prior steps)
+        uint256 tokenBForLP = 50 ether;
+        vm.prank(alice);
+        tokenB.approve(address(savingsModule), tokenBForLP);
+        vm.prank(alice);
+        savingsModule.depositSavings(alice, address(tokenB), tokenBForLP);
+
         uint256 savingsForLP = storageContract.savings(alice, address(tokenA));
         if (savingsForLP > 1e15) {
             // If enough savings for LP
