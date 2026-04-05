@@ -36,6 +36,11 @@ import {SpendSaveMulticall} from "../src/SpendSaveMulticall.sol";
 import {SpendSaveQuoter} from "../src/SpendSaveQuoter.sol";
 import {SpendSaveSlippageEnhanced} from "../src/SpendSaveSlippageEnhanced.sol";
 
+// Import Cross-Chain modules
+import {CrossChainSavingsModule} from "../src/modules/CrossChainSavingsModule.sol";
+import {CrossChainDCAModule} from "../src/modules/CrossChainDCAModule.sol";
+import {LiquidityRouter} from "../src/LiquidityRouter.sol";
+
 /**
  * @title DeploySpendSave
  * @notice Comprehensive deployment script for the gas-efficient SpendSave protocol
@@ -69,6 +74,7 @@ contract DeploySpendSave is Script {
     uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
     uint256 constant CHAIN_ID_ETHEREUM = 1;
     uint256 constant CHAIN_ID_OPTIMISM = 10;
+    uint256 constant CHAIN_ID_UNICHAIN = 1301;
     uint256 constant CHAIN_ID_ARBITRUM = 42161;
     uint256 constant CHAIN_ID_POLYGON = 137;
 
@@ -139,12 +145,22 @@ contract DeploySpendSave is Script {
             isTestnet: false
         });
 
+        // Unichain
+        networkConfigs[CHAIN_ID_UNICHAIN] = NetworkConfig({
+            name: "Unichain",
+            poolManager: 0x0000000000000000000000000000000000000000, // TODO: Add Unichain addresses when available
+            positionManager: 0x0000000000000000000000000000000000000000,
+            quoter: 0x0000000000000000000000000000000000000000,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
+            isTestnet: false
+        });
+
         // Arbitrum One
         networkConfigs[CHAIN_ID_ARBITRUM] = NetworkConfig({
             name: "Arbitrum One",
-            poolManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
-            positionManager: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
-            quoter: 0x0000000000000000000000000000000000000000, // TODO: Add when deployed
+            poolManager: 0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32,
+            positionManager: 0xd88F38F930b7952f2DB2432Cb002E7abbF3dD869,
+            quoter: 0xE5dd433B4F76AF8C4e55C725c81fa89E06Fe0B93,
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,
             isTestnet: false
         });
@@ -177,6 +193,11 @@ contract DeploySpendSave is Script {
     bytes32 constant MULTICALL_MODULE_ID = keccak256("MULTICALL");
     bytes32 constant QUOTER_MODULE_ID = keccak256("QUOTER");
     bytes32 constant SLIPPAGE_ENHANCED_MODULE_ID = keccak256("SLIPPAGE_ENHANCED");
+    bytes32 constant CROSSCHAIN_SAVINGS_MODULE_ID = keccak256("CROSSCHAIN_SAVINGS");
+    bytes32 constant CROSSCHAIN_DCA_MODULE_ID = keccak256("CROSSCHAIN_DCA");
+
+    /// @notice Default L2 to L2 Cross Domain Messenger address (Optimism/Base Superchain)
+    address constant DEFAULT_L2_MESSENGER = 0x4200000000000000000000000000000000000023;
 
     // ==================== HOOK CONFIGURATION ====================
 
@@ -210,6 +231,11 @@ contract DeploySpendSave is Script {
     SpendSaveMulticall public multicall;
     SpendSaveQuoter public quoter;
     SpendSaveSlippageEnhanced public slippageEnhanced;
+
+    /// @notice Cross-Chain modules
+    CrossChainSavingsModule public crossChainSavingsModule;
+    CrossChainDCAModule public crossChainDCAModule;
+    LiquidityRouter public liquidityRouter;
 
     /// @notice Deployment configuration
     address public poolManager;
@@ -255,6 +281,13 @@ contract DeploySpendSave is Script {
         address multicall,
         address quoter,
         address slippageEnhanced
+    );
+
+    /// @notice Emitted when Cross-Chain modules are deployed
+    event CrossChainModulesDeployed(
+        address crossChainSavingsModule,
+        address crossChainDCAModule,
+        address liquidityRouter
     );
 
     /// @notice Emitted when deployment completes successfully
@@ -379,24 +412,28 @@ contract DeploySpendSave is Script {
         console.log("\n--- Step 7: Deploying Phase 2 Enhancement Contracts ---");
         _deployPhase2Contracts();
 
-        // Step 8: Initialize all modules
-        console.log("\n--- Step 8: Initializing Modules ---");
+        // Step 8: Deploy Cross-Chain modules
+        console.log("\n--- Step 8: Deploying Cross-Chain Modules ---");
+        _deployCrossChainModules();
+
+        // Step 9: Initialize all modules
+        console.log("\n--- Step 9: Initializing Modules ---");
         _initializeAllModules();
 
-        // Step 9: Register modules in storage registry
-        console.log("\n--- Step 9: Registering Modules ---");
+        // Step 10: Register modules in storage registry
+        console.log("\n--- Step 10: Registering Modules ---");
         _registerAllModules();
 
-        // Step 10: Initialize hook with module references
-        console.log("\n--- Step 10: Initializing Hook ---");
+        // Step 11: Initialize hook with module references
+        console.log("\n--- Step 11: Initializing Hook ---");
         _initializeHook();
 
-        // Step 11: Set cross-module references
-        console.log("\n--- Step 11: Setting Cross-Module References ---");
+        // Step 12: Set cross-module references
+        console.log("\n--- Step 12: Setting Cross-Module References ---");
         _setModuleReferences();
 
-        // Step 12: Verify deployment
-        console.log("\n--- Step 12: Verifying Deployment ---");
+        // Step 13: Verify deployment
+        console.log("\n--- Step 13: Verifying Deployment ---");
         _verifyDeployment();
     }
 
@@ -503,6 +540,98 @@ contract DeploySpendSave is Script {
             address(quoter),
             address(slippageEnhanced)
         );
+    }
+
+    /**
+     * @notice Deploy Cross-Chain modules for cross-chain savings and DCA functionality
+     * @dev Deploys CrossChainSavingsModule, CrossChainDCAModule, and LiquidityRouter
+     */
+    function _deployCrossChainModules() internal {
+        // Get L2 to L2 messenger address (default for Base/Optimism Superchain)
+        address messengerAddress = vm.envOr("L2_TO_L2_MESSENGER", DEFAULT_L2_MESSENGER);
+        console.log("Using L2 to L2 Messenger:", messengerAddress);
+
+        // Deploy CrossChainSavingsModule
+        crossChainSavingsModule = new CrossChainSavingsModule(address(spendSaveStorage), messengerAddress);
+        console.log("CrossChainSavingsModule deployed at:", address(crossChainSavingsModule));
+
+        // Deploy CrossChainDCAModule
+        crossChainDCAModule =
+            new CrossChainDCAModule(address(spendSaveStorage), address(crossChainSavingsModule), messengerAddress, currentNetwork.quoter);
+        console.log("CrossChainDCAModule deployed at:", address(crossChainDCAModule));
+
+        // Deploy LiquidityRouter for cross-chain liquidity management
+        liquidityRouter = new LiquidityRouter(address(spendSaveStorage));
+        console.log("LiquidityRouter deployed at:", address(liquidityRouter));
+
+        // Set liquidity router reference in CrossChainDCAModule
+        crossChainDCAModule.setLiquidityRouter(address(liquidityRouter));
+        console.log("LiquidityRouter set in CrossChainDCAModule");
+
+        // Configure common pool pairs (USDC/WETH) if they exist on this chain
+        _configureCrossChainPools();
+
+        // Emit deployment event
+        emit CrossChainModulesDeployed(
+            address(crossChainSavingsModule),
+            address(crossChainDCAModule),
+            address(liquidityRouter)
+        );
+    }
+
+    /**
+     * @notice Configure common pool pairs for cross-chain DCA
+     * @dev Sets up USDC/WETH pool configuration based on the current chain
+     */
+    function _configureCrossChainPools() internal {
+        address usdc = _getUSDCForChain(block.chainid);
+        address weth = _getWETHForChain(block.chainid);
+
+        if (usdc != address(0) && weth != address(0)) {
+            console.log("Configuring USDC/WETH pool for cross-chain DCA...");
+            console.log("USDC:", usdc);
+            console.log("WETH:", weth);
+
+            crossChainDCAModule.configurePool(
+                usdc < weth ? usdc : weth, // token0
+                usdc < weth ? weth : usdc, // token1
+                3000, // 0.3% fee tier
+                60 // tick spacing
+            );
+
+            console.log("USDC/WETH pool configured successfully");
+        } else {
+            console.log("USDC or WETH not available on this chain, skipping pool configuration");
+        }
+    }
+
+    /**
+     * @notice Get USDC address for the current chain
+     * @param chainId The chain ID
+     * @return USDC address or address(0) if not available
+     */
+    function _getUSDCForChain(uint256 chainId) internal pure returns (address) {
+        if (chainId == CHAIN_ID_BASE_SEPOLIA) return 0x036CbD53842c5426634e7929541eC2318f3dCF7e; // Base Sepolia USDC
+        if (chainId == CHAIN_ID_BASE) return 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913; // Base USDC
+        if (chainId == CHAIN_ID_OPTIMISM) return 0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85; // Optimism USDC
+        if (chainId == CHAIN_ID_ARBITRUM) return 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // Arbitrum USDC
+        if (chainId == CHAIN_ID_ETHEREUM) return 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // Ethereum USDC
+        return address(0);
+    }
+
+    /**
+     * @notice Get WETH address for the current chain
+     * @param chainId The chain ID
+     * @return WETH address or address(0) if not available
+     */
+    function _getWETHForChain(uint256 chainId) internal pure returns (address) {
+        // Wrapped native token on L2s is at the same address
+        if (chainId == CHAIN_ID_BASE_SEPOLIA || chainId == CHAIN_ID_BASE || chainId == CHAIN_ID_OPTIMISM) {
+            return 0x4200000000000000000000000000000000000006; // Superchain WETH
+        }
+        if (chainId == CHAIN_ID_ARBITRUM) return 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // Arbitrum WETH
+        if (chainId == CHAIN_ID_ETHEREUM) return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // Ethereum WETH
+        return address(0);
     }
 
     /**
@@ -629,6 +758,10 @@ contract DeploySpendSave is Script {
         spendSaveStorage.registerModule(QUOTER_MODULE_ID, address(quoter));
         spendSaveStorage.registerModule(SLIPPAGE_ENHANCED_MODULE_ID, address(slippageEnhanced));
 
+        // Register Cross-Chain modules
+        spendSaveStorage.registerModule(CROSSCHAIN_SAVINGS_MODULE_ID, address(crossChainSavingsModule));
+        spendSaveStorage.registerModule(CROSSCHAIN_DCA_MODULE_ID, address(crossChainDCAModule));
+
         console.log("All modules registered in storage registry");
 
         // Verify core module registrations
@@ -673,6 +806,18 @@ contract DeploySpendSave is Script {
             spendSaveStorage.getModule(SLIPPAGE_ENHANCED_MODULE_ID) == address(slippageEnhanced),
             "Slippage Enhanced module registration failed"
         );
+
+        // Verify Cross-Chain module registrations
+        require(
+            spendSaveStorage.getModule(CROSSCHAIN_SAVINGS_MODULE_ID) == address(crossChainSavingsModule),
+            "CrossChain Savings module registration failed"
+        );
+        require(
+            spendSaveStorage.getModule(CROSSCHAIN_DCA_MODULE_ID) == address(crossChainDCAModule),
+            "CrossChain DCA module registration failed"
+        );
+
+        console.log("All module registrations verified successfully");
     }
 
     /**
@@ -823,8 +968,13 @@ contract DeploySpendSave is Script {
         console.log("   15. SpendSaveQuoter (Price impact preview)");
         console.log("   16. SpendSaveSlippageEnhanced (Enhanced slippage)");
         console.log("");
+        console.log("  Cross-Chain Modules:");
+        console.log("   17. CrossChainSavingsModule (Cross-chain savings transfers)");
+        console.log("   18. CrossChainDCAModule (Cross-chain DCA execution)");
+        console.log("   19. LiquidityRouter (Cross-chain liquidity management)");
+        console.log("");
         console.log("  Helper Contract:");
-        console.log("   17. HookDeployer (CREATE2 deployment helper)");
+        console.log("   20. HookDeployer (CREATE2 deployment helper)");
         console.log("");
         console.log("DEPLOYMENT SEQUENCE:");
         console.log("  Step 1:  Deploy SpendSaveStorage");
@@ -834,11 +984,12 @@ contract DeploySpendSave is Script {
         console.log("  Step 5:  Deploy SpendSaveAnalytics");
         console.log("  Step 6:  Initialize storage with hook reference");
         console.log("  Step 7:  Deploy 6 Phase 2 enhancement contracts");
-        console.log("  Step 8:  Initialize all modules");
-        console.log("  Step 9:  Register all modules in storage registry");
-        console.log("  Step 10: Initialize hook with module references");
-        console.log("  Step 11: Set cross-module references");
-        console.log("  Step 12: Verify complete deployment");
+        console.log("  Step 8:  Deploy 3 Cross-Chain modules");
+        console.log("  Step 9:  Initialize all modules");
+        console.log("  Step 10: Register all modules in storage registry");
+        console.log("  Step 11: Initialize hook with module references");
+        console.log("  Step 12: Set cross-module references");
+        console.log("  Step 13: Verify complete deployment");
         console.log("");
         console.log("GAS OPTIMIZATIONS:");
         console.log("  Packed Storage:       ENABLED");
@@ -856,9 +1007,9 @@ contract DeploySpendSave is Script {
         console.log("    - AFTER_SWAP_RETURNS_DELTA_FLAG");
         console.log("");
         console.log("ESTIMATED GAS COST:");
-        console.log("  Total Contract Deployments: 17 contracts");
-        console.log("  Initialization Transactions: ~15 transactions");
-        console.log("  Estimated Total Gas: ~50-80M gas");
+        console.log("  Total Contract Deployments: 20 contracts");
+        console.log("  Initialization Transactions: ~18 transactions");
+        console.log("  Estimated Total Gas: ~60-90M gas");
 
         if (currentNetwork.isTestnet) {
             console.log("  Estimated Cost (Base Sepolia): FREE (testnet)");
@@ -873,8 +1024,9 @@ contract DeploySpendSave is Script {
         console.log("===========================================================");
         console.log("");
         console.log("IMPORTANT NOTES:");
-        console.log("  - This deployment will execute ~32+ transactions");
+        console.log("  - This deployment will execute ~35+ transactions");
         console.log("  - Address mining may take 30-60 seconds for hook deployment");
+        console.log("  - Cross-chain modules require L2 to L2 messenger");
         console.log("  - All contracts will be owned by:", _addressToString(owner));
         console.log("  - Treasury will be set to:", _addressToString(treasury));
         console.log("  - Deployment is on:", currentNetwork.name);
@@ -942,6 +1094,11 @@ contract DeploySpendSave is Script {
         console.log(string.concat("Quoter:           ", _addressToString(address(quoter))));
         console.log(string.concat("Slippage Enhanced:", _addressToString(address(slippageEnhanced))));
         console.log("-----------------------------------------------------------");
+        console.log("CROSS-CHAIN MODULES:");
+        console.log(string.concat("CC Savings Module:", _addressToString(address(crossChainSavingsModule))));
+        console.log(string.concat("CC DCA Module:    ", _addressToString(address(crossChainDCAModule))));
+        console.log(string.concat("Liquidity Router: ", _addressToString(address(liquidityRouter))));
+        console.log("-----------------------------------------------------------");
         console.log("GAS OPTIMIZATIONS:");
         console.log("Packed Storage:        ENABLED");
         console.log("Transient Storage:     ENABLED");
@@ -953,6 +1110,7 @@ contract DeploySpendSave is Script {
         console.log("");
         console.log(">> SpendSave Protocol deployment completed successfully!");
         console.log(">> Gas-efficient automated savings and DCA system ready.");
+        console.log(">> Cross-chain savings and DCA modules deployed.");
         console.log(">> All modules initialized and linked.");
         console.log(">> Optimized for <50k gas afterSwap execution.");
     }
