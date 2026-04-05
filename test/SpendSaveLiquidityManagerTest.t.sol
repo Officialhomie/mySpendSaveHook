@@ -177,13 +177,14 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager directly
-        positionManager = new PositionManager(
-            manager,
-            permit2,
-            100_000, // unsubscribeGasLimit
-            positionDescriptor,
-            weth9
-        );
+        positionManager =
+            new PositionManager(
+                manager,
+                permit2,
+                100_000, // unsubscribeGasLimit
+                positionDescriptor,
+                weth9
+            );
 
         console.log("V4 Periphery deployed successfully");
     }
@@ -338,10 +339,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         // Add full-range liquidity
         ModifyLiquidityParams memory liquidityParams = ModifyLiquidityParams({
-            tickLower: -887220,
-            tickUpper: 887220,
-            liquidityDelta: int256(100000 ether),
-            salt: 0
+            tickLower: -887220, tickUpper: 887220, liquidityDelta: int256(100000 ether), salt: 0
         });
 
         modifyLiquidityRouter.modifyLiquidity(poolKey, liquidityParams, ZERO_BYTES);
@@ -617,10 +615,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
         SpendSaveLiquidityManager.ConversionParams[] memory params = new SpendSaveLiquidityManager.ConversionParams[](2);
 
         params[0] = SpendSaveLiquidityManager.ConversionParams({
-            token0: address(tokenA),
-            token1: address(tokenB),
-            tickLower: -300,
-            tickUpper: 300
+            token0: address(tokenA), token1: address(tokenB), tickLower: -300, tickUpper: 300
         });
 
         params[1] = SpendSaveLiquidityManager.ConversionParams({
@@ -972,10 +967,7 @@ contract SpendSaveLiquidityManagerTest is Test, Deployers, DeployPermit2 {
 
         for (uint256 i = 0; i < 2; i++) {
             params[i] = SpendSaveLiquidityManager.ConversionParams({
-                token0: address(tokenA),
-                token1: address(tokenB),
-                tickLower: -300,
-                tickUpper: 300
+                token0: address(tokenA), token1: address(tokenB), tickLower: -300, tickUpper: 300
             });
         }
 
