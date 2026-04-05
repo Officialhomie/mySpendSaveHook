@@ -515,6 +515,63 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     }
 
     /**
+     * @dev Internal helper to execute DCA queue items for a single user, reducing stack depth in batchExecuteDCA.
+     */
+    function _executeBatchForUser(address user, DCAExecution[] memory executions, uint256 execIdx)
+        internal
+        returns (uint256)
+    {
+        (bool enabled,, uint256 minAmount, uint256 maxSlippage,,) = storage_.getUserDcaConfig(user);
+        if (!enabled) return execIdx;
+
+        uint256 queueLength = storage_.getDcaQueueLength(user);
+        for (uint256 i = 0; i < queueLength; i++) {
+            execIdx = _tryExecuteQueueItem(user, i, minAmount, maxSlippage, executions, execIdx);
+        }
+        return execIdx;
+    }
+
+    /**
+     * @dev Internal helper to attempt execution of a single DCA queue item.
+     */
+    function _tryExecuteQueueItem(
+        address user,
+        uint256 i,
+        uint256 minAmount,
+        uint256 maxSlippage,
+        DCAExecution[] memory executions,
+        uint256 execIdx
+    ) internal returns (uint256) {
+        (
+            address fromToken,
+            address toToken,
+            uint256 amount,
+            ,
+            uint256 deadline,
+            bool itemExecuted,
+            uint256 customSlippageTolerance
+        ) = storage_.getDcaQueueItem(user, i);
+
+        if (itemExecuted || amount < minAmount || block.timestamp > deadline) return execIdx;
+
+        (uint256 amountOut, uint256 executedPrice) = _executeSingleDCAWithPrice(
+            user, fromToken, toToken, amount, customSlippageTolerance > 0 ? customSlippageTolerance : maxSlippage
+        );
+
+        if (amountOut > 0) {
+            executions[execIdx++] = DCAExecution({
+                fromToken: fromToken,
+                toToken: toToken,
+                amount: amountOut,
+                timestamp: block.timestamp,
+                executedPrice: executedPrice
+            });
+            storage_.markDcaExecuted(user, i);
+        }
+        return execIdx;
+    }
+
+    /**
      * @notice Batch execute DCA for multiple users
      * @dev Gas-efficient implementation for keeper operations
      */
@@ -540,47 +597,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         uint256 execIdx = 0;
 
         for (uint256 u = 0; u < users.length; u++) {
-            address user = users[u];
-            uint256 queueLength = storage_.getDcaQueueLength(user);
-            (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) =
-                storage_.getUserDcaConfig(user);
-
-            if (!enabled) continue;
-
-            for (uint256 i = 0; i < queueLength; i++) {
-                (
-                    address fromToken,
-                    address toToken,
-                    uint256 amount,
-                    int24 executionTick,
-                    uint256 deadline,
-                    bool itemExecuted,
-                    uint256 customSlippageTolerance
-                ) = storage_.getDcaQueueItem(user, i);
-
-                if (!itemExecuted && amount >= minAmount && block.timestamp <= deadline) {
-                    uint256 amountOut;
-                    uint256 executedPrice;
-                    (amountOut, executedPrice) = _executeSingleDCAWithPrice(
-                        user,
-                        fromToken,
-                        toToken,
-                        amount,
-                        customSlippageTolerance > 0 ? customSlippageTolerance : maxSlippage
-                    );
-
-                    if (amountOut > 0) {
-                        executions[execIdx++] = DCAExecution({
-                            fromToken: fromToken,
-                            toToken: toToken,
-                            amount: amountOut,
-                            timestamp: block.timestamp,
-                            executedPrice: executedPrice
-                        });
-                        storage_.markDcaExecuted(user, i);
-                    }
-                }
-            }
+            execIdx = _executeBatchForUser(users[u], executions, execIdx);
         }
 
         // Resize array to actual number of executions
