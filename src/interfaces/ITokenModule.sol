@@ -106,10 +106,7 @@ interface ITokenModule is ISpendSaveModule {
      * @param tokenIds Array of token IDs
      * @return balances Array of balances
      */
-    function balanceOfBatch(address user, uint256[] calldata tokenIds)
-        external
-        view
-        returns (uint256[] memory balances);
+    function balanceOfBatch(address user, uint256[] calldata tokenIds) external view returns (uint256[] memory balances);
 
     /**
      * @notice Get total supply for a savings token
