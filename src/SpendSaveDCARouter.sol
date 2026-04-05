@@ -7,10 +7,12 @@ import {PoolId, PoolIdLibrary} from "lib/v4-periphery/lib/v4-core/src/types/Pool
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "lib/v4-periphery/lib/v4-core/src/types/BalanceDelta.sol";
 import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    SafeERC20
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ReentrancyGuard
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 import {V4Router} from "lib/v4-periphery/src/V4Router.sol";
 import {IV4Router} from "lib/v4-periphery/src/interfaces/IV4Router.sol";
@@ -28,6 +30,7 @@ import {IUnlockCallback} from "lib/v4-periphery/lib/v4-core/src/interfaces/callb
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
 
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
+import {PoolKeyHelper} from "./PoolKeyHelper.sol";
 
 /**
  * @title SpendSaveDCARouter
@@ -491,15 +494,11 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
 
         // Or if it has sufficient liquidity pools with base currencies
         for (uint256 i = 0; i < baseCurrencies.length; i++) {
-            try storage_.getPoolKey(token, baseCurrencies[i]) returns (PoolKey memory poolKey) {
-                PoolId poolId = poolKey.toId();
-                uint128 liquidity = StateLibrary.getLiquidity(poolManager, poolId);
-                if (liquidity >= MIN_LIQUIDITY) {
-                    return true;
-                }
-            } catch {
-                // Pool doesn't exist, continue to next
-                continue;
+            PoolKey memory poolKey = PoolKeyHelper.createPoolKey(token, baseCurrencies[i]);
+            PoolId poolId = poolKey.toId();
+            uint128 liquidity = StateLibrary.getLiquidity(poolManager, poolId);
+            if (liquidity >= MIN_LIQUIDITY) {
+                return true;
             }
         }
 
@@ -575,10 +574,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
         // Action 1: SWAP_EXACT_IN
         params[0] = abi.encode(
             IV4Router.ExactInputParams({
-                currencyIn: currencyIn,
-                path: path,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMinimum
+                currencyIn: currencyIn, path: path, amountIn: amountIn, amountOutMinimum: amountOutMinimum
             })
         );
 
@@ -680,10 +676,7 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
 
             (expectedOutput, gasEstimate) = quoter.quoteExactInputSingle(
                 IV4Quoter.QuoteExactSingleParams({
-                    poolKey: poolKey,
-                    zeroForOne: zeroForOne,
-                    exactAmount: uint128(amount),
-                    hookData: path[0].hookData
+                    poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: uint128(amount), hookData: path[0].hookData
                 })
             );
 
@@ -708,7 +701,8 @@ contract SpendSaveDCARouter is V4Router, ReentrancyGuard {
     function clearCachedPath(address fromToken, address toToken) external {
         // Access control: only owner or authorized modules can clear cache
         require(
-            msg.sender == storage_.owner() || msg.sender == address(storage_) || storage_.isAuthorizedModule(msg.sender),
+            msg.sender == storage_.owner() || msg.sender == address(storage_)
+                || storage_.isAuthorizedModule(msg.sender),
             "SpendSaveDCARouter: unauthorized cache clear"
         );
 
