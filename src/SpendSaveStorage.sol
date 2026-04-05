@@ -4,11 +4,13 @@ pragma solidity 0.8.26;
 import {PoolKey} from "lib/v4-periphery/lib/v4-core/src/types/PoolKey.sol";
 import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolManager.sol";
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
-import {ReentrancyGuard} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {ITokenModule} from "./interfaces/ITokenModule.sol";
 import {ERC6909} from "lib/v4-periphery/lib/v4-core/lib/solmate/src/tokens/ERC6909.sol";
@@ -125,6 +127,15 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     /// @notice Module registry for efficient lookup by ID
     mapping(bytes32 => address) public moduleRegistry;
 
+    /// @notice Cross-chain peer storage addresses by chain ID
+    mapping(uint256 => address) public crossChainPeers;
+
+    /// @notice Cross-chain peer module addresses by chain ID
+    mapping(uint256 => address) public crossChainModules;
+
+    /// @notice Pending cross-chain transfer tracking by message hash
+    mapping(bytes32 => CrossChainTransfer) public pendingTransfers;
+
     // ==================== ERC6909 TOKEN IMPLEMENTATION ====================
 
     /// @notice ERC6909 balances mapping (owner => id => balance)
@@ -149,6 +160,17 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     mapping(uint256 => uint256) private _totalSupply;
 
     // ==================== COMPREHENSIVE DATA STRUCTURES ====================
+
+    /// @notice Cross-chain transfer metadata
+    struct CrossChainTransfer {
+        address user;
+        address token;
+        uint256 amount;
+        uint256 sourceChain;
+        uint256 destinationChain;
+        uint256 initiatedAt;
+        bool executed;
+    }
 
     /// @notice User slippage tolerance settings
     mapping(address => uint256) public userSlippageTolerance;
@@ -353,6 +375,34 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
 
     /// @notice Emitted when module is registered
     event ModuleRegistered(bytes32 indexed moduleId, address indexed moduleAddress);
+
+    /// @notice Emitted when a cross-chain peer is registered
+    event CrossChainPeerRegistered(uint256 indexed chainId, address storageAddress, address moduleAddress);
+
+    /// @notice Emitted when savings are burned for cross-chain transfer
+    event SavingsBurned(address indexed user, address indexed token, uint256 amount);
+
+    /// @notice Emitted when savings are minted from cross-chain transfer
+    event SavingsMinted(address indexed user, address indexed token, uint256 amount);
+
+    /// @notice Emitted when a cross-chain transfer is recorded
+    event CrossChainTransferRecorded(
+        bytes32 indexed messageHash,
+        address indexed user,
+        address indexed token,
+        uint256 amount,
+        uint256 destinationChain
+    );
+
+    /// @notice Emitted when a cross-chain transfer is marked executed
+    event CrossChainTransferExecuted(
+        bytes32 indexed messageHash,
+        address indexed user,
+        address indexed token,
+        uint256 amount,
+        uint256 sourceChain,
+        uint256 destinationChain
+    );
 
     /// @notice Emitted when saving strategy is set
     event SavingStrategySet(address indexed user, SavingStrategy strategy);
@@ -624,6 +674,78 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     /**
+     * @notice Burn savings balance in preparation for cross-chain transfer
+     * @param user The user whose savings are being burned
+     * @param token The token being burned
+     * @param amount The amount to burn
+     */
+    function burnSavingsForCrossChain(address user, address token, uint256 amount) external onlyModule nonReentrant {
+        if (_savings[user][token] < amount) revert InsufficientBalance();
+
+        _savings[user][token] -= amount;
+
+        emit SavingsBurned(user, token, amount);
+    }
+
+    /**
+     * @notice Mint savings balance received from a cross-chain transfer
+     * @param user The user receiving savings
+     * @param token The token being minted
+     * @param amount The amount to mint
+     */
+    function mintSavingsFromCrossChain(address user, address token, uint256 amount) external onlyModule nonReentrant {
+        _savings[user][token] += amount;
+
+        emit SavingsMinted(user, token, amount);
+    }
+
+    /**
+     * @notice Record a pending cross-chain transfer for tracking
+     * @param messageHash Messenger message hash
+     * @param user The user initiating the transfer
+     * @param token Token being transferred
+     * @param amount Amount being transferred
+     * @param destinationChain Destination chain ID
+     */
+    function recordPendingTransfer(
+        bytes32 messageHash,
+        address user,
+        address token,
+        uint256 amount,
+        uint256 destinationChain
+    ) external onlyModule {
+        pendingTransfers[messageHash] = CrossChainTransfer({
+            user: user,
+            token: token,
+            amount: amount,
+            sourceChain: block.chainid,
+            destinationChain: destinationChain,
+            initiatedAt: block.timestamp,
+            executed: false
+        });
+
+        emit CrossChainTransferRecorded(messageHash, user, token, amount, destinationChain);
+    }
+
+    /**
+     * @notice Mark a pending cross-chain transfer as executed
+     * @param messageHash Messenger message hash
+     */
+    function markTransferExecuted(bytes32 messageHash) external onlyModule {
+        CrossChainTransfer storage transfer = pendingTransfers[messageHash];
+        if (transfer.initiatedAt == 0) {
+            return;
+        }
+        if (transfer.executed) return;
+
+        transfer.executed = true;
+
+        emit CrossChainTransferExecuted(
+            messageHash, transfer.user, transfer.token, transfer.amount, transfer.sourceChain, transfer.destinationChain
+        );
+    }
+
+    /**
      * @notice Get user tokens eligible for daily savings processing
      * @param user The user address
      * @return tokens Array of token addresses that can be processed for daily savings
@@ -655,6 +777,22 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     }
 
     /**
+     * @notice Register a cross-chain peer deployment
+     * @param chainId The peer chain ID
+     * @param storageAddress The storage contract address on that chain
+     * @param moduleAddress The cross-chain module address on that chain
+     */
+    function registerCrossChainPeer(uint256 chainId, address storageAddress, address moduleAddress) external onlyOwner {
+        if (chainId == block.chainid) revert InvalidInput();
+        if (storageAddress == address(0) || moduleAddress == address(0)) revert InvalidInput();
+
+        crossChainPeers[chainId] = storageAddress;
+        crossChainModules[chainId] = moduleAddress;
+
+        emit CrossChainPeerRegistered(chainId, storageAddress, moduleAddress);
+    }
+
+    /**
      * @notice Get module address by identifier
      * @param moduleId The module identifier
      * @return moduleAddress The module contract address
@@ -663,6 +801,15 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function getModule(bytes32 moduleId) public view returns (address moduleAddress) {
         moduleAddress = moduleRegistry[moduleId];
         if (moduleAddress == address(0)) revert ModuleNotFound();
+    }
+
+    /**
+     * @notice Check whether a chain has been registered as a cross-chain peer
+     * @param chainId The chain identifier
+     * @return True if peer configured
+     */
+    function isCrossChainPeer(uint256 chainId) external view returns (bool) {
+        return crossChainPeers[chainId] != address(0);
     }
 
     // ==================== ERC6909 TOKEN IMPLEMENTATION ====================
@@ -1213,17 +1360,18 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
 
         // Add to enhanced queue
-        queue.items.push(
-            DCAQueueItem({
-                fromToken: fromToken,
-                toToken: toToken,
-                amount: amount,
-                executionTick: executionTick,
-                deadline: deadline,
-                customSlippageTolerance: customSlippageTolerance,
-                executed: false
-            })
-        );
+        queue.items
+            .push(
+                DCAQueueItem({
+                    fromToken: fromToken,
+                    toToken: toToken,
+                    amount: amount,
+                    executionTick: executionTick,
+                    deadline: deadline,
+                    customSlippageTolerance: customSlippageTolerance,
+                    executed: false
+                })
+            );
 
         queue.isActive = true;
 
@@ -1334,70 +1482,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         return createPoolKey(token0, token1, DEFAULT_FEE_TIER, DEFAULT_TICK_SPACING, address(0));
     }
 
-    /**
-     * @notice Create PoolKey struct without storing it (view function for price queries)
-     * @param token0 First token address
-     * @param token1 Second token address
-     * @return key PoolKey struct
-     */
-    function getPoolKey(address token0, address token1) public pure returns (PoolKey memory key) {
-        return PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
-            fee: DEFAULT_FEE_TIER,
-            tickSpacing: DEFAULT_TICK_SPACING,
-            hooks: IHooks(address(0))
-        });
-    }
-
     // ==================== HELPER FUNCTIONS FOR BACKWARDS COMPATIBILITY ====================
-
-    /**
-     * @notice Check if user has any pending DCA orders
-     * @param user The user address
-     * @return hasPending True if user has pending orders
-     */
-    function hasPendingDCAOrders(address user) external view returns (bool hasPending) {
-        EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
-
-        for (uint256 i = 0; i < queue.items.length; i++) {
-            if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @notice Get all pending DCA orders for a user
-     * @param user The user address
-     * @return pendingOrders Array of pending DCA orders
-     */
-    function getPendingDCAOrders(address user) external view returns (DCAQueueItem[] memory pendingOrders) {
-        EnhancedDCAQueue storage queue = enhancedDcaQueues[user];
-
-        // Count pending orders
-        uint256 pendingCount = 0;
-        for (uint256 i = 0; i < queue.items.length; i++) {
-            if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
-                pendingCount++;
-            }
-        }
-
-        // Create array of pending orders
-        pendingOrders = new DCAQueueItem[](pendingCount);
-        uint256 pendingIndex = 0;
-
-        for (uint256 i = 0; i < queue.items.length; i++) {
-            if (!queue.items[i].executed && queue.items[i].deadline > block.timestamp) {
-                pendingOrders[pendingIndex] = queue.items[i];
-                pendingIndex++;
-            }
-        }
-
-        return pendingOrders;
-    }
 
     // ==================== SLIPPAGE CONTROL FUNCTIONS ====================
 
@@ -1448,15 +1533,6 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     function setDailySavingsConfig(address user, DailySavingsConfig memory config) external onlyModule {
         dailySavingsConfigs[user] = config;
         emit DailySavingsConfigured(user, config);
-    }
-
-    /**
-     * @notice Get daily savings configuration
-     * @param user The user address
-     * @return config The daily savings configuration
-     */
-    function getDailySavingsConfig(address user) external view returns (DailySavingsConfig memory config) {
-        return dailySavingsConfigs[user];
     }
 
     /**
@@ -1522,16 +1598,6 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
     // ==================== DAILY SAVINGS YIELD STRATEGY FUNCTIONS ====================
 
     /**
-     * @notice Get daily savings yield strategy for user and token
-     * @param user The user address
-     * @param token The token address
-     * @return strategy The configured yield strategy
-     */
-    function getDailySavingsYieldStrategy(address user, address token) external view returns (YieldStrategy) {
-        return dailySavingsYieldStrategies[user][token];
-    }
-
-    /**
      * @notice Set daily savings yield strategy for user and token
      * @param user The user address
      * @param token The token address
@@ -1572,15 +1638,6 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
         poolInitialized[keyHash] = true;
 
         return key;
-    }
-
-    /**
-     * @notice Get stored pool key by hash
-     * @param keyHash The pool key hash
-     * @return key The pool key
-     */
-    function getPoolKey(bytes32 keyHash) external view returns (PoolKey memory key) {
-        return _poolKeys[keyHash];
     }
 
     // ==================== ADMINISTRATIVE FUNCTIONS ====================
@@ -1637,15 +1694,6 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      */
     function setWithdrawalTimelock(address user, uint256 timelock) external onlyModule {
         userWithdrawalTimelocks[user] = timelock;
-    }
-
-    /**
-     * @notice Get withdrawal timelock for a user
-     * @param user The user address
-     * @return timelock The timelock timestamp
-     */
-    function getWithdrawalTimelock(address user) external view returns (uint256) {
-        return withdrawalTimelock[user];
     }
 
     // ==================== USER SAVINGS TOKEN TRACKING ====================
@@ -1727,11 +1775,7 @@ contract SpendSaveStorage is ERC6909, ReentrancyGuard {
      * @param limit Maximum number of records to return (0 = no limit)
      * @return history Array of DCA execution records
      */
-    function getDcaExecutionHistory(address user, uint256 limit)
-        external
-        view
-        returns (DCAExecution[] memory history)
-    {
+    function getDcaExecutionHistory(address user, uint256 limit) external view returns (DCAExecution[] memory history) {
         DCAExecution[] storage userHistory = _dcaExecutionHistory[user];
         uint256 totalCount = userHistory.length;
 
