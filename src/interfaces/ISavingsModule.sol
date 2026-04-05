@@ -71,9 +71,7 @@ interface ISavingsModule is ISpendSaveModule {
      * @param force Force withdrawal (may incur penalties)
      * @return actualAmount The actual amount withdrawn
      */
-    function withdraw(address user, address token, uint256 amount, bool force)
-        external
-        returns (uint256 actualAmount);
+    function withdraw(address user, address token, uint256 amount, bool force) external returns (uint256 actualAmount);
 
     /**
      * @notice Batch withdraw multiple tokens
@@ -102,8 +100,7 @@ interface ISavingsModule is ISpendSaveModule {
      * @param enableCompound Whether to enable auto-compounding
      * @param minCompoundAmount Minimum amount to trigger compound
      */
-    function configureAutoCompound(address user, address token, bool enableCompound, uint256 minCompoundAmount)
-        external;
+    function configureAutoCompound(address user, address token, bool enableCompound, uint256 minCompoundAmount) external;
 
     // ==================== VIEW FUNCTIONS ====================
 
@@ -155,6 +152,22 @@ interface ISavingsModule is ISpendSaveModule {
      * @return savedAmount Amount actually saved
      */
     function processSavingsFromOutput(
+        address user,
+        address outputToken,
+        uint256 outputAmount,
+        SpendSaveStorage.SwapContext memory context
+    ) external returns (uint256 savedAmount);
+
+    /**
+     * @notice Process savings to a specific token (SPECIFIC savings type)
+     * @dev Called by hook for conversions to a specific target token
+     * @param user The user address
+     * @param outputToken The output token from swap
+     * @param outputAmount The total output amount
+     * @param context The swap context containing target token info
+     * @return savedAmount Amount actually saved
+     */
+    function processSavingsToSpecificToken(
         address user,
         address outputToken,
         uint256 outputAmount,
