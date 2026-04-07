@@ -11,30 +11,78 @@ SpendSave is a DeFi protocol built on Uniswap V4 that enables automatic savings,
 - **Yield Generation**: Apply different yield strategies to your saved tokens
 - **ERC6909 Representation**: Your savings are represented as tokens in the protocol
 
-## 🎯 Live Deployment & Transaction Proof
+## 🎯 Live Deployment & Complete Documentation
 
-**✅ Protocol is LIVE and PROVEN on Base Sepolia!**
+**✅ Protocol is LIVE and FULLY OPERATIONAL on Base Sepolia!**
 
-For complete transaction proof with all hashes and on-chain verification, see:
-**[NEW-DEPLOYMENT-TRANSACTION-HASHES.md](./NEW-DEPLOYMENT-TRANSACTION-HASHES.md)**
+### 📋 **Complete Deployment Report**
 
-**Key Proof:**
-- 🏆 **18 confirmed transactions** on Base Sepolia (Block 32,802,845)
-- 💰 **Savings extraction verified**: 0 → 1,000 units (10% exact match!)
-- ✅ **100% accuracy**: Expected 1,000, got 1,000
-- 🔍 **All transactions verifiable** on BaseScan
+For comprehensive protocol information including all addresses, transactions, and end-to-end test results, see:
 
-**Most Important Transaction (Savings Extraction):**
+**👉 [DEPLOYMENT_REPORT.md](./DEPLOYMENT_REPORT.md)** 👈
+
+This report includes:
+- ✅ All contract addresses with checksummed EIP-55 format
+- ✅ Complete deployment transactions with BaseScan links
+- ✅ **End-to-end test results proving savings extraction works**
+- ✅ Gas usage analysis (swap with savings: only **46,343 gas**)
+- ✅ Frontend integration code snippets
+- ✅ Pool configuration details
+
+### 🎉 Latest Test Results (Proven On-Chain)
+
+**Test Date:** October 26, 2024  
+**Block:** 32,865,325  
+**Status:** ✅ **100% SUCCESSFUL**
+
+**Proof of Savings Extraction:**
+- Swapped: 10,000 USDC
+- Savings Extracted: **1,000 USDC (exactly 10%)**
+- Accuracy: **100% match**
+- Gas Used: **46,343 gas**
+- Transaction: [`0x89c3cced97ba12076d54d6831583cf2fde9066b63f74b7c708a30d6e6e2e73e6`](https://sepolia.basescan.org/tx/0x89c3cced97ba12076d54d6831583cf2fde9066b63f74b7c708a30d6e6e2e73e6)
+
+### 📍 Core Contract Addresses (Base Sepolia)
+
+| Contract | Address | BaseScan Link |
+|----------|---------|---------------|
+| **SpendSaveHook** | `0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc` | [View](https://sepolia.basescan.org/address/0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc) |
+| **SpendSaveStorage** | `0x12256e69595E5949E05ba48Ab0926032e1e85484` | [View](https://sepolia.basescan.org/address/0x12256e69595E5949E05ba48Ab0926032e1e85484) |
+| **SavingStrategy** | `0x023EaC31560eBdD6304d6EB5d3D95994c8256d04` | [View](https://sepolia.basescan.org/address/0x023EaC31560eBdD6304d6EB5d3D95994c8256d04) |
+| **Savings** | `0x8339b29c63563E2Da73f3F4238b9C602F9aaE14F` | [View](https://sepolia.basescan.org/address/0x8339b29c63563E2Da73f3F4238b9C602F9aaE14F) |
+| **Pool Manager** | `0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408` | [View](https://sepolia.basescan.org/address/0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408) |
+
+> 📖 **For complete list of all modules and enhancement contracts, see [DEPLOYMENT_REPORT.md](./DEPLOYMENT_REPORT.md)**
+
+### 📝 Frontend Integration Quick Start
+
+```typescript
+// Core Addresses
+const SPENDSAVE_HOOK = "0xB149651E7C60E561148AbD5a31a6ad6ba25c40cc";
+const POOL_MANAGER = "0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408";
+const STORAGE = "0x12256e69595E5949E05ba48Ab0926032e1e85484";
+const SAVING_STRATEGY = "0x023EaC31560eBdD6304d6EB5d3D95994c8256d04";
+
+// Tokens (Base Sepolia)
+const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+const WETH = "0x4200000000000000000000000000000000000006";
+
+// Example: Set 10% savings strategy
+await savingStrategy.setSavingStrategy(
+    userAddress,
+    1000, // 10%
+    0,
+    10000,
+    false,
+    0, // INPUT token type
+    ethers.constants.AddressZero
+);
+
+// Execute swap through pool with hook
+await swapRouter.swap(poolKey, swapParams, settings, hookData);
 ```
-TX: 0x4f19214ca298d8c0af1bb3da729300ec2ca62c48324fa33fb7ddcb64b1a14c8d
-View: https://sepolia.basescan.org/tx/0x4f19214ca298d8c0af1bb3da729300ec2ca62c48324fa33fb7ddcb64b1a14c8d
-```
 
-**Deployed Contracts:**
-- SpendSaveHook: `0xc4ABf9A7bf8300086BBad164b4c47B1Afbbf00Cc`
-- SpendSaveStorage: `0xC95A40D1b2914a72319735Db73c14183bC641fA2`
-- SavingStrategy: `0x871cF56eFA79EBe9332e49143927b5E91b047253`
-- Savings: `0xf5b264234B88e1a1c9FA7fc8D27022b0B7670Ddc`
+> 📖 **For complete integration guide with ABIs, see [DEPLOYMENT_REPORT.md](./DEPLOYMENT_REPORT.md)**
 
 ## 📐 Protocol Architecture
 

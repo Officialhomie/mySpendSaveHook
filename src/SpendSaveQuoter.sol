@@ -32,10 +32,7 @@ contract SpendSaveQuoter {
         // Get quote for full swap amount
         (uint256 fullSwapOutput,) = quoter.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
-                poolKey: poolKey,
-                zeroForOne: zeroForOne,
-                exactAmount: amountIn,
-                hookData: ""
+                poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: amountIn, hookData: ""
             })
         );
 
@@ -51,10 +48,7 @@ contract SpendSaveQuoter {
         // Get quote for adjusted amount
         (uint256 adjustedSwapOutput,) = quoter.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
-                poolKey: poolKey,
-                zeroForOne: zeroForOne,
-                exactAmount: adjustedInput,
-                hookData: ""
+                poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: adjustedInput, hookData: ""
             })
         );
 
@@ -78,10 +72,7 @@ contract SpendSaveQuoter {
 
         (uint256 quoteOutput, uint256 gas) = quoter.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
-                poolKey: poolKey,
-                zeroForOne: zeroForOne,
-                exactAmount: amountIn,
-                hookData: ""
+                poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: amountIn, hookData: ""
             })
         );
 

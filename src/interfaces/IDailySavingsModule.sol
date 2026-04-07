@@ -22,8 +22,7 @@ interface IDailySavingsModule is ISpendSaveModule {
 
     function withdrawDailySavings(address user, address token, uint256 amount) external returns (uint256);
 
-    function setDailySavingsYieldStrategy(address user, address token, SpendSaveStorage.YieldStrategy strategy)
-        external;
+    function setDailySavingsYieldStrategy(address user, address token, SpendSaveStorage.YieldStrategy strategy) external;
 
     function hasPendingDailySavings(address user) external view returns (bool);
 

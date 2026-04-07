@@ -672,12 +672,13 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         console.log("\n=== P5 ADVANCED: Testing DCA Preview Functions ===");
 
         // Preview DCA execution
-        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) = dcaRouter.previewDCAExecution(
-            address(tokenA),
-            address(tokenB),
-            DCA_AMOUNT,
-            1 // Max 1 hop
-        );
+        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) =
+            dcaRouter.previewDCAExecution(
+                address(tokenA),
+                address(tokenB),
+                DCA_AMOUNT,
+                1 // Max 1 hop
+            );
 
         // Verify preview results
         assertGt(expectedOutput, 0, "Should estimate output");
@@ -692,12 +693,13 @@ contract SpendSaveDCARouterTest is Test, Deployers {
         console.log("\n=== P5 ADVANCED: Testing Multi-Hop DCA Preview ===");
 
         // Preview multi-hop DCA execution
-        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) = dcaRouter.previewDCAExecution(
-            address(tokenA),
-            address(tokenC),
-            DCA_AMOUNT,
-            2 // Max 2 hops
-        );
+        (uint256 expectedOutput, PathKey[] memory path, uint256 gasEstimate) =
+            dcaRouter.previewDCAExecution(
+                address(tokenA),
+                address(tokenC),
+                DCA_AMOUNT,
+                2 // Max 2 hops
+            );
 
         // Verify preview results for multi-hop
         assertGt(expectedOutput, 0, "Should estimate multi-hop output");
@@ -814,8 +816,9 @@ contract SpendSaveDCARouterTest is Test, Deployers {
                 orders[i].minAmountOut,
                 orders[i].maxHops
             ) {
-                // Success
-            } catch {
+            // Success
+            }
+                catch {
                 // Individual operation failed (expected for some)
             }
             uint256 gasUsedIndividual = gasBeforeIndividual - gasleft();

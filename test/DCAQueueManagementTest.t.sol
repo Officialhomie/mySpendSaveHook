@@ -1,4 +1,4 @@
-    // SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -294,13 +294,16 @@ contract DCAQueueManagementTest is Test, Deployers {
     function testDCAQueue_QueueItemRetrieval() public {
         console.log("\n=== P3 CORE: Testing DCA Queue Item Retrieval ===");
 
+        // Capture queue length before adding items (handles state from prior subtests in comprehensive report)
+        uint256 queueLengthBefore = storageContract.getDcaQueueLength(alice);
+
         // Queue multiple DCA orders
         vm.prank(alice);
         dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenB), 1 ether);
         vm.prank(alice);
         dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenC), 2 ether);
 
-        // Verify queue items can be retrieved correctly
+        // Verify queue items can be retrieved correctly using offset indices
         (
             address fromToken1,
             address toToken1,
@@ -309,7 +312,7 @@ contract DCAQueueManagementTest is Test, Deployers {
             uint256 deadline1,
             bool executed1,
             uint256 customSlippage1
-        ) = storageContract.getDcaQueueItem(alice, 0);
+        ) = storageContract.getDcaQueueItem(alice, queueLengthBefore);
 
         assertEq(fromToken1, address(tokenA), "First item should have correct from token");
         assertEq(toToken1, address(tokenB), "First item should have correct to token");
@@ -324,7 +327,7 @@ contract DCAQueueManagementTest is Test, Deployers {
             uint256 deadline2,
             bool executed2,
             uint256 customSlippage2
-        ) = storageContract.getDcaQueueItem(alice, 1);
+        ) = storageContract.getDcaQueueItem(alice, queueLengthBefore + 1);
 
         assertEq(fromToken2, address(tokenA), "Second item should have correct from token");
         assertEq(toToken2, address(tokenC), "Second item should have correct to token");
@@ -341,15 +344,16 @@ contract DCAQueueManagementTest is Test, Deployers {
         // For now, test that large numbers of queue items are handled gracefully
 
         uint256 maxItems = 100; // Test with a reasonable number
+        uint256 queueLengthBefore = storageContract.getDcaQueueLength(alice);
 
         for (uint256 i = 0; i < maxItems; i++) {
             vm.prank(alice);
             dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenB), 0.1 ether);
         }
 
-        // Verify all items were queued
+        // Verify all items were queued (relative to initial length)
         uint256 finalLength = storageContract.getDcaQueueLength(alice);
-        assertEq(finalLength, maxItems, "Should handle large queue sizes");
+        assertEq(finalLength, queueLengthBefore + maxItems, "Should handle large queue sizes");
 
         console.log("SUCCESS: Queue overflow protection working");
         console.log("Queue can handle", maxItems, "items without issues");
@@ -357,6 +361,8 @@ contract DCAQueueManagementTest is Test, Deployers {
 
     function testDCAQueue_ExecutionOrder() public {
         console.log("\n=== P3 CORE: Testing DCA Execution Order ===");
+
+        uint256 queueLengthBefore = storageContract.getDcaQueueLength(alice);
 
         // Queue multiple DCA orders with different amounts and tokens
         vm.prank(alice);
@@ -368,7 +374,7 @@ contract DCAQueueManagementTest is Test, Deployers {
 
         // Verify execution order (FIFO)
         uint256 queueLength = storageContract.getDcaQueueLength(alice);
-        assertEq(queueLength, 3, "Should have 3 items in queue");
+        assertEq(queueLength, queueLengthBefore + 3, "Should have 3 items in queue");
 
         // Test that items are processed in order
         // This would require implementing execution logic that processes queue items sequentially
@@ -380,20 +386,22 @@ contract DCAQueueManagementTest is Test, Deployers {
     function testDCAQueue_MarkExecutedFunctionality() public {
         console.log("\n=== P3 CORE: Testing DCA Mark Executed Functionality ===");
 
+        uint256 queueLengthBefore = storageContract.getDcaQueueLength(alice);
+
         // Queue a DCA order
         vm.prank(alice);
         dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenB), 1 ether);
 
-        // Verify item is not executed initially
-        (,,,,, bool executedBefore,) = storageContract.getDcaQueueItem(alice, 0);
+        // Verify item is not executed initially (use offset index)
+        (,,,,, bool executedBefore,) = storageContract.getDcaQueueItem(alice, queueLengthBefore);
         assertFalse(executedBefore, "Item should not be executed initially");
 
         // Mark as executed - must be called by authorized module
         vm.prank(address(dcaModule));
-        storageContract.markDcaExecuted(alice, 0);
+        storageContract.markDcaExecuted(alice, queueLengthBefore);
 
         // Verify item is now executed
-        (,,,,, bool executedAfter,) = storageContract.getDcaQueueItem(alice, 0);
+        (,,,,, bool executedAfter,) = storageContract.getDcaQueueItem(alice, queueLengthBefore);
         assertTrue(executedAfter, "Item should be marked as executed");
 
         console.log("SUCCESS: Mark executed functionality working");
@@ -401,6 +409,8 @@ contract DCAQueueManagementTest is Test, Deployers {
 
     function testDCAQueue_RemoveExecutedItems() public {
         console.log("\n=== P3 CORE: Testing DCA Remove Executed Items ===");
+
+        uint256 queueLengthBefore = storageContract.getDcaQueueLength(alice);
 
         // Queue multiple DCA orders
         vm.prank(alice);
@@ -411,11 +421,11 @@ contract DCAQueueManagementTest is Test, Deployers {
         dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenB), 0.5 ether);
 
         uint256 initialLength = storageContract.getDcaQueueLength(alice);
-        assertEq(initialLength, 3, "Should have 3 items initially");
+        assertEq(initialLength, queueLengthBefore + 3, "Should have 3 items initially");
 
-        // Mark first item as executed - must be called by authorized module
+        // Mark first newly-added item as executed - must be called by authorized module
         vm.prank(address(dcaModule));
-        storageContract.markDcaExecuted(alice, 0);
+        storageContract.markDcaExecuted(alice, queueLengthBefore);
 
         // Remove executed items - must be called by authorized module
         vm.prank(address(dcaModule));
@@ -431,6 +441,8 @@ contract DCAQueueManagementTest is Test, Deployers {
     function testDCAQueue_QueueWithDifferentTokens() public {
         console.log("\n=== P3 CORE: Testing DCA Queue with Different Token Pairs ===");
 
+        uint256 queueLengthBefore = storageContract.getDcaQueueLength(alice);
+
         // Queue DCA orders with different token pairs
         vm.prank(alice);
         dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenB), 1 ether);
@@ -441,12 +453,12 @@ contract DCAQueueManagementTest is Test, Deployers {
 
         // Verify all different token pairs are queued correctly
         uint256 queueLength = storageContract.getDcaQueueLength(alice);
-        assertEq(queueLength, 3, "Should handle multiple token pairs");
+        assertEq(queueLength, queueLengthBefore + 3, "Should handle multiple token pairs");
 
-        // Verify each queue item has correct tokens
-        (address fromToken1, address toToken1,,,,,) = storageContract.getDcaQueueItem(alice, 0);
-        (address fromToken2, address toToken2,,,,,) = storageContract.getDcaQueueItem(alice, 1);
-        (address fromToken3, address toToken3,,,,,) = storageContract.getDcaQueueItem(alice, 2);
+        // Verify each queue item has correct tokens (use offset indices)
+        (address fromToken1, address toToken1,,,,,) = storageContract.getDcaQueueItem(alice, queueLengthBefore);
+        (address fromToken2, address toToken2,,,,,) = storageContract.getDcaQueueItem(alice, queueLengthBefore + 1);
+        (address fromToken3, address toToken3,,,,,) = storageContract.getDcaQueueItem(alice, queueLengthBefore + 2);
 
         assertEq(fromToken1, address(tokenA), "First item from token correct");
         assertEq(toToken1, address(tokenB), "First item to token correct");
@@ -494,6 +506,7 @@ contract DCAQueueManagementTest is Test, Deployers {
 
         // Perform stress test with many operations
         uint256 numOperations = 50;
+        uint256 queueLengthBefore = storageContract.getDcaQueueLength(alice);
 
         // Queue many items
         for (uint256 i = 0; i < numOperations; i++) {
@@ -501,14 +514,15 @@ contract DCAQueueManagementTest is Test, Deployers {
             dcaModule.queueDCAExecution(alice, address(tokenA), address(tokenB), 0.1 ether * (i + 1));
         }
 
-        // Verify all items queued
+        // Verify all items queued (relative to initial)
         uint256 queueLength = storageContract.getDcaQueueLength(alice);
-        assertEq(queueLength, numOperations, "All items should be queued");
+        assertEq(queueLength, queueLengthBefore + numOperations, "All items should be queued");
 
-        // Test retrieval of random items
+        // Test retrieval of items within the newly-added range
         for (uint256 i = 0; i < 10; i++) {
-            uint256 randomIndex = uint256(keccak256(abi.encodePacked(block.timestamp, i))) % numOperations;
-            (address fromToken,, uint256 amount,,,,) = storageContract.getDcaQueueItem(alice, randomIndex);
+            uint256 relativeIndex = uint256(keccak256(abi.encodePacked(block.timestamp, i))) % numOperations;
+            (address fromToken,, uint256 amount,,,,) =
+                storageContract.getDcaQueueItem(alice, queueLengthBefore + relativeIndex);
             assertEq(fromToken, address(tokenA), "Random item should have correct from token");
             assertTrue(amount > 0, "Random item should have non-zero amount");
         }

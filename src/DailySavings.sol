@@ -387,9 +387,7 @@ contract DailySavings is IDailySavingsModule {
         // Check if enough time has passed
         if (status.daysPassed == 0) {
             return ExecutionContext({
-                shouldProcess: false,
-                amountToSave: 0,
-                reason: "Not enough time passed since last execution"
+                shouldProcess: false, amountToSave: 0, reason: "Not enough time passed since last execution"
             });
         }
 
@@ -478,7 +476,7 @@ contract DailySavings is IDailySavingsModule {
             return;
         }
 
-        SpendSaveStorage.YieldStrategy strategy = storage_.getDailySavingsYieldStrategy(user, token);
+        SpendSaveStorage.YieldStrategy strategy = storage_.dailySavingsYieldStrategies(user, token);
 
         if (strategy != SpendSaveStorage.YieldStrategy.NONE) {
             try yieldModule.applyYieldStrategy(user, token) {
@@ -499,14 +497,14 @@ contract DailySavings is IDailySavingsModule {
     {
         // Get all configuration data in a single storage read
         (
-            status.enabled,
-            status.lastExecutionTime,
-            status.startTime,
-            status.goalAmount,
-            status.currentAmount,
-            status.penaltyBps,
-            status.endTime
-        ) = storage_.getDailySavingsConfig(user, token);
+                status.enabled,
+                status.lastExecutionTime,
+                status.startTime,
+                status.goalAmount,
+                status.currentAmount,
+                status.penaltyBps,
+                status.endTime
+            ) = storage_.getDailySavingsConfig(user, token);
 
         // Always get daily amount if enabled (needed for status queries)
         if (status.enabled) {
@@ -639,9 +637,7 @@ contract DailySavings is IDailySavingsModule {
     }
 
     // Update config after withdrawal
-    function _updateConfigAfterWithdrawal(address user, address token, uint256 amount, uint256 currentAmount)
-        internal
-    {
+    function _updateConfigAfterWithdrawal(address user, address token, uint256 amount, uint256 currentAmount) internal {
         // Calculate new amount after withdrawal
         uint256 newAmount = currentAmount >= amount ? currentAmount - amount : 0;
 
@@ -650,8 +646,7 @@ contract DailySavings is IDailySavingsModule {
             bool enabled,
             uint256 lastExecutionTime,
             uint256 startTime,
-            uint256 goalAmount,
-            ,
+            uint256 goalAmount,,
             uint256 penaltyBps,
             uint256 endTime
         ) = storage_.getDailySavingsConfig(user, token);
@@ -677,8 +672,9 @@ contract DailySavings is IDailySavingsModule {
     function _transferWithdrawalFunds(address user, address token, uint256 netAmount, uint256 penalty) internal {
         // Request storage contract to release tokens to user
         try storage_.releaseTokens(token, netAmount, user) {
-            // Success - continue to penalty transfer if needed
-        } catch {
+        // Success - continue to penalty transfer if needed
+        }
+        catch {
             revert WithdrawalFailed();
         }
 
@@ -687,8 +683,9 @@ contract DailySavings is IDailySavingsModule {
             address treasury = storage_.treasury();
             // Request storage to release penalty to treasury
             try storage_.releaseTokens(token, penalty, treasury) {
-                // Success
-            } catch {
+            // Success
+            }
+            catch {
                 // If penalty transfer fails, we don't revert since the user already got their funds
                 emit TransferError(user, token, "Failed to transfer penalty to treasury");
             }
@@ -855,8 +852,9 @@ contract DailySavings is IDailySavingsModule {
                 tokenId = tokenModule.registerToken(token);
             }
             try tokenModule.mintSavingsToken(user, tokenId, amount) {
-                // Success - could emit specific daily savings event here
-            } catch {
+            // Success - could emit specific daily savings event here
+            }
+                catch {
                 // Handle error appropriately for daily savings context
             }
         }

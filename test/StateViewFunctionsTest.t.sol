@@ -478,8 +478,12 @@ contract StateViewFunctionsTest is Test, Deployers {
             int24 tick = testTicks[i];
 
             // Test getTickInfo for each tick
-            (uint128 liquidityGross, int128 liquidityNet, uint256 feeGrowthOutside0X128, uint256 feeGrowthOutside1X128)
-            = stateView.getTickInfo(poolId, tick);
+            (
+                uint128 liquidityGross,
+                int128 liquidityNet,
+                uint256 feeGrowthOutside0X128,
+                uint256 feeGrowthOutside1X128
+            ) = stateView.getTickInfo(poolId, tick);
 
             // Test getTickLiquidity for each tick
             (uint128 liquidityGross2, int128 liquidityNet2) = stateView.getTickLiquidity(poolId, tick);

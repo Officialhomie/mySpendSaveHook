@@ -338,6 +338,8 @@ contract CriticalHookTests is Test, Deployers {
         bytes memory hookData = abi.encode(user);
 
         // Record gas usage
+        // Mock poolManager.take() — INPUT savings calls it outside unlock context in unit test
+        vm.mockCall(address(manager), abi.encodeWithSelector(IPoolManager.take.selector), abi.encode());
         uint256 gasBefore = gasleft();
 
         // Call _beforeSwapInternal directly
@@ -352,8 +354,8 @@ contract CriticalHookTests is Test, Deployers {
         assertEq(fee, 0, "Should not modify fee");
 
         // Verify delta calculation for INPUT savings (Alice has 10% INPUT savings)
-        // For 1 ether input with 10% savings, should take 0.1 ether from user
-        int128 expectedDelta0 = -0.1 ether; // Take savings amount from input
+        // Positive specifiedDelta = hook consumes 10% of input (reduces amount going to pool)
+        int128 expectedDelta0 = 0.1 ether; // Positive: hook takes savings from input
         assertEq(
             BeforeSwapDeltaLibrary.getSpecifiedDelta(delta),
             expectedDelta0,
@@ -512,7 +514,8 @@ contract CriticalHookTests is Test, Deployers {
 
         SwapParams memory params = SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
 
-        // Call with different sender, but actual user in hookData
+        // Call with different sender, but actual user in hookData — INPUT savings calls take()
+        vm.mockCall(address(manager), abi.encodeWithSelector(IPoolManager.take.selector), abi.encode());
         vm.prank(address(hook));
         (bytes4 selector, BeforeSwapDelta delta, uint24 fee) = hook._beforeSwapInternal(
             swapSender, // Different sender
@@ -540,7 +543,8 @@ contract CriticalHookTests is Test, Deployers {
         // Measure gas for multiple scenarios
         uint256[] memory gasUsed = new uint256[](3);
 
-        // Test 1: User with savings strategy
+        // Test 1: User with savings strategy — INPUT savings calls take()
+        vm.mockCall(address(manager), abi.encodeWithSelector(IPoolManager.take.selector), abi.encode());
         uint256 gasBefore = gasleft();
         vm.prank(address(hook));
         hook._beforeSwapInternal(user, poolKey_A_B, params, hookData);
@@ -599,12 +603,14 @@ contract CriticalHookTests is Test, Deployers {
 
         SwapParams memory maxParams = SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
 
+        // 100% INPUT savings calls take() for the full amount
+        vm.mockCall(address(manager), abi.encodeWithSelector(IPoolManager.take.selector), abi.encode());
         vm.prank(address(hook));
         (bytes4 selector2, BeforeSwapDelta delta2, uint24 fee2) =
             hook._beforeSwapInternal(alice, poolKey_A_B, maxParams, abi.encode(alice));
 
-        // With 100% savings, should take the entire input amount
-        assertEq(BeforeSwapDeltaLibrary.getSpecifiedDelta(delta2), -1 ether, "Should take full amount for 100% savings");
+        // Positive specifiedDelta = hook consumes the full input amount for savings (correct V4 semantics)
+        assertEq(BeforeSwapDeltaLibrary.getSpecifiedDelta(delta2), 1 ether, "Should take full amount for 100% savings");
 
         console.log("SUCCESS: Zero amount swap handled");
         console.log("SUCCESS: Maximum percentage (100%) handled");
@@ -622,7 +628,8 @@ contract CriticalHookTests is Test, Deployers {
         assertEq(initialContext.pendingSaveAmount, 0, "Should start with clean transient storage");
         assertFalse(initialContext.hasStrategy, "Should start with no strategy flag");
 
-        // Execute beforeSwapInternal
+        // Execute beforeSwapInternal — INPUT savings calls take()
+        vm.mockCall(address(manager), abi.encodeWithSelector(IPoolManager.take.selector), abi.encode());
         vm.prank(address(hook));
         hook._beforeSwapInternal(user, poolKey_A_B, params, abi.encode(user));
 
@@ -868,5 +875,93 @@ contract CriticalHookTests is Test, Deployers {
         console.log("SUCCESS: USDC to WETH swap with savings works!");
         console.log("SUCCESS: Protocol extracts savings during real swaps!");
         console.log("SUCCESS: Ready for Base Mainnet deployment!");
+    }
+
+    // ==================== DELTA CORRECTNESS TESTS ====================
+
+    function testAfterSwap_OutputSavings_ReturnsNonZeroDelta() public {
+        console.log("\n=== DELTA CORRECTNESS: OUTPUT savings must return non-zero hookDelta ===");
+
+        // Configure bob with 5% OUTPUT savings
+        address user = bob;
+
+        // Set transient context simulating what beforeSwap would set for OUTPUT savings
+        vm.prank(address(hook));
+        storageContract.setTransientSwapContext(
+            user,
+            0,      // pendingSaveAmount: 0 for OUTPUT (calculated in afterSwap)
+            500,    // currentPercentage: 5%
+            true,   // hasStrategy
+            1,      // savingsTokenType: OUTPUT
+            true,   // roundUpSavings
+            false   // enableDCA
+        );
+
+        SwapParams memory params = SwapParams({
+            zeroForOne: true,
+            amountSpecified: -1 ether,
+            sqrtPriceLimitX96: 0
+        });
+        // Swap result: paid 1 ether tokenA, received 1 ether tokenB
+        BalanceDelta swapDelta = toBalanceDelta(-1 ether, 1 ether);
+        bytes memory hookData = abi.encode(user);
+
+        // Simulate PoolManager crediting hook with output savings amount (5% of 1 ether = 0.05 ether)
+        // In production this happens via hookDelta; in unit test we mint directly
+        tokenB.mint(address(hook), 0.05 ether);
+
+        vm.prank(address(hook));
+        (bytes4 selector, int128 hookDelta) =
+            hook._afterSwapInternal(user, poolKey_A_B, params, swapDelta, hookData);
+
+        assertEq(selector, IHooks.afterSwap.selector, "Should return correct selector");
+
+        // 5% of 1 ether = 0.05 ether
+        int128 expectedDelta = int128(uint128(0.05 ether));
+        assertEq(hookDelta, expectedDelta, "hookDelta must equal 5% of output for OUTPUT savings");
+        assertTrue(hookDelta > 0, "hookDelta must be positive - zero would cause PM accounting mismatch");
+
+        console.log("SUCCESS: OUTPUT savings correctly returns non-zero hookDelta");
+        console.log("SUCCESS: PoolManager accounting mismatch is fixed");
+    }
+
+    function testAfterSwap_InputSavings_ReturnsZeroDelta() public {
+        console.log("\n=== DELTA CORRECTNESS: INPUT savings must return zero hookDelta ===");
+
+        // Configure alice with 10% INPUT savings
+        address user = alice;
+
+        // Set transient context: INPUT savings already took tokens in beforeSwap
+        vm.prank(address(hook));
+        storageContract.setTransientSwapContext(
+            user,
+            0.1 ether,  // pendingSaveAmount: 10% of 1 ether, pre-calculated in beforeSwap
+            1000,       // currentPercentage: 10%
+            true,       // hasStrategy
+            0,          // savingsTokenType: INPUT
+            false,      // roundUpSavings
+            false       // enableDCA
+        );
+
+        SwapParams memory params = SwapParams({
+            zeroForOne: true,
+            amountSpecified: -1 ether,
+            sqrtPriceLimitX96: 0
+        });
+        BalanceDelta swapDelta = toBalanceDelta(-1 ether, int128(0.9 ether));
+        bytes memory hookData = abi.encode(user);
+
+        // Simulate hook holding INPUT tokens from beforeSwap poolManager.take() (10% of 1 ether = 0.1 ether)
+        tokenA.mint(address(hook), 0.1 ether);
+
+        vm.prank(address(hook));
+        (bytes4 selector, int128 hookDelta) =
+            hook._afterSwapInternal(user, poolKey_A_B, params, swapDelta, hookData);
+
+        assertEq(selector, IHooks.afterSwap.selector, "Should return correct selector");
+        assertEq(hookDelta, 0, "hookDelta must be 0 for INPUT savings - tokens already taken in beforeSwap");
+
+        console.log("SUCCESS: INPUT savings correctly returns zero hookDelta");
+        console.log("SUCCESS: No double-accounting for INPUT savings path");
     }
 }

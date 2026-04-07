@@ -6,8 +6,9 @@ import {IPoolManager} from "lib/v4-periphery/lib/v4-core/src/interfaces/IPoolMan
 import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {IERC20} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "lib/v4-periphery/lib/v4-core/src/types/BeforeSwapDelta.sol";
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 

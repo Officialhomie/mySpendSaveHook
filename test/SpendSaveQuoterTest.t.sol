@@ -347,12 +347,13 @@ contract SpendSaveQuoterTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Savings Impact Preview ===");
 
         // Preview savings impact for swap
-        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) = quoter.previewSavingsImpact(
-            poolKeyAB,
-            true, // zeroForOne
-            uint128(SWAP_AMOUNT),
-            SAVINGS_PERCENTAGE
-        );
+        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) =
+            quoter.previewSavingsImpact(
+                poolKeyAB,
+                true, // zeroForOne
+                uint128(SWAP_AMOUNT),
+                SAVINGS_PERCENTAGE
+            );
 
         // Verify calculations
         assertGt(swapOutput, 0, "Should get swap output");
@@ -386,12 +387,13 @@ contract SpendSaveQuoterTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Savings Impact Preview with No Savings ===");
 
         // Preview with 0% savings
-        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) = quoter.previewSavingsImpact(
-            poolKeyAB,
-            true,
-            uint128(SWAP_AMOUNT),
-            0 // No savings
-        );
+        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) =
+            quoter.previewSavingsImpact(
+                poolKeyAB,
+                true,
+                uint128(SWAP_AMOUNT),
+                0 // No savings
+            );
 
         // Verify calculations
         assertGt(swapOutput, 0, "Should get swap output");
@@ -406,12 +408,13 @@ contract SpendSaveQuoterTest is Test, Deployers {
         console.log("\n=== P8 ENHANCED: Testing Savings Impact Preview with Full Savings ===");
 
         // Preview with 100% savings (edge case)
-        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) = quoter.previewSavingsImpact(
-            poolKeyAB,
-            true,
-            uint128(SWAP_AMOUNT),
-            10000 // 100% savings
-        );
+        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) =
+            quoter.previewSavingsImpact(
+                poolKeyAB,
+                true,
+                uint128(SWAP_AMOUNT),
+                10000 // 100% savings
+            );
 
         // Verify calculations
         assertGt(swapOutput, 0, "Should get swap output");
@@ -537,12 +540,13 @@ contract SpendSaveQuoterTest is Test, Deployers {
         assertEq(percentage, SAVINGS_PERCENTAGE, "User strategy should be set");
 
         // Preview savings impact using user's strategy
-        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) = quoter.previewSavingsImpact(
-            poolKeyAB,
-            true,
-            uint128(SWAP_AMOUNT),
-            percentage // Use user's actual strategy
-        );
+        (uint256 swapOutput, uint256 savedAmount, uint256 netOutput) =
+            quoter.previewSavingsImpact(
+                poolKeyAB,
+                true,
+                uint128(SWAP_AMOUNT),
+                percentage // Use user's actual strategy
+            );
 
         // Verify calculations with user's strategy
         uint256 expectedSavings = (SWAP_AMOUNT * percentage) / 10000;

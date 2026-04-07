@@ -3,8 +3,9 @@ pragma solidity 0.8.26;
 
 import {SpendSaveStorage} from "./SpendSaveStorage.sol";
 import {ISlippageControlModule} from "./interfaces/ISlippageControlModule.sol";
-import {ReentrancyGuard} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title SlippageControl
@@ -169,11 +170,7 @@ contract SlippageControl is ISlippageControlModule, ReentrancyGuard {
     }
 
     // Helper to calculate expected output with slippage
-    function _calculateOutputWithSlippage(uint256 expectedAmount, uint256 slippageBps)
-        internal
-        pure
-        returns (uint256)
-    {
+    function _calculateOutputWithSlippage(uint256 expectedAmount, uint256 slippageBps) internal pure returns (uint256) {
         // Apply slippage tolerance (slippageBps is in basis points, 100 = 1%)
         return expectedAmount * (BASIS_POINTS_DENOMINATOR - slippageBps) / BASIS_POINTS_DENOMINATOR;
     }

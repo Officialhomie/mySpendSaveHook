@@ -309,6 +309,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         } catch Error(string memory reason) {
             emit BeforeSwapError(_extractUser(sender, hookData), reason);
             return (IHooks.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
+        } catch (bytes memory) {
+            emit BeforeSwapError(_extractUser(sender, hookData), "beforeSwap panic");
+            return (IHooks.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
         }
     }
 
@@ -322,6 +325,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         SwapParams calldata params,
         bytes calldata hookData
     ) external returns (bytes4, BeforeSwapDelta, uint24) {
+        require(msg.sender == address(this), "Only self-call allowed");
         // Extract actual user from sender or hook data
         address user = _extractUser(sender, hookData);
 
@@ -352,7 +356,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         // When we return a positive delta, we TAKE tokens from the PoolManager
         // The swap router handles getting tokens from user to PoolManager
         // We intercept some of those tokens by taking them to the hook for savings
-        if (savingsTokenType == 0 && saveAmount > 0) {
+        if (savingsTokenType == 0 && saveAmount > 0 && saveAmount <= inputAmount) {
             // Determine which token we're saving (input token)
             Currency savingsToken = params.zeroForOne ? key.currency0 : key.currency1;
 
@@ -393,6 +397,11 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
             // Clean up transient storage on error
             storage_.clearTransientSwapContext(user);
             return (IHooks.afterSwap.selector, 0);
+        } catch (bytes memory) {
+            address user = _extractUser(sender, hookData);
+            emit AfterSwapError(user, "afterSwap panic");
+            storage_.clearTransientSwapContext(user);
+            return (IHooks.afterSwap.selector, 0);
         }
     }
 
@@ -407,6 +416,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         BalanceDelta delta,
         bytes calldata hookData
     ) external returns (bytes4, int128) {
+        require(msg.sender == address(this), "Only self-call allowed");
         // Extract user address
         address user = _extractUser(sender, hookData);
 
@@ -420,7 +430,9 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         ) = storage_.getTransientSwapContext(user);
 
         // Fast path - no savings to process
-        if (currentPercentage == 0 || pendingSaveAmount == 0) {
+        // For INPUT savings (type 0), pendingSaveAmount must be non-zero (set in beforeSwap)
+        // For OUTPUT/SPECIFIC savings (type 1/2), pendingSaveAmount is always 0 — calculated from delta here
+        if (currentPercentage == 0 || (savingsTokenType == 0 && pendingSaveAmount == 0)) {
             storage_.clearTransientSwapContext(user);
             return (IHooks.afterSwap.selector, 0);
         }
@@ -428,33 +440,61 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         // Process savings based on type using in-memory calculations
         uint256 actualSaveAmount = 0;
         address saveToken;
+        int128 hookDelta = 0;
 
         if (savingsTokenType == 0) {
-            // INPUT token savings
-            // Amount already calculated in beforeSwap
+            // INPUT token savings — tokens already taken via poolManager.take() in beforeSwap
             actualSaveAmount = pendingSaveAmount;
             saveToken = params.zeroForOne ? Currency.unwrap(key.currency0) : Currency.unwrap(key.currency1);
-
-            // Store savings data for processing through proper unlock pattern
-            // Note: Direct currency operations removed for V4 compliance
-            // Currency operations must be handled through unlock callbacks
+            // hookDelta stays 0: accounting was handled in beforeSwap via BeforeSwapDelta
         } else if (savingsTokenType == 1) {
             // OUTPUT token savings
-            // Calculate output savings using delta information
             (saveToken, actualSaveAmount) =
                 _calculateOutputSavings(key, params, delta, currentPercentage, roundUpSavings);
-
             if (actualSaveAmount > 0) {
-                // Store savings data for processing through proper unlock pattern
-                // Note: Direct currency operations removed for V4 compliance
-                // Currency operations must be handled through unlock callbacks
+                // Signal to PoolManager that hook claims this amount of output token.
+                // afterSwapReturnDelta handles accounting — no separate take() needed.
+                hookDelta = int128(uint128(actualSaveAmount));
+            }
+        } else if (savingsTokenType == 2) {
+            // SPECIFIC token savings — calculate from output, same accounting model as OUTPUT
+            (saveToken, actualSaveAmount) =
+                _calculateOutputSavings(key, params, delta, currentPercentage, roundUpSavings);
+            if (actualSaveAmount > 0) {
+                hookDelta = int128(uint128(actualSaveAmount));
             }
         }
 
-        // Batch update storage if we saved anything
+        // Process savings through Savings module to mint ERC6909 tokens and run business logic
         if (actualSaveAmount > 0 && saveToken != address(0)) {
-            // Single storage operation for all updates
-            storage_.batchUpdateUserSavings(user, saveToken, actualSaveAmount);
+            // Transfer saved tokens from hook to storage contract
+            IERC20Minimal(saveToken).transfer(address(storage_), actualSaveAmount);
+
+            // Create swap context for savings processing
+            SpendSaveStorage.SwapContext memory context = SpendSaveStorage.SwapContext({
+                hasStrategy: true,
+                currentPercentage: currentPercentage,
+                inputAmount: 0,
+                inputToken: saveToken,
+                roundUpSavings: roundUpSavings,
+                enableDCA: enableDCA,
+                dcaTargetToken: address(0),
+                currentTick: 0,
+                savingsTokenType: SpendSaveStorage.SavingsTokenType(savingsTokenType),
+                specificSavingsToken: address(0),
+                pendingSaveAmount: actualSaveAmount
+            });
+
+            ISavingsModule savingsModule = _savingsModule();
+            if (savingsTokenType == 0) {
+                savingsModule.processSavings(user, saveToken, actualSaveAmount, context);
+            } else if (savingsTokenType == 1) {
+                savingsModule.processSavingsFromOutput(user, saveToken, actualSaveAmount, context);
+            } else if (savingsTokenType == 2) {
+                SpendSaveStorage.SavingStrategy memory strategy = storage_.getUserSavingStrategy(user);
+                context.specificSavingsToken = strategy.specificSavingsToken;
+                savingsModule.processSavingsToSpecificToken(user, saveToken, actualSaveAmount, context);
+            }
 
             // Queue strategy updates for later processing (gas optimization)
             if (enableDCA) {
@@ -465,7 +505,7 @@ contract SpendSaveHook is BaseHook, ReentrancyGuard {
         // Clear transient storage (cleanup)
         storage_.clearTransientSwapContext(user);
 
-        return (IHooks.afterSwap.selector, 0);
+        return (IHooks.afterSwap.selector, hookDelta);
     }
 
     // ==================== GAS-OPTIMIZED CALCULATION FUNCTIONS ====================

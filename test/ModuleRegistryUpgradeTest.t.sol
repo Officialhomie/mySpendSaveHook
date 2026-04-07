@@ -150,13 +150,14 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         positionDescriptor = IPositionDescriptor(address(proxy));
 
         // Deploy PositionManager
-        positionManager = new PositionManager(
-            manager,
-            permit2,
-            100_000, // unsubscribeGasLimit
-            positionDescriptor,
-            weth9
-        );
+        positionManager =
+            new PositionManager(
+                manager,
+                permit2,
+                100_000, // unsubscribeGasLimit
+                positionDescriptor,
+                weth9
+            );
 
         console.log("V4 Periphery deployed successfully");
     }
@@ -334,6 +335,18 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         vm.prank(address(savingsModule));
         storageContract.increaseSavings(bob, address(tokenB), INITIAL_SAVINGS);
 
+        // Set savings strategy for alice so getPackedUserConfig returns non-zero percentage
+        vm.prank(alice);
+        strategyModule.setSavingStrategy(
+            alice,
+            1000, // 10% savings
+            0,
+            5000,
+            false,
+            SpendSaveStorage.SavingsTokenType.INPUT,
+            address(0)
+        );
+
         // Mint corresponding savings tokens
         vm.prank(alice);
         tokenModule.mintSavingsToken(alice, tokenAId, INITIAL_SAVINGS);
@@ -492,8 +505,8 @@ contract ModuleRegistryUpgradeTest is Test, Deployers, DeployPermit2 {
         // Test that only authorized modules can call certain functions
         // For example, only savings module should be able to increase savings
 
-        // Unauthorized module tries to increase savings
-        vm.prank(address(tokenModule)); // Token module is authorized but not for savings operations
+        // Non-module address tries to increase savings (only registered modules can)
+        vm.prank(unauthorizedUser);
         vm.expectRevert(); // Should revert
         storageContract.increaseSavings(alice, address(tokenA), 10 ether);
 

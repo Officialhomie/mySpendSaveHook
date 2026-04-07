@@ -25,6 +25,7 @@ import {Token} from "../src/Token.sol";
 import {DCA} from "../src/DCA.sol";
 import {DailySavings} from "../src/DailySavings.sol";
 import {SlippageControl} from "../src/SlippageControl.sol";
+import {PoolKeyHelper} from "../src/PoolKeyHelper.sol";
 
 /**
  * @title ComprehensiveTests
@@ -498,7 +499,7 @@ contract ComprehensiveTests is Test, Deployers {
     function testPoolKey_GetPoolKey() public {
         _createIsolatedEnvironment();
 
-        PoolKey memory poolKey = storageContract.getPoolKey(address(token0), address(token1));
+        PoolKey memory poolKey = PoolKeyHelper.createPoolKey(address(token0), address(token1));
 
         assertEq(Currency.unwrap(poolKey.currency0), address(token0));
         assertEq(Currency.unwrap(poolKey.currency1), address(token1));

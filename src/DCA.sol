@@ -11,8 +11,9 @@ import {Currency} from "lib/v4-periphery/lib/v4-core/src/types/Currency.sol";
 import {TickMath} from "lib/v4-periphery/lib/v4-core/src/libraries/TickMath.sol";
 import {IHooks} from "lib/v4-periphery/lib/v4-core/src/interfaces/IHooks.sol";
 import {StateLibrary} from "lib/v4-periphery/lib/v4-core/src/libraries/StateLibrary.sol";
-import {ReentrancyGuard} from
-    "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {SwapParams} from "lib/v4-periphery/lib/v4-core/src/types/PoolOperation.sol";
 import {IUnlockCallback} from "lib/v4-periphery/lib/v4-core/src/interfaces/callback/IUnlockCallback.sol";
 import {CurrencyDelta} from "lib/v4-periphery/lib/v4-core/src/libraries/CurrencyDelta.sol";
@@ -22,6 +23,7 @@ import {IDCAModule} from "./interfaces/IDCAModule.sol";
 import {ITokenModule} from "./interfaces/ITokenModule.sol";
 import {ISlippageControlModule} from "./interfaces/ISlippageControlModule.sol";
 import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
+import {PoolKeyHelper} from "./PoolKeyHelper.sol";
 
 /**
  * @title DCA
@@ -30,10 +32,7 @@ import {ISavingsModule} from "./interfaces/ISavingsModule.sol";
 contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
-
-    // Constants
-    uint24 private constant DEFAULT_FEE_TIER = 3000; // 0.3%
-    int24 private constant DEFAULT_TICK_SPACING = 60;
+    using PoolKeyHelper for address;
     uint256 private constant MAX_MULTIPLIER = 100; // Maximum 2x multiplier (100%)
 
     struct SwapExecutionParams {
@@ -139,10 +138,8 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
 
     // Helper for authorization check
     function _isAuthorizedCaller(address user) internal view returns (bool) {
-        return (
-            msg.sender == user || msg.sender == address(storage_) || msg.sender == storage_.spendSaveHook()
-                || storage_.isAuthorizedModule(msg.sender)
-        );
+        return (msg.sender == user || msg.sender == address(storage_) || msg.sender == storage_.spendSaveHook()
+                || storage_.isAuthorizedModule(msg.sender));
     }
 
     // Initialize module with storage reference
@@ -208,9 +205,16 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         savingsTokenType = strategy.savingsTokenType;
         specificSavingsToken = strategy.specificSavingsToken;
 
-        return (
-            percentage, autoIncrement, maxPercentage, goalAmount, roundUpSavings, savingsTokenType, specificSavingsToken
-        );
+        return
+            (
+                percentage,
+                autoIncrement,
+                maxPercentage,
+                goalAmount,
+                roundUpSavings,
+                savingsTokenType,
+                specificSavingsToken
+            );
     }
 
     // Enable DCA into a target token
@@ -387,13 +391,10 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         nonReentrant
     {
         // Create pool key for the token pair
-        PoolKey memory poolKey = PoolKey({
-            currency0: Currency.wrap(fromToken < toToken ? fromToken : toToken),
-            currency1: Currency.wrap(fromToken < toToken ? toToken : fromToken),
-            fee: DEFAULT_FEE_TIER,
-            hooks: IHooks(address(0)),
-            tickSpacing: DEFAULT_TICK_SPACING
-        });
+        PoolKey memory poolKey = PoolKeyHelper.createPoolKey(
+            fromToken < toToken ? fromToken : toToken,
+            fromToken < toToken ? toToken : fromToken
+        );
 
         // Get current tick from pool manager using StateLibrary
         (, int24 currentTick,,) = StateLibrary.getSlot0(poolManager, poolKey.toId());
@@ -514,6 +515,63 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
     }
 
     /**
+     * @dev Internal helper to execute DCA queue items for a single user, reducing stack depth in batchExecuteDCA.
+     */
+    function _executeBatchForUser(address user, DCAExecution[] memory executions, uint256 execIdx)
+        internal
+        returns (uint256)
+    {
+        (bool enabled,, uint256 minAmount, uint256 maxSlippage,,) = storage_.getUserDcaConfig(user);
+        if (!enabled) return execIdx;
+
+        uint256 queueLength = storage_.getDcaQueueLength(user);
+        for (uint256 i = 0; i < queueLength; i++) {
+            execIdx = _tryExecuteQueueItem(user, i, minAmount, maxSlippage, executions, execIdx);
+        }
+        return execIdx;
+    }
+
+    /**
+     * @dev Internal helper to attempt execution of a single DCA queue item.
+     */
+    function _tryExecuteQueueItem(
+        address user,
+        uint256 i,
+        uint256 minAmount,
+        uint256 maxSlippage,
+        DCAExecution[] memory executions,
+        uint256 execIdx
+    ) internal returns (uint256) {
+        (
+            address fromToken,
+            address toToken,
+            uint256 amount,
+            ,
+            uint256 deadline,
+            bool itemExecuted,
+            uint256 customSlippageTolerance
+        ) = storage_.getDcaQueueItem(user, i);
+
+        if (itemExecuted || amount < minAmount || block.timestamp > deadline) return execIdx;
+
+        (uint256 amountOut, uint256 executedPrice) = _executeSingleDCAWithPrice(
+            user, fromToken, toToken, amount, customSlippageTolerance > 0 ? customSlippageTolerance : maxSlippage
+        );
+
+        if (amountOut > 0) {
+            executions[execIdx++] = DCAExecution({
+                fromToken: fromToken,
+                toToken: toToken,
+                amount: amountOut,
+                timestamp: block.timestamp,
+                executedPrice: executedPrice
+            });
+            storage_.markDcaExecuted(user, i);
+        }
+        return execIdx;
+    }
+
+    /**
      * @notice Batch execute DCA for multiple users
      * @dev Gas-efficient implementation for keeper operations
      */
@@ -539,47 +597,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         uint256 execIdx = 0;
 
         for (uint256 u = 0; u < users.length; u++) {
-            address user = users[u];
-            uint256 queueLength = storage_.getDcaQueueLength(user);
-            (bool enabled, address targetToken, uint256 minAmount, uint256 maxSlippage,,) =
-                storage_.getUserDcaConfig(user);
-
-            if (!enabled) continue;
-
-            for (uint256 i = 0; i < queueLength; i++) {
-                (
-                    address fromToken,
-                    address toToken,
-                    uint256 amount,
-                    int24 executionTick,
-                    uint256 deadline,
-                    bool itemExecuted,
-                    uint256 customSlippageTolerance
-                ) = storage_.getDcaQueueItem(user, i);
-
-                if (!itemExecuted && amount >= minAmount && block.timestamp <= deadline) {
-                    uint256 amountOut;
-                    uint256 executedPrice;
-                    (amountOut, executedPrice) = _executeSingleDCAWithPrice(
-                        user,
-                        fromToken,
-                        toToken,
-                        amount,
-                        customSlippageTolerance > 0 ? customSlippageTolerance : maxSlippage
-                    );
-
-                    if (amountOut > 0) {
-                        executions[execIdx++] = DCAExecution({
-                            fromToken: fromToken,
-                            toToken: toToken,
-                            amount: amountOut,
-                            timestamp: block.timestamp,
-                            executedPrice: executedPrice
-                        });
-                        storage_.markDcaExecuted(user, i);
-                    }
-                }
-            }
+            execIdx = _executeBatchForUser(users[u], executions, execIdx);
         }
 
         // Resize array to actual number of executions
@@ -786,12 +804,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
      * @param limit Maximum number of records to return
      * @return history Array of DCA executions
      */
-    function getDCAHistory(address user, uint256 limit)
-        external
-        view
-        override
-        returns (DCAExecution[] memory history)
-    {
+    function getDCAHistory(address user, uint256 limit) external view override returns (DCAExecution[] memory history) {
         // Get DCA execution history from storage contract and convert types
         SpendSaveStorage.DCAExecution[] memory storageHistory = storage_.getDcaExecutionHistory(user, limit);
 
@@ -839,7 +852,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         uint256 amount,
         uint256 maxSlippage
     ) internal returns (uint256 amountOut, uint256 executedPrice) {
-        PoolKey memory poolKey = storage_.getPoolKey(fromToken, toToken);
+        PoolKey memory poolKey = PoolKeyHelper.createPoolKey(fromToken, toToken);
         bool zeroForOne = fromToken < toToken;
 
         amountOut = executeDCASwap(user, fromToken, toToken, amount, poolKey, zeroForOne, maxSlippage);
@@ -863,7 +876,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         if (maxSlippage == 0) return 0;
 
         // Create pool key for the token pair
-        PoolKey memory poolKey = storage_.getPoolKey(fromToken, toToken);
+        PoolKey memory poolKey = PoolKeyHelper.createPoolKey(fromToken, toToken);
         PoolId poolId = poolKey.toId();
 
         // Get pool state using StateLibrary
@@ -1138,11 +1151,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
         uint256 executionPrice
     ) internal {
         SpendSaveStorage.DCAExecution memory execution = SpendSaveStorage.DCAExecution({
-            amount: amount,
-            token: toToken,
-            executionTime: block.timestamp,
-            price: executionPrice,
-            successful: true
+            amount: amount, token: toToken, executionTime: block.timestamp, price: executionPrice, successful: true
         });
 
         storage_.addDcaExecution(user, execution);
@@ -1183,9 +1192,7 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
 
         // Prepare swap parameters
         SwapParams memory swapParams = SwapParams({
-            zeroForOne: zeroForOne,
-            amountSpecified: int256(amount),
-            sqrtPriceLimitX96: params.sqrtPriceLimitX96
+            zeroForOne: zeroForOne, amountSpecified: int256(amount), sqrtPriceLimitX96: params.sqrtPriceLimitX96
         });
 
         // Execute the swap using V4 unlock pattern
@@ -1522,8 +1529,9 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
             uint256 tokenId = tokenModule.getTokenId(token);
             if (tokenId != 0) {
                 try tokenModule.burnSavingsToken(user, tokenId, amount) {
-                    // Success - could emit event here
-                } catch {
+                // Success - could emit event here
+                }
+                    catch {
                     // Handle error appropriately for DCA context
                 }
             }
@@ -1544,8 +1552,9 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
                 tokenId = tokenModule.registerToken(token);
             }
             try tokenModule.mintSavingsToken(user, tokenId, amount) {
-                // Success - could emit event here
-            } catch {
+            // Success - could emit event here
+            }
+                catch {
                 // Handle error appropriately for DCA context
             }
         }
@@ -1583,9 +1592,8 @@ contract DCA is IDCAModule, ReentrancyGuard, IUnlockCallback {
 
         // Perform the swap through pool manager with error handling
         BalanceDelta delta;
-        try IPoolManager(storage_.poolManager()).swap(callbackData.poolKey, callbackData.params, "") returns (
-            BalanceDelta _delta
-        ) {
+        try IPoolManager(storage_.poolManager())
+            .swap(callbackData.poolKey, callbackData.params, "") returns (BalanceDelta _delta) {
             delta = _delta;
         } catch (bytes memory reason) {
             // Enhanced error reporting

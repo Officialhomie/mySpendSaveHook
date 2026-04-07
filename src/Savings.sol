@@ -362,7 +362,25 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         if (savedAmount > outputAmount) {
             savedAmount = outputAmount;
         }
-        emit SavingsProcessed(user, outputToken, savedAmount, savedAmount, 0);
+
+        // CRITICAL FIX: Apply treasury fee and store savings
+        uint256 treasuryFee = storage_.treasuryFee();
+        uint256 feeAmount = (savedAmount * treasuryFee) / TREASURY_FEE_DENOMINATOR;
+        uint256 netAmount = savedAmount - feeAmount;
+
+        // Update savings in storage
+        storage_.increaseSavings(user, outputToken, savedAmount);
+
+        // Mint ERC6909 savings tokens for the net amount
+        _mintSavingsToken(user, outputToken, netAmount);
+
+        // Register token if needed
+        _registerTokenIfNeeded(outputToken);
+
+        // Check for goal achievement
+        _checkGoalAchievement(user, outputToken, netAmount);
+
+        emit SavingsProcessed(user, outputToken, savedAmount, netAmount, feeAmount);
         return savedAmount;
     }
 
@@ -395,17 +413,21 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         if (context.roundUpSavings && (outputAmount * context.currentPercentage) % 10000 > 0) {
             savedAmount += 1;
         }
+
+        // CRITICAL FIX: Always record savings first, then queue for DCA
+        // This ensures savings are tracked even when DCA is queued
+        uint256 netAmount = _processSavings(user, outputToken, savedAmount, context);
+
         if (address(dcaModule) != address(0) && context.specificSavingsToken != address(0)) {
             try dcaModule.queueDCAExecution(user, outputToken, context.specificSavingsToken, savedAmount) {
                 emit SavingsQueuedForDCA(user, outputToken, context.specificSavingsToken, savedAmount);
             } catch Error(string memory reason) {
                 emit SwapQueueingFailed(user, outputToken, context.specificSavingsToken, reason);
-                return _processSavings(user, outputToken, savedAmount, context);
+                // Savings already recorded above, so just emit event
             }
-        } else {
-            return _processSavings(user, outputToken, savedAmount, context);
         }
-        return savedAmount;
+
+        return netAmount;
     }
 
     /**
@@ -797,8 +819,9 @@ contract Savings is ISavingsModule, ReentrancyGuard {
         if (address(tokenModule) != address(0)) {
             // Deferred operation - only register if not already done
             try tokenModule.registerToken(token) {
-                // Token registered successfully or already registered
-            } catch {
+            // Token registered successfully or already registered
+            }
+                catch {
                 // Registration failed, but don't revert savings operation
             }
         }
@@ -846,6 +869,8 @@ contract Savings is ISavingsModule, ReentrancyGuard {
                 emit SavingsTokenMinted(user, token, tokenId, amount);
             } catch Error(string memory reason) {
                 emit SavingsTokenMintFailed(user, token, amount, reason);
+            } catch (bytes memory) {
+                emit SavingsTokenMintFailed(user, token, amount, "low-level");
             }
         }
     }

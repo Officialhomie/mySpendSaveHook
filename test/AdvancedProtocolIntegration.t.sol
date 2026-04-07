@@ -234,8 +234,9 @@ contract AdvancedProtocolIntegration is Test, Deployers {
         }
 
         // Deploy DCA router
-        try new SpendSaveDCARouter(IPoolManager(address(manager)), address(storageContract), address(v4Quoter))
-        returns (SpendSaveDCARouter _dcaRouter) {
+        try new SpendSaveDCARouter(
+            IPoolManager(address(manager)), address(storageContract), address(v4Quoter)
+        ) returns (SpendSaveDCARouter _dcaRouter) {
             dcaRouter = _dcaRouter;
             console.log("DCARouter deployed successfully");
         } catch {
@@ -408,7 +409,9 @@ contract AdvancedProtocolIntegration is Test, Deployers {
         console.log("Simulated 3 swaps with savings");
 
         // Test analytics functionality with StateView
-        try analytics.getUserPortfolio(alice) returns (
+        try analytics.getUserPortfolio(
+            alice
+        ) returns (
             address[] memory tokens, uint256[] memory savings, uint256[] memory dcaAmounts, uint256 totalValueUSD
         ) {
             console.log("Alice's portfolio analytics:");
@@ -504,9 +507,9 @@ contract AdvancedProtocolIntegration is Test, Deployers {
         console.log("- Expected out:", expectedOut / 1e18, "tokens");
         console.log("- Max slippage:", maxSlippage / 100, "%");
 
-        try enhancedSlippage.calculateDynamicSlippage(address(usdc), amountIn, maxSlippage) returns (
-            uint256 adjustedSlippageBps
-        ) {
+        try enhancedSlippage.calculateDynamicSlippage(
+            address(usdc), amountIn, maxSlippage
+        ) returns (uint256 adjustedSlippageBps) {
             console.log("Adjusted slippage BPS:", adjustedSlippageBps);
 
             assertGt(adjustedSlippageBps, 0, "Should calculate valid slippage");
@@ -732,18 +735,16 @@ contract AdvancedProtocolIntegration is Test, Deployers {
         }
 
         PoolKey memory testPoolKey = PoolKey({
-            currency0: currency0Test,
-            currency1: currency1Test,
-            fee: 3000,
-            tickSpacing: 60,
-            hooks: IHooks(address(0))
+            currency0: currency0Test, currency1: currency1Test, fee: 3000, tickSpacing: 60, hooks: IHooks(address(0))
         });
 
         // Initialize the pool
         manager.initialize(testPoolKey, SQRT_PRICE_1_1);
 
         // Test StateView pool reading functionality
-        try analytics.getPoolAnalytics(testPoolKey) returns (
+        try analytics.getPoolAnalytics(
+            testPoolKey
+        ) returns (
             uint160 sqrtPriceX96, int24 tick, uint128 liquidity, uint256 feeGrowthGlobal0, uint256 feeGrowthGlobal1
         ) {
             console.log("StateView pool analytics successful:");
